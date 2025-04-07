@@ -1,1 +1,111 @@
 // app global css in SCSS form
+//TEXT CONFIGURATION
+.title-text {
+    font-size: 1.1rem; 
+  
+    @media (min-width: 576px) {
+      font-size: 1.1rem;
+    }
+  
+    @media (min-width: 992px) {
+      font-size: 1.1rem;
+    }
+  }
+  .text-soft-light {
+    color: rgb(97, 97, 97);
+  }
+  //PLACEHOLDER CONFIGURATION
+  /* Input text color (yellow) */
+  .custom-style {
+    color: rgb(97, 97, 97) !important;
+  }
+
+  /* Placeholder color (red) */
+  .custom-style::placeholder {
+    color: rgb(97, 97, 97) !important;
+    opacity: 1 !important;
+  }
+  .custom-style::-webkit-input-placeholder { color: rgb(97, 97, 97) !important; }
+  .custom-style::-moz-placeholder { color: rgb(97, 97, 97) !important; }
+  .custom-style:-ms-input-placeholder { color: rgb(97, 97, 97) !important; }
+  .custom-style:-moz-placeholder { color: rgb(97, 97, 97) !important; }
+//LAYOUT CONFIGURATION
+  //*Navbar
+  .custom-nav-height-width {
+    height: 62px; 
+    min-height: 62px;
+  };
+  .custom-rounded{
+    border-radius: 6px;
+  }
+  //User Profile
+  .user-profile-width {
+    width: 44px;
+  }
+  .user-profile-height {
+    height: 44px;
+  }
+  //BORDER
+ 
+
+
+  //DARK THEME
+  body {
+
+    --page-bg: rgb(243, 243, 247);
+    --header-nav-bg: rgb(255, 255, 255);
+    --icon-text-color: rgb(105, 122, 141);
+    --header-content-color: rgb(97, 97, 97);
+    --input-placeholder-color: rgb(97, 97, 97);
+  }
+  
+  body.body--dark {
+  
+    --page-bg: rgb(35, 35, 51);
+    --header-nav-bg: rgb(43, 44, 64);
+    --icon-text-color: rgb(156, 160, 187);
+    --header-content-color: rgb(156, 160, 187);
+    --input-placeholder-color: rgb(156, 160, 187);
+  }
+  
+  
+  .q-page-container,
+  .q-page {
+    background-color: var(--page-bg) !important;
+  }
+  
+  .q-header,
+  .q-drawer {
+    background-color: var(--header-nav-bg) !important;
+  }
+  
+  
+  .q-icon,
+  .text-soft-light,
+  .text-primary,
+  .text-secondary {
+    color: var(--icon-text-color) !important;
+  }
+  
+  
+  .q-toolbar,
+  .q-toolbar-title,
+  .q-btn {
+    color: var(--header-content-color) !important;
+  }
+  
+  
+  .custom-style {
+    color: var(--header-content-color) !important;
+  }
+  
+  .custom-style::placeholder {
+    color: var(--input-placeholder-color) !important;
+    opacity: 1 !important;
+  }
+  
+  .custom-style::-webkit-input-placeholder { color: var(--input-placeholder-color) !important; }
+  .custom-style::-moz-placeholder { color: var(--input-placeholder-color) !important; }
+  .custom-style:-ms-input-placeholder { color: var(--input-placeholder-color) !important; }
+  .custom-style:-moz-placeholder { color: var(--input-placeholder-color) !important; }
+  
