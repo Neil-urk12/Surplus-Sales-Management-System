@@ -1,8 +1,9 @@
 <template>
   <q-item
     clickable
-    tag="a"
-    target="_blank"
+    v-bind="$attrs"
+    :to="to"
+    class="text-soft-light q-hoverable"
   >
     <q-item-section
       v-if="icon"
@@ -18,13 +19,10 @@
 </template>
 
 <script setup lang="ts">
-export interface menuItemsProps {
-  title: string;
-  icon?: string;
-};
+import type { menuItemsProps } from '../types/menu-items'
 
 withDefaults(defineProps<menuItemsProps>(), {
-  caption: '',
   icon: '',
-});
+  to: '/'
+})
 </script>

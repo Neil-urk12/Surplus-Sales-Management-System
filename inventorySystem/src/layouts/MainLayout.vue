@@ -23,7 +23,7 @@
           >
             <template v-slot:prepend>
               <q-icon v-if="text === ''" name="search" class="text-soft-light" />
-              <q-icon v-else name="clear" class="cursor-pointer text-soft-light" @click="text = ''"/>
+              <q-icon v-else name="clear" class="cursor-pointer text-soft-light"   @click="clearSearch"/>
             </template>
           </q-input>
         </q-toolbar-title>
@@ -75,7 +75,7 @@
       </q-list>
     </q-drawer>
 
-    <q-page-container>
+    <q-page-container style="padding-top: 62px;">
 
       <router-view />
     </q-page-container>
@@ -83,59 +83,85 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useQuasar } from 'quasar';
-import MenuItems, {type menuItemsProps} from 'components/MenuItems.vue'
+import { ref, watch, onMounted } from 'vue'
+import { useQuasar } from 'quasar'
+import MenuItems from 'components/SideMenuItems.vue'
+import type { menuItemsProps } from '../types/menu-items'
 
 const menuItemsList: menuItemsProps[] = [
   {
     title: 'Dashboard',
     icon: 'dashboard',
+    to: '/'
   },
   {
     title: 'Inventory',
     icon: 'storage',
+    to: '/inventory'
   },
   {
     title: 'Sales',
     icon: 'trending_up',
+    to: '/sales'
   },
   {
     title:"Contacts",
     icon:"contacts",
+    to: '/contacts'
 
   },
-
-
-
-
-
 ]
 
-const leftDrawerOpen = ref(false);
-const text = ref<string>('')
+const leftDrawerOpen = ref(false)
 const isDark = ref(false)
-const $q = useQuasar();
+const $q = useQuasar()
+
+const text = ref<string>('')
+const timeoutId = ref<ReturnType<typeof setTimeout> | null>(null)
+
+const performSearch = (searchTerm: string) => {
+console.log('Searching for:', searchTerm)
+//for later
+
+};
+
+watch(text, (newValue) => {
+  if (timeoutId.value) clearTimeout(timeoutId.value);
+  timeoutId.value = setTimeout(() => {
+    performSearch(newValue)
+  }, 300)
+})
+
+const clearSearch = () => {
+  text.value = ''
+  if (timeoutId.value) {
+    clearTimeout(timeoutId.value)
+    timeoutId.value = null
+  }
+};
 
 onMounted(() => {
-  const savedMode = localStorage.getItem('quasar-theme');
+  const savedMode = localStorage.getItem('quasar-theme')
   if (savedMode) {
-    isDark.value = savedMode === 'dark';
+    isDark.value = savedMode === 'dark'
   } else {
-    isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches
   }
-  $q.dark.set(isDark.value);
-});
+  $q.dark.set(isDark.value)
+//for the time out cleanup
+})
 
 const toggleColorMode = () => {
-  isDark.value = !isDark.value;
-  $q.dark.set(isDark.value);
-  localStorage.setItem('quasar-theme', isDark.value ? 'dark' : 'light');
-};
+  isDark.value = !isDark.value
+  $q.dark.set(isDark.value)
+  localStorage.setItem('quasar-theme', isDark.value ? 'dark' : 'light')
+}
+
 
 
 function toggleLeftDrawer () {
-  leftDrawerOpen.value = !leftDrawerOpen.value;
+  leftDrawerOpen.value = !leftDrawerOpen.value
 }
 </script>
+
 
