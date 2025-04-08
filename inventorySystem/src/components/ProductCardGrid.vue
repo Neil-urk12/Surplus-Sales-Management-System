@@ -17,7 +17,6 @@
               {{ product.name }}
             </div>
           </q-img>
-
           <q-card-section>
             <div class="text-caption text-grey-8 q-mb-xs">
               {{ product.description }}
@@ -41,16 +40,8 @@
 </template>
 
 <script setup lang="ts">
-export interface Product {
-  id: number
-  name: string
-  description: string
-  price: number
-  stock: number
-  image: string
-}
+import type {Product} from '../types/products'
 
-// Properly define and use props
 const { products } = defineProps({
   products: {
     type: Array as () => Product[],
@@ -68,7 +59,6 @@ const { products } = defineProps({
 
   .text-caption {
     display: -webkit-box;
-    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;

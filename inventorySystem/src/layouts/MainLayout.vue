@@ -92,7 +92,8 @@ const menuItemsList: menuItemsProps[] = [
   {
     title: 'Dashboard',
     icon: 'dashboard',
-    to: '/'
+    to: '/',
+    exact: true
   },
   {
     title: 'Inventory',

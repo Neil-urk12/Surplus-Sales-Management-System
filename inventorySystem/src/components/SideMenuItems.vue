@@ -4,6 +4,8 @@
     v-bind="$attrs"
     :to="to"
     class="text-soft-light q-hoverable"
+    :active="$route.path === to"
+    :exact="exact"
   >
     <q-item-section
       v-if="icon"
@@ -23,6 +25,6 @@ import type { menuItemsProps } from '../types/menu-items'
 
 withDefaults(defineProps<menuItemsProps>(), {
   icon: '',
-  to: '/'
+  to: '/',
 })
 </script>
