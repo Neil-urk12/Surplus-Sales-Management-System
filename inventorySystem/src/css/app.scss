@@ -24,6 +24,7 @@
   .custom-style::placeholder {
     color: rgb(97, 97, 97);;
     opacity: 1 ;
+    
   }
   .custom-style::-webkit-input-placeholder { color: rgb(97, 97, 97) ; }
   .custom-style::-moz-placeholder { color: rgb(97, 97, 97) ; }
@@ -109,3 +110,9 @@
   .custom-style:-ms-input-placeholder { color: var(--input-placeholder-color) ; }
   .custom-style:-moz-placeholder { color: var(--input-placeholder-color) ; }
   
+//INVENTORY PAGE
+.inventory-header {
+
+  height: 10rem;
+  min-height: 10rem;
+}

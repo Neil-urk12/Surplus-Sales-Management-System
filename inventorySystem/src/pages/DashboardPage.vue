@@ -1,6 +1,8 @@
 <template>
   <q-page class="row items-center justify-evenly ">
-    <h1>Hello Admin!</h1>
+    <q-toolbar class="full-width">
+      <h1>HELLO ADMIN THIS IS DASHBOARD</h1>
+    </q-toolbar>
   </q-page>
 </template>
 

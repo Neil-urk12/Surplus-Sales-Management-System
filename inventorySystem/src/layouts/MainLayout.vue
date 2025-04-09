@@ -1,6 +1,6 @@
 <template>
   <q-layout view="lHh Lpr lFf">
-    <q-header :elevated="!isDark"  class="q-ma-md q-mx-lg custom-nav-height-width custom-rounded flex " style="height: 62px; background-color: var(--header-nav-bg);">
+    <q-header :elevated="!isDark"  class="q-ma-md q-mx-lg custom-nav-height-width custom-rounded flex" style="height: 62px; background-color: var(--header-nav-bg);">
       <q-toolbar>
         <q-btn
           flat
@@ -12,7 +12,21 @@
           class="text-soft-light"
 
         />
-        <q-toolbar-title>
+        <q-toolbar-title class="row flext items-center justify-between">
+          <div>
+            {{ activePage }}
+
+          </div>
+          <div class="flex row q-gutter-x-xs justify-center" v-if="route.path === '/inventory'">
+            <q-btn dense round flat icon="download" ></q-btn>
+            <q-btn class="text-white bg-primary">
+              <q-icon color="white" name="add" />
+              Add</q-btn>
+          </div>
+
+        </q-toolbar-title>
+        <!-- DO NOT REMOVE YET -->
+        <!-- <q-toolbar-title class="row flext items-center" v-if="route.path === '/sales'">
           <q-input
             dark
             borderless
@@ -20,29 +34,19 @@
             input-class="text-left custom-style"
             class="q-ml-md"
             placeholder="Search"
+            debounce="500"
           >
             <template v-slot:prepend>
               <q-icon v-if="text === ''" name="search" class="text-soft-light" />
               <q-icon v-else name="clear" class="cursor-pointer text-soft-light"   @click="clearSearch"/>
             </template>
           </q-input>
-        </q-toolbar-title>
-        <div class="flex row q-gutter-x-xs justify-center">
-          <q-toolbar-title class="flex items-center">
-            <q-btn dense round flat class="text-soft-light" @click=toggleColorMode>
-              <q-icon v-if="isDark != true" name="light_mode" class="text-soft-light"/>
-              <q-icon v-else name="dark_mode" class="text-soft-light"/>
-            </q-btn>
-            <q-btn dense round flat icon="notifications" class="text-soft-light">
-              <q-badge color="red" floating>
-                4
-              </q-badge>
-            </q-btn>
-          </q-toolbar-title>
-          <q-avatar color="red user-profile-width user-profile-height" text-color="text-primary">
-            <img src="https://cdn.quasar.dev/img/avatar.png">
-          </q-avatar>
-        </div>
+          <q-btn class="col">
+              <q-icon name="filter_alt" class="text-soft-light"/>
+            <p>Filter</p>
+          </q-btn>
+        </q-toolbar-title> -->
+
 
       </q-toolbar>
     </q-header>
@@ -65,12 +69,100 @@
             </div>
           </q-item-section>
         </q-item>
-        <MenuItems
-        class="text-soft-light"
-        v-for="link in menuItemsList"
-        :key="link.title"
-        v-bind="link"
-        />
+        <div class="flex-col ">
+          <!-- menu -->
+          <MenuItems
+            class="text-soft-light"
+            v-for="link in menuItemsList"
+            :key="link.title"
+            v-bind="link"
+            />
+            <q-item
+              clickable
+              v-bind="$attrs"
+              class="text-soft-light q-hoverable absolute-bottom"
+            >
+              <!-- user -->
+              <div class="flex flex-start row items-center justify-between">
+                <div class="flex flex-start items-center q-gutter-md">
+                  <q-avatar color="red user-profile-width user-profile-height" text-color="text-primary">
+                      <img src="https://cdn.quasar.dev/img/avatar.png">
+                  </q-avatar>
+                  <q-item-section>
+                    <q-item-label>{{ currentUser.name }}</q-item-label>
+                  </q-item-section>
+                </div>
+              </div>
+              <div class="q-pa-md col">
+                <q-btn-dropdown
+                flat
+                class="absolute-right"
+                >
+                  <div class="row no-wrap q-pa-md">
+                    <div class="column">
+                      <div class="text-h6 q-mb-md">Preference</div>
+                        <div class="flex-start items-center">
+                          <q-btn dense flat class="text-soft-light row full-width flex justify-between" @click=toggleColorMode>
+                            <div class="flex items-center col-auto q-pr-sm full-width">
+                                <div class="flex q-pr-sm q-pl-sm ">
+                                  <q-icon
+                                    v-if="!isDark"
+                                    name="light_mode"
+                                    class="text-soft-light"
+                                    size="24px"
+                                  />
+                                  <q-icon
+                                    v-else
+                                    name="dark_mode"
+                                    class="text-soft-light"
+                                    size="24px"
+                                  />
+                                </div>
+                                <div class="flex items-center col">
+                                  <p class="q-mb-none text-weight-medium">{{ themeMode }}</p>
+                                </div>
+                            </div>
+                          </q-btn>
+                          <q-btn dense flat class="text-soft-light row full-width" @click=alert>
+                            <div class="flex flex-start items-center">
+                                <div class="flex items-center col-auto q-pr-sm">
+                                  <q-btn dense round flat icon="notifications" class="text-soft-light">
+                                  <q-badge color="red" floating>
+                                    4
+                                  </q-badge>
+                                </q-btn>
+                                </div>
+                                <div class="flex items-center col">
+                                  <p class="q-mb-none text-weight-medium">Notifications</p>
+                                </div>
+                            </div>
+                          </q-btn>
+                        </div>
+                    </div>
+
+                    <q-separator vertical inset class="q-mx-lg" />
+
+                    <div class="column items-center">
+                      <q-avatar size="72px">
+                        <img src="https://cdn.quasar.dev/img/boy-avatar.png">
+                      </q-avatar>
+
+                      <div class="text-subtitle1 q-mt-md q-mb-xs">John Doe</div>
+
+                      <q-btn
+                        color="primary"
+                        label="Logout"
+                        push
+                        flat
+                        size="sm"
+                        v-close-popup
+                      />
+                    </div>
+                  </div>
+                </q-btn-dropdown>
+              </div>
+            </q-item>
+        </div>
 
       </q-list>
     </q-drawer>
@@ -84,6 +176,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
+import { useRoute } from 'vue-router';
 import { useQuasar } from 'quasar'
 import MenuItems from 'components/SideMenuItems.vue'
 import type { menuItemsProps } from '../types/menu-items'
@@ -113,9 +206,32 @@ const menuItemsList: menuItemsProps[] = [
   },
 ]
 
+const route = useRoute();
+const activePage = ref('')
+
+watch(() => route.path, (newPath) => {
+  switch (newPath) {
+    case '/':
+      activePage.value = 'Dashboard'
+      break
+    case '/sales':
+      activePage.value = 'Sales'
+      break
+    case '/inventory':
+      activePage.value = 'Inventory'
+      break
+    case '/contacts':
+      activePage.value = 'Contacts'
+      break
+    default:
+      activePage.value = 'Dashboard'
+  }
+}, { immediate: true })
+
 const leftDrawerOpen = ref(false)
 const isDark = ref(false)
 const $q = useQuasar()
+
 
 const text = ref<string>('')
 const timeoutId = ref<ReturnType<typeof setTimeout> | null>(null)
@@ -133,18 +249,13 @@ watch(text, (newValue) => {
   }, 300)
 })
 
-const clearSearch = () => {
-  text.value = ''
-  if (timeoutId.value) {
-    clearTimeout(timeoutId.value)
-    timeoutId.value = null
-  }
-};
+const themeMode = ref('')
 
 onMounted(() => {
   const savedMode = localStorage.getItem('quasar-theme')
   if (savedMode) {
     isDark.value = savedMode === 'dark'
+    themeMode.value = savedMode
   } else {
     isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches
   }
@@ -156,10 +267,24 @@ const toggleColorMode = () => {
   isDark.value = !isDark.value
   $q.dark.set(isDark.value)
   localStorage.setItem('quasar-theme', isDark.value ? 'dark' : 'light')
+
+  if(isDark.value){
+    themeMode.value = 'Dark Mode'
+  }else{
+    themeMode.value = 'Light Mode'
+  }
 }
 
+const currentUser = ref({
+  name: 'John Doe',
+  email: 'john.doe@example.com',
+  avatar: 'https://cdn.quasar.dev/img/avatar.png',
+})
 
 
+function alert () {
+  console.log('alert')
+}
 function toggleLeftDrawer () {
   leftDrawerOpen.value = !leftDrawerOpen.value
 }
