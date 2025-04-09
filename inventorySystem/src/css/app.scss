@@ -17,18 +17,19 @@
   //PLACEHOLDER CONFIGURATION
   /* Input text color (yellow) */
   .custom-style {
-    color: rgb(97, 97, 97) !important;
+    color: rgb(97, 97, 97);
   }
 
   /* Placeholder color (red) */
   .custom-style::placeholder {
-    color: rgb(97, 97, 97) !important;
-    opacity: 1 !important;
+    color: rgb(97, 97, 97);;
+    opacity: 1 ;
+    
   }
-  .custom-style::-webkit-input-placeholder { color: rgb(97, 97, 97) !important; }
-  .custom-style::-moz-placeholder { color: rgb(97, 97, 97) !important; }
-  .custom-style:-ms-input-placeholder { color: rgb(97, 97, 97) !important; }
-  .custom-style:-moz-placeholder { color: rgb(97, 97, 97) !important; }
+  .custom-style::-webkit-input-placeholder { color: rgb(97, 97, 97) ; }
+  .custom-style::-moz-placeholder { color: rgb(97, 97, 97) ; }
+  .custom-style:-ms-input-placeholder { color: rgb(97, 97, 97) ; }
+  .custom-style:-moz-placeholder { color: rgb(97, 97, 97) ; }
 //LAYOUT CONFIGURATION
   //*Navbar
   .custom-nav-height-width {
@@ -71,12 +72,12 @@
   
   .q-page-container,
   .q-page {
-    background-color: var(--page-bg) !important;
+    background-color: var(--page-bg) ;
   }
   
   .q-header,
   .q-drawer {
-    background-color: var(--header-nav-bg) !important;
+    background-color: var(--header-nav-bg) ;
   }
   
   
@@ -84,28 +85,34 @@
   .text-soft-light,
   .text-primary,
   .text-secondary {
-    color: var(--icon-text-color) !important;
+    color: var(--icon-text-color) ;
   }
   
   
   .q-toolbar,
   .q-toolbar-title,
   .q-btn {
-    color: var(--header-content-color) !important;
+    color: var(--header-content-color) ;
   }
   
   
   .custom-style {
-    color: var(--header-content-color) !important;
+    color: var(--header-content-color) ;
   }
   
   .custom-style::placeholder {
-    color: var(--input-placeholder-color) !important;
-    opacity: 1 !important;
+    color: var(--input-placeholder-color) ;
+    opacity: 1 ;
   }
   
-  .custom-style::-webkit-input-placeholder { color: var(--input-placeholder-color) !important; }
-  .custom-style::-moz-placeholder { color: var(--input-placeholder-color) !important; }
-  .custom-style:-ms-input-placeholder { color: var(--input-placeholder-color) !important; }
-  .custom-style:-moz-placeholder { color: var(--input-placeholder-color) !important; }
+  .custom-style::-webkit-input-placeholder { color: var(--input-placeholder-color) ; }
+  .custom-style::-moz-placeholder { color: var(--input-placeholder-color) ; }
+  .custom-style:-ms-input-placeholder { color: var(--input-placeholder-color) ; }
+  .custom-style:-moz-placeholder { color: var(--input-placeholder-color) ; }
   
+//INVENTORY PAGE
+.inventory-header {
+
+  height: 10rem;
+  min-height: 10rem;
+}
