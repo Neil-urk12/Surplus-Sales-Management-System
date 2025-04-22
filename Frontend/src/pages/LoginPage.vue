@@ -52,9 +52,9 @@
       <q-card class="recovery-card">
         <q-card-section class="header-section">
           <div class="text-h6">Password Recovery</div>
-          <q-icon 
-            name="close" 
-            class="close-icon" 
+          <q-icon
+            name="close"
+            class="close-icon"
             @click="showModal = false"
           />
         </q-card-section>
@@ -133,7 +133,7 @@
           />
 
           <div class="text-center text-caption q-mt-md">
-            Remember your password? 
+            Remember your password?
             <a href="#" class="text-primary" @click.prevent="showModal = false">Sign in</a>
           </div>
         </q-card-section>
@@ -153,7 +153,7 @@
     </q-dialog>
   </div>
 </template>
-  
+
 <script setup lang="ts">
 import {computed } from 'vue'
 const tab = ref('email')
@@ -173,7 +173,7 @@ const resetRecoveryForm = () => {
 
 const handleRecoveryRequest = async () => {
   isSendingRecovery.value = true
-  
+
   try {
     await new Promise(resolve => setTimeout(resolve, 1500))
     recoverySent.value = true
@@ -498,7 +498,7 @@ button:disabled {
   .recovery-card {
     min-width: 90vw;
   }
-  
+
   .content-section {
     padding: 16px;
   }
