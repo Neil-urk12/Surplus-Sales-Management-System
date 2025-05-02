@@ -1,10 +1,10 @@
 module oop
 
-go 1.24.1
+go 1.24
 
 require (
 	github.com/go-sql-driver/mysql v1.9.2
-	github.com/joho/godotenv v1.5.1
+	github.com/joho/godotenv v1.5.1 // Used for loading environment variables from a .env file
 )
 
 require (

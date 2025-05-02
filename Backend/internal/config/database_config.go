@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log"
 	"os"
 	"strconv"
 
@@ -19,6 +20,7 @@ type DatabaseConfig struct {
 func LoadDatabaseConfig() (DatabaseConfig, error) {
 
 	if err := godotenv.Load(); err != nil {
+		log.Printf("Error loading .env file: %v", err)
 		return DatabaseConfig{}, err
 	}
 
@@ -40,6 +42,7 @@ func parseEnvInt(key string, defaultValue int) int {
 
 	value, err := strconv.Atoi(valueStr)
 	if err != nil {
+		log.Printf("Error parsing environment variable %s: %v, using default value %d", key, err, defaultValue)
 		return defaultValue
 	}
 

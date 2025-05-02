@@ -21,16 +21,36 @@ func main() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
+	// Create a shutdown channel
+	shutdown := make(chan struct{})
+
 	// Handle graceful shutdown on interrupt signal
-	go handleShutdown(dbClient)
+	go handleShutdown(dbClient, shutdown)
 
 	// Initialize Fiber app
 	app := fiber.New()
 
-	// Start server
-	if err := app.Listen(":8080"); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	// Start server in a goroutine so we can listen for shutdown signal
+	go func() {
+		if err := app.Listen(":8080"); err != nil {
+			log.Printf("Server error: %v", err)
+			close(shutdown) // Signal shutdown if server fails
+		}
+	}()
+
+	// Wait for shutdown signal
+	<-shutdown
+	log.Println("Shutting down gracefully...")
+
+	// Shutdown the server with a timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := app.ShutdownWithContext(ctx); err != nil {
+		log.Printf("Error during server shutdown: %v", err)
 	}
+
+	log.Println("Server shutdown complete")
 }
 
 // initDatabase loads the database configuration, connects to the database,
@@ -51,12 +71,12 @@ func initDatabase() (*repositories.DatabaseClient, error) {
 }
 
 // handleShutdown listens for interrupt signals (like Ctrl+C) to gracefully shut down the application.
-// It closes the database connection and exits the program.
-func handleShutdown(dbClient *repositories.DatabaseClient) {
+// It closes the database connection and signals the main goroutine to shut down.
+func handleShutdown(dbClient *repositories.DatabaseClient, shutdown chan struct{}) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	<-c
-	log.Println("Shutting down...")
+	log.Println("Interrupt received, initiating shutdown...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // Adjust timeout as needed
 	defer cancel()
@@ -65,5 +85,6 @@ func handleShutdown(dbClient *repositories.DatabaseClient) {
 		log.Printf("Error closing database connection: %v", err)
 	}
 
-	os.Exit(0)
+	// Signal the main goroutine to shut down
+	close(shutdown)
 }

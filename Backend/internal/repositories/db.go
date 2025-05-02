@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"oop/internal/config"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -17,9 +18,9 @@ type DatabaseClient struct {
 // NewDatabaseClient creates a new DatabaseClient and establishes a database connection
 // using the provided database configuration. It returns a pointer to the client and an error.
 func NewDatabaseClient(config config.DatabaseConfig) (*DatabaseClient, error) {
-	// Enable parsing of MySQL TIMESTAMP fields into time.Time
+	// Enable parsing of MySQL TIMESTAMP fields into time.Time and set charset to utf8mb4
 	connStr := fmt.Sprintf(
-		"%s:%s@tcp(%s:%d)/%s?parseTime=true&loc=Local",
+		"%s:%s@tcp(%s:%d)/%s?parseTime=true&charset=utf8mb4&loc=Local",
 		config.Username, config.Password, config.Host, config.Port, config.DatabaseName,
 	)
 
@@ -38,5 +39,11 @@ func NewDatabaseClient(config config.DatabaseConfig) (*DatabaseClient, error) {
 // Close closes the database connection held by the DatabaseClient.
 // It accepts a context for timeout control and returns an error if closing fails.
 func (c *DatabaseClient) Close(ctx context.Context) error {
+	log.Println("Closing database connection...")
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	log.Println("Database connection closed successfully.")
 	return c.DB.Close()
 }
