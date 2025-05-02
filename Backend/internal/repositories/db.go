@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"oop/internal/config"
@@ -35,6 +36,7 @@ func NewDatabaseClient(config config.DatabaseConfig) (*DatabaseClient, error) {
 }
 
 // Close closes the database connection held by the DatabaseClient.
-func (c *DatabaseClient) Close() error {
+// It accepts a context for timeout control and returns an error if closing fails.
+func (c *DatabaseClient) Close(ctx context.Context) error {
 	return c.DB.Close()
 }

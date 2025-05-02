@@ -2,12 +2,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"oop/internal/config"
 	"oop/internal/repositories"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -18,7 +20,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer dbClient.Close()
 
 	// Handle graceful shutdown on interrupt signal
 	go handleShutdown(dbClient)
@@ -27,7 +28,9 @@ func main() {
 	app := fiber.New()
 
 	// Start server
-	log.Fatal(app.Listen(":8080"))
+	if err := app.Listen(":8080"); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 }
 
 // initDatabase loads the database configuration, connects to the database,
@@ -54,6 +57,13 @@ func handleShutdown(dbClient *repositories.DatabaseClient) {
 	signal.Notify(c, os.Interrupt)
 	<-c
 	log.Println("Shutting down...")
-	dbClient.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // Adjust timeout as needed
+	defer cancel()
+
+	if err := dbClient.Close(ctx); err != nil {
+		log.Printf("Error closing database connection: %v", err)
+	}
+
 	os.Exit(0)
 }
