@@ -13,7 +13,6 @@ const selected = ref<cabsRow>({
   price: 0,
   status: '',
   image: '',
-  details: ''
 })
 
 interface cabsRow {
@@ -24,8 +23,6 @@ interface cabsRow {
   price: number
   status: string
   image: string
-  details: string
-
 }
 
 const columns: QTableColumn[] = [
@@ -51,9 +48,8 @@ const rows: cabsRow[] = [
     make: 'Mazda',
     quantity: 4,
     price: 7_000_000,
-    status: 'Available',
+    status: 'In Stock',
     image: 'https://loremflickr.com/600/400/mazda',
-    details:""
   },
   {
     name: '911 GT3',
@@ -61,9 +57,8 @@ const rows: cabsRow[] = [
     make: 'Porsche',
     quantity: 2,
     price: 10_000_000,
-    status: 'Available',
+    status: 'In Stock',
     image: 'https://loremflickr.com/600/400/porsche',
-    details:""
   },
   {
     name: '911 GT3',
@@ -73,7 +68,6 @@ const rows: cabsRow[] = [
     price: 10_000_000,
     status: 'Available',
     image: 'https://loremflickr.com/600/400/porsche',
-    details:""
   },
   {
     name: 'Corolla',
@@ -81,9 +75,8 @@ const rows: cabsRow[] = [
     make: 'Toyota',
     quantity: 2,
     price: 10_000_000,
-    status: 'Available',
+    status: 'In Stock',
     image: 'https://loremflickr.com/600/400/porsche',
-    details:""
   },
   {
     name: 'Navara',
@@ -91,9 +84,8 @@ const rows: cabsRow[] = [
     make: 'Nissan',
     quantity: 2,
     price: 10_000_000,
-    status: 'Available',
+    status: 'In Stock',
     image: 'src/assets/images/Cars/navara.avif',
-    details:""
   },
   {
     name: 'Vios',
@@ -101,9 +93,8 @@ const rows: cabsRow[] = [
     make: 'Toyota',
     quantity: 2,
     price: 10_000_000,
-    status: 'Available',
+    status: 'In Stock',
     image: 'https://loremflickr.com/600/400/porsche',
-    details:""
   },
   {
     name: 'Ranger',
@@ -111,9 +102,8 @@ const rows: cabsRow[] = [
     make: 'Ford',
     quantity: 2,
     price: 10_000_000,
-    status: 'Available',
+    status: 'In Stock',
     image: 'https://loremflickr.com/600/400/porsche',
-    details:""
   },
 ]
 
@@ -190,7 +180,8 @@ function addToCart () {
         :title="selected?.name  || ''"
         :price="selected?.price || 0"
         :quantity="selected?.quantity || 0"
-        :details="`Make: ${selected?.make}`"
+        :details="`${selected?.make}`"
+        :status="selected?.status || ''"
         @add="addToCart"
       />
     </div>
