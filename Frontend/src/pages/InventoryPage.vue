@@ -28,6 +28,7 @@ interface CabsRow {
 }
 
 const columns: QTableColumn[] = [
+  { name: 'id', align: 'center', label: 'ID', field: 'id', sortable: true },
   {
     name: 'unitName',
     required: true,
@@ -36,10 +37,15 @@ const columns: QTableColumn[] = [
     field: 'name',
     sortable: true
   },
-  { name: 'id', align: 'center', label: 'ID', field: 'id', sortable: true },
   { name: 'make', label: 'Make', field: 'make' },
   { name: 'quantity', label: 'Quantity', field: 'quantity', sortable: true },
-  { name: 'price', label: 'Price', field: 'price', sortable: true },
+  { name: 'price', label: 'Price', field: 'price', sortable: true, format: (val: number) =>
+        `₱ ${val.toLocaleString('en-PH', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        })}`
+  },
+
   { name: 'status', label: 'Status', field: 'status' },
   {name: 'color', label: 'Color', field: 'unit_color'},
 ];
@@ -204,14 +210,14 @@ function addToCart () {
 .my-sticky-column-table
   max-width: 100%
 
-  thead tr:first-child th:first-child
+  thead tr:first-child th:nth-child(2)
     background-color: #00b4ff
 
-  td:first-child
+  td:nth-child(2)
     background-color: #00b4ff
 
-  th:first-child,
-  td:first-child
+  th:nth-child(2),
+  td:nth-child(2)
     position: sticky
     left: 0
     z-index: 1
