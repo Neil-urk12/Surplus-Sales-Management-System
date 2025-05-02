@@ -1,19 +1,22 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import type { QTableColumn } from 'quasar';
+import type { QTableColumn, QTableProps} from 'quasar';
 import ProductCardModal from 'src/components/Global/ProductModal.vue'
 const search = ref('');
-const selected = ref<DessertRow>({
+const show = ref(false)
+const title  = ref('')
+const selected = ref<cabsRow>({
   name: '',
   id: 0,
   make: '',
   quantity: 0,
   price: 0,
   status: '',
-  image: ''
+  image: '',
+  details: ''
 })
 
-interface DessertRow {
+interface cabsRow {
   name: string
   id: number
   make: string
@@ -21,6 +24,7 @@ interface DessertRow {
   price: number
   status: string
   image: string
+  details: string
 
 }
 
@@ -38,24 +42,9 @@ const columns: QTableColumn[] = [
   { name: 'quantity', label: 'Quantity', field: 'quantity', sortable: true },
   { name: 'price', label: 'Price', field: 'price', sortable: true },
   { name: 'status', label: 'Status', field: 'status' },
-  // { name: 'action', label: 'Action', field: 'action' },
-  // {
-  //   name: 'calcium',
-  //   label: 'Calcium (%)',
-  //   field: 'calcium',
-  //   sortable: true,
-  //   sort: (a: string, b: string) => parseInt(a) - parseInt(b)
-  // },
-  // {
-  //   name: 'iron',
-  //   label: 'Iron (%)',
-  //   field: 'iron',
-  //   sortable: true,
-  //   sort: (a: string, b: string) => parseInt(a) - parseInt(b)
-  // }
 ];
 
-const rows: DessertRow[] = [
+const rows: cabsRow[] = [
   {
     name: 'RX‑7',
     id: 1,
@@ -63,7 +52,8 @@ const rows: DessertRow[] = [
     quantity: 4,
     price: 7_000_000,
     status: 'Available',
-    image: 'https://loremflickr.com/600/400/mazda',      // ✅ working link
+    image: 'https://loremflickr.com/600/400/mazda',
+    details:""
   },
   {
     name: '911 GT3',
@@ -72,25 +62,69 @@ const rows: DessertRow[] = [
     quantity: 2,
     price: 10_000_000,
     status: 'Available',
-    image: 'https://loremflickr.com/600/400/porsche',    // ✅ working link
+    image: 'https://loremflickr.com/600/400/porsche',
+    details:""
+  },
+  {
+    name: '911 GT3',
+    id: 3,
+    make: 'Porsche',
+    quantity: 2,
+    price: 10_000_000,
+    status: 'Available',
+    image: 'https://loremflickr.com/600/400/porsche',
+    details:""
+  },
+  {
+    name: 'Corolla',
+    id: 4,
+    make: 'Toyota',
+    quantity: 2,
+    price: 10_000_000,
+    status: 'Available',
+    image: 'https://loremflickr.com/600/400/porsche',
+    details:""
+  },
+  {
+    name: 'Navara',
+    id: 5,
+    make: 'Nissan',
+    quantity: 2,
+    price: 10_000_000,
+    status: 'Available',
+    image: 'src/assets/images/Cars/navara.avif',
+    details:""
+  },
+  {
+    name: 'Vios',
+    id: 6,
+    make: 'Toyota',
+    quantity: 2,
+    price: 10_000_000,
+    status: 'Available',
+    image: 'https://loremflickr.com/600/400/porsche',
+    details:""
+  },
+  {
+    name: 'Ranger',
+    id: 7,
+    make: 'Ford',
+    quantity: 2,
+    price: 10_000_000,
+    status: 'Available',
+    image: 'https://loremflickr.com/600/400/porsche',
+    details:""
   },
 ]
 
-
-
-
-import type { QTableProps } from 'quasar'
-const show = ref(false)
-const title  = ref('')
-
 const onRowClick: QTableProps['onRowClick'] = (_e, row) => {
-  selected.value = row as DessertRow
+  selected.value = row as cabsRow
   show.value = true
 }
-
+//for future function
 function addToCart () {
   console.log('added to cart for', title.value)
-  show.value = false           // close after adding (optional)
+  show.value = false
 }
 
 </script>
