@@ -11,6 +11,7 @@ const selected = ref<cabsRow>({
   make: '',
   quantity: 0,
   price: 0,
+  unit_color: '',
   status: '',
   image: '',
 })
@@ -22,6 +23,7 @@ interface cabsRow {
   quantity: number
   price: number
   status: string
+  unit_color: string
   image: string
 }
 
@@ -39,6 +41,7 @@ const columns: QTableColumn[] = [
   { name: 'quantity', label: 'Quantity', field: 'quantity', sortable: true },
   { name: 'price', label: 'Price', field: 'price', sortable: true },
   { name: 'status', label: 'Status', field: 'status' },
+  {name: 'color', label: 'Color', field: 'unit_color'},
 ];
 
 const rows: cabsRow[] = [
@@ -49,6 +52,7 @@ const rows: cabsRow[] = [
     quantity: 4,
     price: 7_000_000,
     status: 'In Stock',
+    unit_color: 'Black',
     image: 'https://loremflickr.com/600/400/mazda',
   },
   {
@@ -58,6 +62,7 @@ const rows: cabsRow[] = [
     quantity: 2,
     price: 10_000_000,
     status: 'In Stock',
+    unit_color: 'Black',
     image: 'https://loremflickr.com/600/400/porsche',
   },
   {
@@ -67,6 +72,7 @@ const rows: cabsRow[] = [
     quantity: 2,
     price: 10_000_000,
     status: 'Available',
+    unit_color: 'Black',
     image: 'https://loremflickr.com/600/400/porsche',
   },
   {
@@ -76,6 +82,7 @@ const rows: cabsRow[] = [
     quantity: 2,
     price: 10_000_000,
     status: 'In Stock',
+    unit_color: 'Black',
     image: 'https://loremflickr.com/600/400/porsche',
   },
   {
@@ -85,6 +92,7 @@ const rows: cabsRow[] = [
     quantity: 2,
     price: 10_000_000,
     status: 'In Stock',
+    unit_color: 'Black',
     image: 'src/assets/images/Cars/navara.avif',
   },
   {
@@ -94,6 +102,7 @@ const rows: cabsRow[] = [
     quantity: 2,
     price: 10_000_000,
     status: 'In Stock',
+    unit_color: 'Black',
     image: 'https://loremflickr.com/600/400/porsche',
   },
   {
@@ -103,6 +112,7 @@ const rows: cabsRow[] = [
     quantity: 2,
     price: 10_000_000,
     status: 'In Stock',
+    unit_color: 'Black',
     image: 'https://loremflickr.com/600/400/porsche',
   },
 ]
@@ -178,6 +188,7 @@ function addToCart () {
         v-model="show"
         :image="selected?.image || ''"
         :title="selected?.name  || ''"
+        :unit_color="selected?.unit_color || ''"
         :price="selected?.price || 0"
         :quantity="selected?.quantity || 0"
         :details="`${selected?.make}`"

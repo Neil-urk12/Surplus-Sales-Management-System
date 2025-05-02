@@ -7,6 +7,7 @@ const props = defineProps<{
   image: string
   title: string
   price: number
+  unit_color: string
   quantity?: number  // Add quantity prop
   details?: string
   status?: string
@@ -75,6 +76,7 @@ function add() {
                 <div class="col-7">
                   <div class="text-h6 text-bold">{{ title }}</div>
                   <div class="text-body2">{{ details }}</div>
+                  <div class="text-body2">{{ unit_color }}</div>
                   <div class="col-5 text-h6 text-bold q-mt-md">
                     ₱{{ price.toLocaleString() }}
                   </div>
