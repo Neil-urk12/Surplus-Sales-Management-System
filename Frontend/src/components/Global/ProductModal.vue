@@ -35,7 +35,7 @@ function add() {
   <q-dialog v-model="isOpen" persistent>
     <q-card style="width: 320px; max-width: 90vw" class="q-pa-none">
       <!-- Close button in the top-right -->
-      <q-btn flat dense round icon="close" class="absolute-top-right z-top q-mt-xs q-mr-xs" @click="close" />
+      <q-btn flat dense round class="absolute-top-right z-top q-mt-xs q-mr-xs"  @click="close"> <q-icon name="close" class="text-primary"/></q-btn>
 
       <!-- Image area -->
       <q-img
