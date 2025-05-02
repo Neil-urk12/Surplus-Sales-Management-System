@@ -12,7 +12,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/app',
     component: () => import('layouts/MainLayout.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: false },
     children: [
       { path: '', component: () => import('pages/DashboardPage.vue') },
       { path: 'inventory', component: () => import('pages/InventoryPage.vue') },
