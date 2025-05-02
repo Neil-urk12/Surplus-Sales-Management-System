@@ -15,7 +15,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:modelValue', v: boolean): void
-  (e: 'add'): void
+  (e: 'addItem'): void
 }>()
 
 const isOpen = computed({
@@ -26,15 +26,15 @@ const isOpen = computed({
 function close() {
   isOpen.value = false
 }
-function add() {
-  emit('add')
+function addItem() {
+  emit('addItem')
   close()
 }
 </script>
 
 
 <template>
-  <q-dialog v-model="isOpen" persistent class="iphone-se">
+  <q-dialog v-model="isOpen" dismissible >
     <q-card style="width: 45rem; max-width: 90vw" class="q-pa-none">
       <q-card-section>
         <div class="row q-pt-md q-px-md">
@@ -88,7 +88,7 @@ function add() {
             </q-card-section>
             <!-- Action buttons -->
             <q-card-actions align="right" class="q-pa-none">
-                <q-btn color="primary" label="ADD" style="width: 30%;" @click="add" />
+                <q-btn color="primary" label="ADD" style="width: 30%;" @click="addItem" />
               </q-card-actions>
           </div>
         </div>
@@ -103,11 +103,5 @@ function add() {
 <style scoped>
 .z-top {
   z-index: 1000;
-}
-
-@media (max-width: 750px){
-  .iphone-se {
-    color: aqua;
-  }
 }
 </style>

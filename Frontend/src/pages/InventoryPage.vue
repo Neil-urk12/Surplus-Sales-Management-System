@@ -5,7 +5,7 @@ import ProductCardModal from 'src/components/Global/ProductModal.vue'
 const search = ref('');
 const show = ref(false)
 const title  = ref('')
-const selected = ref<cabsRow>({
+const selected = ref<CabsRow>({
   name: '',
   id: 0,
   make: '',
@@ -16,7 +16,7 @@ const selected = ref<cabsRow>({
   image: '',
 })
 
-interface cabsRow {
+interface CabsRow {
   name: string
   id: number
   make: string
@@ -44,7 +44,7 @@ const columns: QTableColumn[] = [
   {name: 'color', label: 'Color', field: 'unit_color'},
 ];
 
-const rows: cabsRow[] = [
+const rows: CabsRow[] = [
   {
     name: 'RX‑7',
     id: 1,
@@ -118,7 +118,7 @@ const rows: cabsRow[] = [
 ]
 
 const onRowClick: QTableProps['onRowClick'] = (_e, row) => {
-  selected.value = row as cabsRow
+  selected.value = row as CabsRow
   show.value = true
 }
 //for future function
