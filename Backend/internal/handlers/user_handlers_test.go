@@ -88,11 +88,6 @@ func (m *MockUserRepository) EmailExists(email string) (bool, error) {
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *MockUserRepository) UpdateToken(userID string, token string) error {
-	args := m.Called(userID, token)
-	return args.Error(0)
-}
-
 // Helper function to create a test app and handler
 func setupTest() (*fiber.App, *UserHandler, *MockUserRepository) {
 	app := fiber.New()
@@ -105,14 +100,13 @@ func setupTest() (*fiber.App, *UserHandler, *MockUserRepository) {
 func createTestUser() *models.User {
 	return &models.User{
 		Id:        uuid.New().String(),
-		Name:      "Test User",
+		FullName:  "Test User",
 		Email:     "test@example.com",
 		Password:  "hashed_password",
 		Role:      "user",
-		CreatedAt: time.Now().Format(time.RFC3339),
-		UpdatedAt: time.Now().Format(time.RFC3339),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 		IsActive:  true,
-		Token:     "test-token",
 	}
 }
 
@@ -154,7 +148,6 @@ func TestUserHandler_Register_Success(t *testing.T) {
 
 	assert.Equal(t, "User registered successfully", result["message"])
 	assert.NotNil(t, result["user"])
-	assert.NotNil(t, result["token"])
 
 	// Verify expectations
 	mockRepo.AssertExpectations(t)
@@ -212,7 +205,6 @@ func TestUserHandler_Login_Success(t *testing.T) {
 
 	// Setup expectations
 	mockRepo.On("VerifyPassword", "test@example.com", "password123").Return(user, nil)
-	mockRepo.On("UpdateToken", user.Id, mock.AnythingOfType("string")).Return(nil)
 
 	// Create request body
 	reqBody := map[string]string{
@@ -239,7 +231,6 @@ func TestUserHandler_Login_Success(t *testing.T) {
 
 	assert.Equal(t, "Login successful", result["message"])
 	assert.NotNil(t, result["user"])
-	assert.NotNil(t, result["token"])
 
 	// Verify expectations
 	mockRepo.AssertExpectations(t)
@@ -292,18 +283,27 @@ func TestUserHandler_GetAllUsers(t *testing.T) {
 	app.Get("/users", handler.GetAllUsers)
 
 	// Create test users
+	now := time.Now()
 	users := []*models.User{
-		createTestUser(),
 		{
-			Id:        uuid.New().String(),
-			Name:      "Another User",
-			Email:     "another@example.com",
-			Password:  "hashed_password",
-			Role:      "admin",
-			CreatedAt: time.Now().Format(time.RFC3339),
-			UpdatedAt: time.Now().Format(time.RFC3339),
+			Id:        "user1",
+			FullName:  "User One",
+			Email:     "user1@example.com",
+			Password:  "hashed_password1",
+			Role:      "user",
+			CreatedAt: now,
+			UpdatedAt: now,
 			IsActive:  true,
-			Token:     "another-token",
+		},
+		{
+			Id:        "user2",
+			FullName:  "User Two",
+			Email:     "user2@example.com",
+			Password:  "hashed_password2",
+			Role:      "admin",
+			CreatedAt: now,
+			UpdatedAt: now,
+			IsActive:  true,
 		},
 	}
 

@@ -31,5 +31,25 @@ export default defineRouter(function (/* { store, ssrContext } */) {
     history: createHistory(process.env.VUE_ROUTER_BASE),
   });
 
+  // Navigation guards
+  Router.beforeEach((to, _from, next) => {
+    // Check if the route requires authentication
+    const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+
+    // Check if user is authenticated
+    const isAuthenticated = localStorage.getItem('authToken');
+
+    if (requiresAuth && !isAuthenticated) {
+      // If route requires auth and user is not authenticated, redirect to login
+      next('/login');
+    } else if (to.path === '/login' && isAuthenticated) {
+      // If user is already authenticated and tries to access login page, redirect to home
+      next('/');
+    } else {
+      // Otherwise proceed as normal
+      next();
+    }
+  });
+
   return Router;
 });

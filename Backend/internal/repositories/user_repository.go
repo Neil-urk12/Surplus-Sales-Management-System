@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"oop/internal/models"
 	"time"
 
@@ -37,7 +38,7 @@ func (r *UserRepository) Create(user *models.User) error {
 	}
 
 	// Set timestamps
-	now := time.Now().Format(time.RFC3339)
+	now := time.Now()
 	user.CreatedAt = now
 	user.UpdatedAt = now
 
@@ -51,20 +52,19 @@ func (r *UserRepository) Create(user *models.User) error {
 
 	// Insert the user into the database
 	query := `
-		INSERT INTO users (id, name, email, password, role, created_at, updated_at, is_active, token)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO users (id, full_name, email, password_hash, role, created_at, updated_at, is_active)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err = r.dbClient.DB.Exec(
 		query,
 		user.Id,
-		user.Name,
+		user.FullName,
 		user.Email,
 		string(hashedPassword),
 		user.Role,
 		user.CreatedAt,
 		user.UpdatedAt,
 		user.IsActive,
-		user.Token,
 	)
 
 	if err != nil {
@@ -77,7 +77,7 @@ func (r *UserRepository) Create(user *models.User) error {
 // GetByID retrieves a user by their ID
 func (r *UserRepository) GetByID(id string) (*models.User, error) {
 	query := `
-		SELECT id, name, email, password, role, created_at, updated_at, is_active, token
+		SELECT id, full_name, email, password, role, created_at, updated_at, is_active
 		FROM users
 		WHERE id = ?
 	`
@@ -86,14 +86,13 @@ func (r *UserRepository) GetByID(id string) (*models.User, error) {
 	var user models.User
 	err := row.Scan(
 		&user.Id,
-		&user.Name,
+		&user.FullName,
 		&user.Email,
 		&user.Password,
 		&user.Role,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 		&user.IsActive,
-		&user.Token,
 	)
 
 	if err != nil {
@@ -109,7 +108,7 @@ func (r *UserRepository) GetByID(id string) (*models.User, error) {
 // GetByEmail retrieves a user by their email address
 func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	query := `
-		SELECT id, name, email, password, role, created_at, updated_at, is_active, token
+		SELECT id, full_name, email, password_hash, role, created_at, updated_at, is_active
 		FROM users
 		WHERE email = ?
 	`
@@ -118,14 +117,13 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	var user models.User
 	err := row.Scan(
 		&user.Id,
-		&user.Name,
+		&user.FullName,
 		&user.Email,
 		&user.Password,
 		&user.Role,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 		&user.IsActive,
-		&user.Token,
 	)
 
 	if err != nil {
@@ -141,21 +139,20 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 // Update updates an existing user in the database
 func (r *UserRepository) Update(user *models.User) error {
 	// Update the timestamp
-	user.UpdatedAt = time.Now().Format(time.RFC3339)
+	user.UpdatedAt = time.Now()
 
 	query := `
 		UPDATE users
-		SET name = ?, email = ?, role = ?, updated_at = ?, is_active = ?, token = ?
+		SET full_name = ?, email = ?, role = ?, updated_at = ?, is_active = ?
 		WHERE id = ?
 	`
 	result, err := r.dbClient.DB.Exec(
 		query,
-		user.Name,
+		user.FullName,
 		user.Email,
 		user.Role,
 		user.UpdatedAt,
 		user.IsActive,
-		user.Token,
 		user.Id,
 	)
 
@@ -184,7 +181,7 @@ func (r *UserRepository) UpdatePassword(userID string, newPassword string) error
 	}
 
 	// Update the timestamp
-	updatedAt := time.Now().Format(time.RFC3339)
+	updatedAt := time.Now()
 
 	query := `
 		UPDATE users
@@ -237,7 +234,7 @@ func (r *UserRepository) Delete(id string) error {
 // GetAll retrieves all users from the database
 func (r *UserRepository) GetAll() ([]*models.User, error) {
 	query := `
-		SELECT id, name, email, password, role, created_at, updated_at, is_active, token
+		SELECT id, full_name, email, password, role, created_at, updated_at, is_active
 		FROM users
 		ORDER BY created_at DESC
 	`
@@ -252,14 +249,13 @@ func (r *UserRepository) GetAll() ([]*models.User, error) {
 		var user models.User
 		err := rows.Scan(
 			&user.Id,
-			&user.Name,
+			&user.FullName,
 			&user.Email,
 			&user.Password,
 			&user.Role,
 			&user.CreatedAt,
 			&user.UpdatedAt,
 			&user.IsActive,
-			&user.Token,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan user row: %w", err)
@@ -287,6 +283,10 @@ func (r *UserRepository) VerifyPassword(email, password string) (*models.User, e
 	}
 
 	// Compare the provided password with the stored hash
+	log.Println(user.Password)
+	log.Println(password)
+	log.Println(bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost))
+	log.Println(bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)))
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
 		return nil, fmt.Errorf("invalid password")
@@ -297,24 +297,10 @@ func (r *UserRepository) VerifyPassword(email, password string) (*models.User, e
 
 // ActivateUser sets a user's status to active
 func (r *UserRepository) ActivateUser(id string) error {
-	query := `
-		UPDATE users
-		SET is_active = true, updated_at = ?
-		WHERE id = ?
-	`
-	updatedAt := time.Now().Format(time.RFC3339)
-	result, err := r.dbClient.DB.Exec(query, updatedAt, id)
+	query := `UPDATE users SET is_active = ?, updated_at = ? WHERE id = ?`
+	_, err := r.dbClient.DB.Exec(query, true, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("failed to activate user: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return fmt.Errorf("user not found")
 	}
 
 	return nil
@@ -322,24 +308,10 @@ func (r *UserRepository) ActivateUser(id string) error {
 
 // DeactivateUser sets a user's status to inactive
 func (r *UserRepository) DeactivateUser(id string) error {
-	query := `
-		UPDATE users
-		SET is_active = false, updated_at = ?
-		WHERE id = ?
-	`
-	updatedAt := time.Now().Format(time.RFC3339)
-	result, err := r.dbClient.DB.Exec(query, updatedAt, id)
+	query := `UPDATE users SET is_active = ?, updated_at = ? WHERE id = ?`
+	_, err := r.dbClient.DB.Exec(query, false, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("failed to deactivate user: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return fmt.Errorf("user not found")
 	}
 
 	return nil
@@ -347,44 +319,11 @@ func (r *UserRepository) DeactivateUser(id string) error {
 
 // EmailExists checks if an email already exists in the database
 func (r *UserRepository) EmailExists(email string) (bool, error) {
-	query := `SELECT COUNT(*) FROM users WHERE email = ?`
-	var count int
-	err := r.dbClient.DB.QueryRow(query, email).Scan(&count)
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)`
+	err := r.dbClient.DB.QueryRow(query, email).Scan(&exists)
 	if err != nil {
-		return false, fmt.Errorf("failed to check email existence: %w", err)
+		return false, fmt.Errorf("failed to check if email exists: %w", err)
 	}
-	return count > 0, nil
-}
-
-// UpdateToken updates a user's token
-func (r *UserRepository) UpdateToken(userID string, token string) error {
-	// Update the timestamp
-	updatedAt := time.Now().Format(time.RFC3339)
-
-	query := `
-		UPDATE users
-		SET token = ?, updated_at = ?
-		WHERE id = ?
-	`
-	result, err := r.dbClient.DB.Exec(
-		query,
-		token,
-		updatedAt,
-		userID,
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to update token: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return fmt.Errorf("user not found")
-	}
-
-	return nil
+	return exists, nil
 }
