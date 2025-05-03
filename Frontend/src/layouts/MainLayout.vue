@@ -70,12 +70,12 @@
         </q-item>
         <div class="flex-col ">
           <!-- menu -->
-          <MenuItems
+          <side-menu-items
             class="text-soft-light"
             v-for="link in menuItemsList"
             :key="link.title"
             v-bind="link"
-            />
+          />
             <q-item
               clickable
               v-bind="$attrs"
@@ -179,7 +179,6 @@ import { ref, watch, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar'
 import { useAuthStore } from '../stores/auth'
-import MenuItems from 'components/SideMenuItems.vue'
 import type { menuItemsProps } from '../types/menu-items'
 
 const menuItemsList: menuItemsProps[] = [
@@ -192,11 +191,25 @@ const menuItemsList: menuItemsProps[] = [
   {
     title: 'Inventory',
     icon: 'storage',
-    to: '/app/inventory'
+    hasSubmenu: true,
+    children: [
+      {
+        title: 'Cabs',
+        icon: 'directions_car',
+        to: '/inventory/cabs'
+      },
+      {
+        title: 'Materials',
+        icon: 'category',
+        to: '/inventory/materials'
+      },
+      {
+        title: 'Accessories',
+        icon: 'settings_input_component',
+        to: '/inventory/accessories'
+      }
+    ]
   },
-  { title: 'Materials',
-    icon: 'storage',
-    to: '/app/materials' },
   {
     title: 'Sales',
     icon: 'trending_up',
@@ -222,12 +235,15 @@ watch(() => route.path, (newPath) => {
     case '/sales':
       activePage.value = 'Sales'
       break
-    case '/inventory':
-      activePage.value = 'Inventory'
+    case '/inventory/cabs':
+      activePage.value = 'Cabs'
       break
-    case '/materials':
+    case '/inventory/materials':
       activePage.value = 'Materials'
-    break
+      break
+    case '/inventory/accessories':
+      activePage.value = 'Accessories'
+      break
     case '/contacts':
       activePage.value = 'Contacts'
       break
