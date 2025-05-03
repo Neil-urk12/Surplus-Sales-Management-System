@@ -149,7 +149,8 @@ func TestUserHandler_Register_Success(t *testing.T) {
 
 	// Verify response body
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	error := json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, error)
 
 	assert.Equal(t, "User registered successfully", result["message"])
 	assert.NotNil(t, result["user"])
@@ -190,7 +191,8 @@ func TestUserHandler_Register_EmailExists(t *testing.T) {
 
 	// Verify response body
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	error := json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, error)
 
 	assert.Equal(t, "Email already in use", result["error"])
 
@@ -232,7 +234,8 @@ func TestUserHandler_Login_Success(t *testing.T) {
 
 	// Verify response body
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	error := json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, error)
 
 	assert.Equal(t, "Login successful", result["message"])
 	assert.NotNil(t, result["user"])
@@ -272,7 +275,8 @@ func TestUserHandler_Login_InvalidCredentials(t *testing.T) {
 
 	// Verify response body
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, err)
 
 	assert.Equal(t, "Invalid credentials", result["error"])
 
@@ -318,7 +322,8 @@ func TestUserHandler_GetAllUsers(t *testing.T) {
 
 	// Verify response body
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, err)
 
 	assert.NotNil(t, result["users"])
 
@@ -351,7 +356,8 @@ func TestUserHandler_GetUser(t *testing.T) {
 
 	// Verify response body
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, err)
 
 	assert.NotNil(t, result["user"])
 
@@ -381,7 +387,8 @@ func TestUserHandler_GetUser_NotFound(t *testing.T) {
 
 	// Verify response body
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, err)
 
 	assert.Equal(t, "User not found", result["error"])
 
@@ -425,7 +432,8 @@ func TestUserHandler_UpdateUser(t *testing.T) {
 
 	// Verify response body
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, err)
 
 	assert.Equal(t, "User updated successfully", result["message"])
 	assert.NotNil(t, result["user"])
@@ -456,7 +464,8 @@ func TestUserHandler_DeleteUser(t *testing.T) {
 
 	// Verify response body
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, err)
 
 	assert.Equal(t, "User deleted successfully", result["message"])
 
@@ -486,7 +495,8 @@ func TestUserHandler_ActivateUser(t *testing.T) {
 
 	// Verify response body
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, err)
 
 	assert.Equal(t, "User activated successfully", result["message"])
 
@@ -516,7 +526,8 @@ func TestUserHandler_DeactivateUser(t *testing.T) {
 
 	// Verify response body
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, err)
 
 	assert.Equal(t, "User deactivated successfully", result["message"])
 
@@ -559,7 +570,8 @@ func TestUserHandler_UpdatePassword(t *testing.T) {
 
 	// Verify response body
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, err)
 
 	assert.Equal(t, "Password updated successfully", result["message"])
 
@@ -601,7 +613,8 @@ func TestUserHandler_UpdatePassword_IncorrectCurrentPassword(t *testing.T) {
 
 	// Verify response body
 	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, err)
 
 	assert.Equal(t, "Current password is incorrect", result["error"])
 
