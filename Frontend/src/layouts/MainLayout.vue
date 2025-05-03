@@ -175,11 +175,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, computed } from 'vue'
+import { ref, watch, onMounted, computed, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar'
 import { useAuthStore } from '../stores/auth'
-import MenuItems from '../components/menu-items.vue'
+const MenuItems = defineAsyncComponent(() => import('../components/MenuItems.vue'))
 import type { menuItemsProps } from '../types/menu-items'
 
 const menuItemsList: menuItemsProps[] = [
