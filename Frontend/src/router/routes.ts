@@ -3,7 +3,7 @@ import type { RouteRecordRaw } from 'vue-router';
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    redirect: '/app' // TODO: change to '/app' after login is implemented
+    redirect: '/login' // TODO: change to '/app' after login is implemented
   },
   {
     path: '/login',
