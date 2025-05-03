@@ -35,7 +35,7 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('authToken')
   }
 
-  async function login(credentials: { email: string; password: string }): Promise<boolean> {
+  async function login(credentials: { email: string; password: string }): Promise<{ success: boolean; message?: string }> {
     clearAuth();
     console.log('Attempting login with:', credentials.email);
     try {
@@ -51,20 +51,36 @@ export const useAuthStore = defineStore('auth', () => {
         // TODO: Alternatively, fetch user details in a separate request using the token
 
         console.log('Login successful');
-        return true;
+        return { success: true };
       } else {
         console.error('Login succeeded but no token received.');
         clearAuth();
-        return false;
+        return { success: false, message: 'Authentication failed. Please try again.' };
       }
 
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Login API call failed:', error);
       clearAuth();
-      return false;
-    }
-  }
 
+      // Check for specific error messages from the backend
+      if (axios.isAxiosError(error) && error.response) {
+        const status = error.response.status;
+        const errorMessage = error.response.data?.error || 'Unknown error occurred';
+
+        // Handle specific status codes
+        if (status === 403 && errorMessage.includes('inactive')) {
+          return { success: false, message: 'Your account is inactive. Please contact an administrator.' };
+        } else if (status === 401) {
+          return { success: false, message: 'Invalid email or password. Please try again.' };
+        } else {
+          return { success: false, message: errorMessage };
+        }
+      }
+
+      return { success: false, message: 'An error occurred while connecting to the server. Please try again later.' };
+    }
+
+  }
   function logout() {
     clearAuth()
     console.log('Logout action called')

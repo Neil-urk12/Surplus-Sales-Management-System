@@ -123,7 +123,7 @@ func TestUserHandler_Register_Success(t *testing.T) {
 
 	// Create request body
 	reqBody := map[string]string{
-		"name":     "Test User",
+		"fullName": "Test User",
 		"email":    "test@example.com",
 		"password": "password123",
 		"role":     "user",
@@ -165,7 +165,7 @@ func TestUserHandler_Register_EmailExists(t *testing.T) {
 
 	// Create request body
 	reqBody := map[string]string{
-		"name":     "Test User",
+		"fullName": "Test User",
 		"email":    "test@example.com",
 		"password": "password123",
 	}
@@ -204,6 +204,7 @@ func TestUserHandler_Login_Success(t *testing.T) {
 	user := createTestUser()
 
 	// Setup expectations
+	mockRepo.On("GetByEmail", "test@example.com").Return(user, nil)
 	mockRepo.On("VerifyPassword", "test@example.com", "password123").Return(user, nil)
 
 	// Create request body
@@ -243,7 +244,11 @@ func TestUserHandler_Login_InvalidCredentials(t *testing.T) {
 	// Setup route
 	app.Post("/login", handler.Login)
 
+	// Create test user
+	user := createTestUser()
+
 	// Setup expectations
+	mockRepo.On("GetByEmail", "test@example.com").Return(user, nil)
 	mockRepo.On("VerifyPassword", "test@example.com", "wrong_password").Return(nil, errors.New("invalid password"))
 
 	// Create request body
@@ -270,6 +275,49 @@ func TestUserHandler_Login_InvalidCredentials(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, "Invalid credentials", result["error"])
+
+	// Verify expectations
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUserHandler_Login_InactiveUser(t *testing.T) {
+	// Setup
+	app, handler, mockRepo := setupTest()
+
+	// Setup route
+	app.Post("/login", handler.Login)
+
+	// Create inactive test user
+	inactiveUser := createTestUser()
+	inactiveUser.IsActive = false
+
+	// Setup expectations
+	mockRepo.On("GetByEmail", "test@example.com").Return(inactiveUser, nil)
+
+	// Create request body
+	reqBody := map[string]string{
+		"email":    "test@example.com",
+		"password": "password123",
+	}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	// Create request
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	// Perform request
+	resp, err := app.Test(req)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+
+	// Verify response body
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "Account is inactive", result["error"])
 
 	// Verify expectations
 	mockRepo.AssertExpectations(t)
@@ -442,6 +490,50 @@ func TestUserHandler_UpdateUser(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
+func TestUserHandler_UpdateUser_InactiveUser(t *testing.T) {
+	// Setup
+	app, handler, mockRepo := setupTest()
+
+	// Setup route
+	app.Put("/users/:id", handler.UpdateUser)
+
+	// Create inactive test user
+	inactiveUser := createTestUser()
+	inactiveUser.IsActive = false
+
+	// Setup expectations
+	mockRepo.On("GetByID", inactiveUser.Id).Return(inactiveUser, nil)
+
+	// Create request body
+	reqBody := map[string]string{
+		"name":  "Updated User",
+		"email": "updated@example.com",
+		"role":  "admin",
+	}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	// Create request
+	req := httptest.NewRequest(http.MethodPut, "/users/"+inactiveUser.Id, bytes.NewReader(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	// Perform request
+	resp, err := app.Test(req)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+
+	// Verify response body
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "Account is inactive", result["error"])
+
+	// Verify expectations
+	mockRepo.AssertExpectations(t)
+}
+
 func TestUserHandler_DeleteUser(t *testing.T) {
 	// Setup
 	app, handler, mockRepo := setupTest()
@@ -574,6 +666,49 @@ func TestUserHandler_UpdatePassword(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, "Password updated successfully", result["message"])
+
+	// Verify expectations
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUserHandler_UpdatePassword_InactiveUser(t *testing.T) {
+	// Setup
+	app, handler, mockRepo := setupTest()
+
+	// Setup route
+	app.Put("/users/:id/password", handler.UpdatePassword)
+
+	// Create inactive test user
+	inactiveUser := createTestUser()
+	inactiveUser.IsActive = false
+
+	// Setup expectations
+	mockRepo.On("GetByID", inactiveUser.Id).Return(inactiveUser, nil)
+
+	// Create request body
+	reqBody := map[string]string{
+		"current_password": "current_password",
+		"new_password":     "new_password",
+	}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	// Create request
+	req := httptest.NewRequest(http.MethodPut, "/users/"+inactiveUser.Id+"/password", bytes.NewReader(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	// Perform request
+	resp, err := app.Test(req)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+
+	// Verify response body
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "Account is inactive", result["error"])
 
 	// Verify expectations
 	mockRepo.AssertExpectations(t)

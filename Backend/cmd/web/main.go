@@ -11,6 +11,7 @@ import (
 	"oop/internal/repositories"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -21,13 +22,86 @@ import (
 
 var jwtSecret = []byte(getEnv("JWT_SECRET", "7b324dbe6535a315ef300b1c79bc35324c8c2fb1495195176364d8e12379f22c469bea496c1336c85724175d83d566d2271df2f49a14a09d5fddecc85962435a17196950ad693461e38c6645148a15726626c35e0ead273673a8f4a98547d015c89dfdf0d6bc5332ad9cbc1a180363d881ab320ef0f825c8cc83286aea871562f442c71c05e44298b1e83f43e1e7a57a101718bdd58489c05978317afd1feaa7fa2d2898f6bd41e09823172c87d676b025c488eb849e71adc2408cbe36ca9814bd38091dd14b6d790c68e4210350f7bdd365fbfa903fe59a9744f70021943b2c4f65101695ad1c1d25468bb4589fefcaa863fdb57b8321b2a5cbfa4cb6ac275a"))
 
-// Helper function to get environment variable or default value
+// Helper function to get environment variable or default value with validation and sanitization
+// Supported environment variables:
+// - JWT_SECRET: Secret key for JWT token generation and validation
+// - PORT: Port on which the server will listen
+// - ALLOWED_ORIGINS: Comma-separated list of allowed origins for CORS (e.g., "http://localhost:9000,https://example.com")
 func getEnv(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
+	// Validate key parameter
+	if key == "" {
+		log.Printf("Error: Empty environment variable key provided")
+		return fallback
 	}
-	log.Printf("Warning: Environment variable %s not set. Using default.", key)
-	return fallback
+
+	// Get environment variable value
+	value, ok := os.LookupEnv(key)
+	if !ok {
+		// TODO: Convert to log.Fatalf in production
+		log.Printf("Warning: Environment variable %s not set. Using default.", key)
+		return fallback
+	}
+
+	// Validate and sanitize value based on the environment variable type
+	switch key {
+	case "JWT_SECRET":
+		// JWT_SECRET should be at least 32 characters long for security
+		if len(value) < 32 {
+			log.Printf("Warning: JWT_SECRET is too short (< 32 chars). Using default for security.")
+			return fallback
+		}
+		// No need to sanitize JWT_SECRET as it's used as-is for cryptographic purposes
+
+	case "PORT":
+		// Validate port number (should be numeric and within valid range 1-65535)
+		port := 0
+		_, err := fmt.Sscanf(value, "%d", &port)
+		if err != nil || port < 1 || port > 65535 {
+			log.Printf("Warning: Invalid PORT value '%s'. Must be a number between 1-65535. Using default.", value)
+			return fallback
+		}
+		// Return the validated port as a string
+		return fmt.Sprintf("%d", port)
+
+	case "ALLOWED_ORIGINS":
+		// Validate and sanitize CORS origins
+		if value == "*" {
+			log.Printf("Warning: ALLOWED_ORIGINS set to '*' which allows all origins. This is not recommended for production.")
+		} else if value == "" {
+			log.Printf("Warning: ALLOWED_ORIGINS is empty. Using default.")
+			return fallback
+		}
+		// Basic validation of origins format (could be enhanced further)
+		// This simple check ensures each origin starts with http:// or https://
+		origins := strings.Split(value, ",")
+		validOrigins := make([]string, 0, len(origins))
+		for _, origin := range origins {
+			origin = strings.TrimSpace(origin)
+			if origin == "" {
+				continue
+			}
+			if !strings.HasPrefix(origin, "http://") && !strings.HasPrefix(origin, "https://") {
+				log.Printf("Warning: Origin '%s' doesn't start with http:// or https://. Skipping.", origin)
+				continue
+			}
+			validOrigins = append(validOrigins, origin)
+		}
+		if len(validOrigins) == 0 {
+			log.Printf("Warning: No valid origins found in ALLOWED_ORIGINS. Using default.")
+			return fallback
+		}
+		return strings.Join(validOrigins, ",")
+	}
+
+	// For other environment variables, perform basic sanitization
+	// Remove leading/trailing whitespace
+	value = strings.TrimSpace(value)
+	if value == "" {
+		log.Printf("Warning: Environment variable %s is empty after sanitization. Using default.", key)
+		return fallback
+	}
+
+	return value
 }
 
 func main() {
@@ -61,8 +135,12 @@ func main() {
 	// Add middleware
 	app.Use(logger.New())
 	app.Use(recover.New())
+
+	// Get allowed origins from environment variable or use default for development
+	allowedOrigins := getEnv("ALLOWED_ORIGINS", "http://localhost:9000,http://localhost:8080")
+
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",                           // Consider restricting this in production
+		AllowOrigins: allowedOrigins,                // Restricted to specific origins from environment variable
 		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS", // Added OPTIONS for preflight
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))

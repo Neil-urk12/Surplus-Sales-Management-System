@@ -154,21 +154,31 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	// Verify credentials using the repository method
-	user, err := h.userRepo.VerifyPassword(input.Email, input.Password)
+	// First, get the user by email to check if they exist and if they're active
+	user, err := h.userRepo.GetByEmail(input.Email)
 	if err != nil {
-		log.Printf("Login failed for email %s: %v", input.Email, err)
+		log.Printf("Login failed - user not found for email %s: %v", input.Email, err)
 		// Return a generic error message to avoid revealing which part failed (email or password)
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Invalid credentials",
 		})
 	}
 
-	// Check if user is active (optional, but good practice)
+	// Check if user is active before verifying password
 	if !user.IsActive {
 		log.Printf("Login attempt for inactive user: %s", input.Email)
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "Account is inactive",
+		})
+	}
+
+	// Verify password
+	user, err = h.userRepo.VerifyPassword(input.Email, input.Password)
+	if err != nil {
+		log.Printf("Login failed - invalid password for email %s: %v", input.Email, err)
+		// Return a generic error message to avoid revealing which part failed
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid credentials",
 		})
 	}
 
@@ -292,6 +302,14 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 		log.Printf("Error getting user: %v", err)
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "User not found",
+		})
+	}
+
+	// Check if user is active
+	if !existingUser.IsActive {
+		log.Printf("Update attempt for inactive user: %s", existingUser.Email)
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Account is inactive",
 		})
 	}
 
@@ -434,6 +452,14 @@ func (h *UserHandler) UpdatePassword(c *fiber.Ctx) error {
 		log.Printf("Error getting user: %v", err)
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "User not found",
+		})
+	}
+
+	// Check if user is active
+	if !user.IsActive {
+		log.Printf("Password update attempt for inactive user: %s", user.Email)
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Account is inactive",
 		})
 	}
 

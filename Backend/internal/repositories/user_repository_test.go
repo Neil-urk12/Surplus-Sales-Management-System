@@ -34,7 +34,7 @@ func TestUserRepository_Create(t *testing.T) {
 	}
 
 	// Set up the expected SQL query and result
-	mock.ExpectExec("INSERT INTO users (id, full_name, email, password, role, created_at, updated_at, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").
+	mock.ExpectExec("INSERT INTO users (id, full_name, email, password_hash, role, created_at, updated_at, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").
 		WithArgs(
 			user.Id,
 			user.FullName,
@@ -90,7 +90,7 @@ func TestUserRepository_GetByID(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"id", "full_name", "email", "password", "role", "created_at", "updated_at", "is_active"}).
 		AddRow(expectedUser.Id, expectedUser.FullName, expectedUser.Email, expectedUser.Password, expectedUser.Role, expectedUser.CreatedAt, expectedUser.UpdatedAt, expectedUser.IsActive)
 
-	mock.ExpectQuery("SELECT id, full_name, email, password, role, created_at, updated_at, is_active FROM users WHERE id = ?").
+	mock.ExpectQuery("SELECT id, full_name, email, password_hash, role, created_at, updated_at, is_active FROM users WHERE id = ?").
 		WithArgs(userID).
 		WillReturnRows(rows)
 
@@ -138,7 +138,7 @@ func TestUserRepository_GetByEmail(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"id", "full_name", "email", "password", "role", "created_at", "updated_at", "is_active"}).
 		AddRow(expectedUser.Id, expectedUser.FullName, expectedUser.Email, expectedUser.Password, expectedUser.Role, expectedUser.CreatedAt, expectedUser.UpdatedAt, expectedUser.IsActive)
 
-	mock.ExpectQuery("SELECT id, full_name, email, password, role, created_at, updated_at, is_active FROM users WHERE email = ?").
+	mock.ExpectQuery("SELECT id, full_name, email, password_hash, role, created_at, updated_at, is_active FROM users WHERE email = ?").
 		WithArgs(email).
 		WillReturnRows(rows)
 
@@ -212,7 +212,7 @@ func TestUserRepository_UpdatePassword(t *testing.T) {
 	newPassword := "new_password"
 
 	// Set up the expected SQL query and result
-	mock.ExpectExec("UPDATE users SET password = ?, updated_at = ? WHERE id = ?").
+	mock.ExpectExec("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?").
 		WithArgs(
 			sqlmock.AnyArg(), // Hashed password
 			sqlmock.AnyArg(), // UpdatedAt timestamp
@@ -307,7 +307,7 @@ func TestUserRepository_GetAll(t *testing.T) {
 		AddRow(user1.Id, user1.FullName, user1.Email, user1.Password, user1.Role, user1.CreatedAt, user1.UpdatedAt, user1.IsActive).
 		AddRow(user2.Id, user2.FullName, user2.Email, user2.Password, user2.Role, user2.CreatedAt, user2.UpdatedAt, user2.IsActive)
 
-	mock.ExpectQuery("SELECT id, full_name, email, password, role, created_at, updated_at, is_active FROM users ORDER BY created_at DESC").
+	mock.ExpectQuery("SELECT id, full_name, email, password_hash, role, created_at, updated_at, is_active FROM users ORDER BY created_at DESC").
 		WillReturnRows(rows)
 
 	// Call the function being tested
@@ -360,7 +360,7 @@ func TestUserRepository_VerifyPassword(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"id", "full_name", "email", "password", "role", "created_at", "updated_at", "is_active"}).
 		AddRow(expectedUser.Id, expectedUser.FullName, expectedUser.Email, expectedUser.Password, expectedUser.Role, expectedUser.CreatedAt, expectedUser.UpdatedAt, expectedUser.IsActive)
 
-	mock.ExpectQuery("SELECT id, full_name, email, password, role, created_at, updated_at, is_active FROM users WHERE email = ?").
+	mock.ExpectQuery("SELECT id, full_name, email, password_hash, role, created_at, updated_at, is_active FROM users WHERE email = ?").
 		WithArgs(email).
 		WillReturnRows(rows)
 
@@ -377,7 +377,7 @@ func TestUserRepository_VerifyPassword(t *testing.T) {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 
-	// Test with inactive user
+	// Test with incorrect password
 	db2, mock2, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -389,22 +389,19 @@ func TestUserRepository_VerifyPassword(t *testing.T) {
 		dbClient: &DatabaseClient{DB: db2},
 	}
 
-	inactiveUser := *expectedUser
-	inactiveUser.IsActive = false
-
 	rows2 := sqlmock.NewRows([]string{"id", "full_name", "email", "password", "role", "created_at", "updated_at", "is_active"}).
-		AddRow(inactiveUser.Id, inactiveUser.FullName, inactiveUser.Email, inactiveUser.Password, inactiveUser.Role, inactiveUser.CreatedAt, inactiveUser.UpdatedAt, inactiveUser.IsActive)
+		AddRow(expectedUser.Id, expectedUser.FullName, expectedUser.Email, expectedUser.Password, expectedUser.Role, expectedUser.CreatedAt, expectedUser.UpdatedAt, expectedUser.IsActive)
 
-	mock2.ExpectQuery("SELECT id, full_name, email, password, role, created_at, updated_at, is_active FROM users WHERE email = ?").
+	mock2.ExpectQuery("SELECT id, full_name, email, password_hash, role, created_at, updated_at, is_active FROM users WHERE email = ?").
 		WithArgs(email).
 		WillReturnRows(rows2)
 
-	// Call the function being tested
-	_, err = repo2.VerifyPassword(email, password)
+	// Call the function being tested with wrong password
+	_, err = repo2.VerifyPassword(email, "wrong_password")
 
 	// Assert that an error occurred
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "user account is inactive")
+	assert.Contains(t, err.Error(), "invalid password")
 }
 
 func TestUserRepository_ActivateUser(t *testing.T) {
@@ -552,7 +549,7 @@ func TestUserRepository_GetByID_NotFound(t *testing.T) {
 	userID := "non-existent-id"
 
 	// Set up the expected SQL query to return no rows
-	mock.ExpectQuery("SELECT id, full_name, email, password, role, created_at, updated_at, is_active FROM users WHERE id = ?").
+	mock.ExpectQuery("SELECT id, full_name, email, password_hash, role, created_at, updated_at, is_active FROM users WHERE id = ?").
 		WithArgs(userID).
 		WillReturnError(sql.ErrNoRows)
 

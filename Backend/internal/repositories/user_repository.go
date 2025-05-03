@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"oop/internal/models"
 	"time"
 
@@ -77,7 +76,7 @@ func (r *UserRepository) Create(user *models.User) error {
 // GetByID retrieves a user by their ID
 func (r *UserRepository) GetByID(id string) (*models.User, error) {
 	query := `
-		SELECT id, full_name, email, password, role, created_at, updated_at, is_active
+		SELECT id, full_name, email, password_hash, role, created_at, updated_at, is_active
 		FROM users
 		WHERE id = ?
 	`
@@ -185,7 +184,7 @@ func (r *UserRepository) UpdatePassword(userID string, newPassword string) error
 
 	query := `
 		UPDATE users
-		SET password = ?, updated_at = ?
+		SET password_hash = ?, updated_at = ?
 		WHERE id = ?
 	`
 	result, err := r.dbClient.DB.Exec(
@@ -234,7 +233,7 @@ func (r *UserRepository) Delete(id string) error {
 // GetAll retrieves all users from the database
 func (r *UserRepository) GetAll() ([]*models.User, error) {
 	query := `
-		SELECT id, full_name, email, password, role, created_at, updated_at, is_active
+		SELECT id, full_name, email, password_hash, role, created_at, updated_at, is_active
 		FROM users
 		ORDER BY created_at DESC
 	`
@@ -271,22 +270,14 @@ func (r *UserRepository) GetAll() ([]*models.User, error) {
 }
 
 // VerifyPassword checks if the provided password matches the stored hash
+// Note: This method does not check if the user is active - that's the responsibility of the handler
 func (r *UserRepository) VerifyPassword(email, password string) (*models.User, error) {
 	user, err := r.GetByEmail(email)
 	if err != nil {
 		return nil, err
 	}
 
-	// Check if the user is active
-	if !user.IsActive {
-		return nil, fmt.Errorf("user account is inactive")
-	}
-
 	// Compare the provided password with the stored hash
-	log.Println(user.Password)
-	log.Println(password)
-	log.Println(bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost))
-	log.Println(bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)))
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
 		return nil, fmt.Errorf("invalid password")
