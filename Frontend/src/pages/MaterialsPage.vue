@@ -133,7 +133,7 @@ function previewImage(url: string) {
   <q-page class="flex q-pa-md">
     <div class="q-pa-sm full-width">
       <!-- Materials Section -->
-      <div class="q-mt-xl">
+      <div class="q-mt-sm">
         <div class="flex row q-my-sm">
           <div class="flex full-width col">
             <div class="flex col q-mr-sm">
