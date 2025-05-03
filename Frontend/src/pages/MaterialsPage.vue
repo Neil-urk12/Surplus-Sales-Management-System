@@ -177,9 +177,16 @@ function previewImage(url: string) {
         />
         
         <!-- Existing Material Modal -->
-        <ProductCardModal v-model="showMaterial" :image="selectedMaterial?.image || ''"
-          :title="selectedMaterial?.name || ''" :price="0" :quantity="selectedMaterial?.quantity || 0"
-          :details="`Supplier: ${selectedMaterial?.supplier}`" @add="addMaterialToCart" />
+        <ProductCardModal 
+          v-model="showMaterial" 
+          :image="selectedMaterial?.image || ''"
+          :title="selectedMaterial?.name || ''" 
+          :price="0" 
+          :quantity="selectedMaterial?.quantity || 0"
+          :details="`Supplier: ${selectedMaterial?.supplier}`" 
+          :unit_color="selectedMaterial?.category || ''"
+          @addItem="addMaterialToCart" 
+        />
         
         <!-- Add Material Dialog - Minimalistic Design -->
         <q-dialog v-model="showAddDialog" persistent>
