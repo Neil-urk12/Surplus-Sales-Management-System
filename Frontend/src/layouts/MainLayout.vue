@@ -179,7 +179,7 @@ import { ref, watch, onMounted, computed, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar'
 import { useAuthStore } from '../stores/auth'
-const MenuItems = defineAsyncComponent(() => import('../components/MenuItems.vue'))
+const MenuItems = defineAsyncComponent(() => import('../components/SideMenuItems.vue'))
 import type { menuItemsProps } from '../types/menu-items'
 
 const menuItemsList: menuItemsProps[] = [

@@ -31,7 +31,6 @@
       class="text-soft-light q-hoverable"
       header-class="text-soft-light"
       expand-icon-class="text-soft-light"
-      dense
     >
       <div>
         <q-item
