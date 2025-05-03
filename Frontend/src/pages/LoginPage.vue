@@ -1,3 +1,120 @@
+<script setup lang="ts">
+import { computed, ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+
+const tab = ref('email')
+const showModal = ref(false)
+const recoveryEmail = ref('')
+const recoveryPhone = ref('')
+
+const isSendingRecovery = ref(false)
+const recoverySent = ref(false)
+
+const resetRecoveryForm = () => {
+  recoveryEmail.value = ''
+  recoveryPhone.value = ''
+  recoverySent.value = false
+  tab.value = 'email'
+}
+
+const handleRecoveryRequest = async () => {
+  isSendingRecovery.value = true
+
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1500))
+    recoverySent.value = true
+
+    setTimeout(() => {
+      showModal.value = false
+    }, 3000)
+  } catch (error) {
+    console.error('Recovery error:', error)
+  } finally {
+    isSendingRecovery.value = false
+  }
+}
+
+const isRecoveryInputValid = computed(() => {
+  return tab.value === 'email'
+    ? recoveryEmail.value.trim() !== ''
+    : recoveryPhone.value.trim().length >= 10
+})
+
+const router = useRouter()
+const authStore = useAuthStore()
+
+const form = reactive({
+  email: '',
+  password: ''
+})
+
+const errors = reactive({
+  email: '',
+  password: '',
+})
+
+const isSubmitting = ref(false)
+const showShake = ref(false)
+const loginError = ref('')
+
+onMounted( async () => {
+  if (authStore.isAuthenticated) await router.push('/')
+})
+
+const validateEmail = () => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!form.email) {
+    errors.email = 'Email is required'
+  } else if (!emailRegex.test(form.email)) {
+    errors.email = 'Please enter a valid email'
+  } else {
+    errors.email = ''
+  }
+}
+
+const validatePassword = () => {
+  if (!form.password) {
+    errors.password = 'Password is required'
+  } else if (form.password.length < 6) {
+    errors.password = 'Password must be at least 6 characters'
+  } else {
+    errors.password = ''
+  }
+}
+
+const handleSubmit = async () => {
+  validateEmail()
+  validatePassword()
+  loginError.value = ''
+
+  if (errors.email || errors.password) {
+    showShake.value = true
+    setTimeout(() => showShake.value = false, 500)
+    return
+  }
+
+  isSubmitting.value = true
+
+  try {
+    const success = await authStore.login(form)
+
+    if (success) {
+      await router.push('/app')
+    } else {
+      loginError.value = 'Invalid email or password. Please try again.'
+      showShake.value = true
+      setTimeout(() => showShake.value = false, 500)
+    }
+  } catch (error) {
+    console.error('Login error:', error)
+    loginError.value = 'An unexpected error occurred. Please try again later.'
+  } finally {
+    isSubmitting.value = false
+  }
+}
+</script>
+
 <template>
   <div class="login-page">
     <div class="login-container" :class="{ 'shake-animation': showShake }">
@@ -13,6 +130,10 @@
       <h1>Welcome back</h1>
 
       <form @submit.prevent="handleSubmit">
+        <div v-if="loginError" class="error-message general-error">
+          {{ loginError }}
+        </div>
+
         <div class="input-group">
           <label for="email">Email</label>
           <input
@@ -154,109 +275,6 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import {computed } from 'vue'
-const tab = ref('email')
-const showModal = ref(false)
-const recoveryEmail = ref('')
-const recoveryPhone = ref('')
-
-const isSendingRecovery = ref(false)
-const recoverySent = ref(false)
-
-const resetRecoveryForm = () => {
-  recoveryEmail.value = ''
-  recoveryPhone.value = ''
-  recoverySent.value = false
-  tab.value = 'email'
-}
-
-const handleRecoveryRequest = async () => {
-  isSendingRecovery.value = true
-
-  try {
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    recoverySent.value = true
-
-    setTimeout(() => {
-      showModal.value = false
-    }, 3000)
-  } catch (error) {
-    console.error('Recovery error:', error)
-  } finally {
-    isSendingRecovery.value = false
-  }
-}
-
-const isRecoveryInputValid = computed(() => {
-  return tab.value === 'email'
-    ? recoveryEmail.value.trim() !== ''
-    : recoveryPhone.value.trim().length >= 10
-})
-import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
-
-const router = useRouter()
-
-const form = reactive({
-  email: '',
-  password: ''
-})
-
-const errors = reactive({
-  email: '',
-  password: '',
-})
-
-const isSubmitting = ref(false)
-const showShake = ref(false)
-
-const validateEmail = () => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!form.email) {
-    errors.email = 'Email is required'
-  } else if (!emailRegex.test(form.email)) {
-    errors.email = 'Please enter a valid email'
-  } else {
-    errors.email = ''
-  }
-}
-
-const validatePassword = () => {
-  if (!form.password) {
-    errors.password = 'Password is required'
-  } else if (form.password.length < 6) {
-    errors.password = 'Password must be at least 6 characters'
-  } else {
-    errors.password = ''
-  }
-}
-
-const handleSubmit = async () => {
-  validateEmail()
-  validatePassword()
-
-  if (errors.email || errors.password) {
-    showShake.value = true
-    setTimeout(() => showShake.value = false, 500)
-    return
-  }
-
-  isSubmitting.value = true
-
-  try {
-    await new Promise(resolve => setTimeout(resolve, 1500))
-
-    await router.push('/app') // ✅ Fixed
-  } catch (error) {
-    console.error('Login error:', error)
-  } finally {
-    isSubmitting.value = false
-  }
-}
-
-
-</script>
 <style scoped>
 .login-page {
   display: flex;
@@ -265,7 +283,7 @@ const handleSubmit = async () => {
   min-height: 100vh;
   color: var(--text);
   line-height: 1.6;
-  padding: 1rem;
+  padding: 20px;
 }
 
 .login-container {
@@ -492,6 +510,16 @@ button:disabled {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+.error-message.general-error {
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  text-align: center;
+  border: 1px solid #ef9a9a;
 }
 
 @media (max-width: 600px) {

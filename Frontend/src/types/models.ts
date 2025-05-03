@@ -1,13 +1,11 @@
 export interface User {
   id: string;
-  name: string;
+  fullName: string;
   email: string;
-  password: string;
   role: string;
   createdAt: string;
   updatedAt: string;
   isActive: boolean;
-  token: string;
 }
 
 export interface Customer {
