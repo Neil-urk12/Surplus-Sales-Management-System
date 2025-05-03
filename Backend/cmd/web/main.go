@@ -6,12 +6,16 @@ import (
 	"fmt"
 	"log"
 	"oop/internal/config"
+	"oop/internal/handlers"
 	"oop/internal/repositories"
 	"os"
 	"os/signal"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
 func main() {
@@ -28,10 +32,48 @@ func main() {
 	go handleShutdown(dbClient, shutdown)
 
 	// Initialize Fiber app
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		ErrorHandler: func(c *fiber.Ctx, err error) error {
+			// Default error handling
+			code := fiber.StatusInternalServerError
+			if e, ok := err.(*fiber.Error); ok {
+				code = e.Code
+			}
+			return c.Status(code).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		},
+	})
+
+	// Add middleware
+	app.Use(logger.New())
+	app.Use(recover.New())
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowMethods: "GET,POST,PUT,DELETE",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+	}))
+
+	// Initialize repositories
+	userRepo := repositories.NewUserRepository(dbClient)
+
+	// Initialize handlers
+	userHandler := handlers.NewUserHandler(userRepo)
+
+	// Register routes
+	userHandler.RegisterRoutes(app)
+
+	// Add a health check endpoint
+	app.Get("/health", func(c *fiber.Ctx) error {
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"status": "ok",
+			"time":   time.Now().Format(time.RFC3339),
+		})
+	})
 
 	// Start server in a goroutine so we can listen for shutdown signal
 	go func() {
+		log.Println("Starting server on :8080")
 		if err := app.Listen(":8080"); err != nil {
 			log.Printf("Server error: %v", err)
 			close(shutdown) // Signal shutdown if server fails
