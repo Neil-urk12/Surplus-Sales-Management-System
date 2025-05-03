@@ -15,7 +15,6 @@
         <q-toolbar-title class="row flext items-center justify-between">
           <div>
             {{ activePage }}
-
           </div>
           <div class="flex row q-gutter-x-xs justify-center" v-if="route.path === '/inventory'">
             <q-btn dense round flat icon="download" ></q-btn>
@@ -191,18 +190,20 @@ const menuItemsList: menuItemsProps[] = [
   {
     title: 'Inventory',
     icon: 'storage',
-    to: '/inventory'
+    to: '/app/inventory'
   },
+  { title: 'Materials',
+    icon: 'storage',
+    to: '/app/materials' },
   {
     title: 'Sales',
     icon: 'trending_up',
-    to: '/sales'
+    to: '/app/sales'
   },
   {
     title:"Contacts",
     icon:"contacts",
-    to: '/contacts'
-
+    to: '/app/contacts'
   },
 ]
 
@@ -220,6 +221,9 @@ watch(() => route.path, (newPath) => {
     case '/inventory':
       activePage.value = 'Inventory'
       break
+    case '/materials':
+      activePage.value = 'Materials'
+    break
     case '/contacts':
       activePage.value = 'Contacts'
       break
