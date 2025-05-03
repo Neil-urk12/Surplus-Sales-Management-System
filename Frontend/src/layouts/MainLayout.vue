@@ -146,7 +146,7 @@
                         <img src="https://cdn.quasar.dev/img/boy-avatar.png">
                       </q-avatar>
 
-                      <div class="text-subtitle1 q-mt-md q-mb-xs">John Doe</div>
+                      <div class="text-subtitle1 q-mt-md q-mb-xs">{{ currentUser.name }}</div>
 
                       <q-btn
                         color="primary"
@@ -155,6 +155,7 @@
                         flat
                         size="sm"
                         v-close-popup
+                        @click="handleLogout"
                       />
                     </div>
                   </div>
@@ -174,10 +175,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
-import { useRoute } from 'vue-router';
+import { ref, watch, onMounted, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar'
-import SideMenuItems from 'components/SideMenuItems.vue'
+import { useAuthStore } from '../stores/auth'
 import type { menuItemsProps } from '../types/menu-items'
 
 const menuItemsList: menuItemsProps[] = [
@@ -222,6 +223,8 @@ const menuItemsList: menuItemsProps[] = [
 ]
 
 const route = useRoute();
+const router = useRouter();
+const authStore = useAuthStore();
 const activePage = ref('')
 
 watch(() => route.path, (newPath) => {
@@ -296,17 +299,29 @@ const toggleColorMode = () => {
   }
 }
 
-const currentUser = ref({
-  name: 'John Doe',
-  email: 'john.doe@example.com',
-  avatar: 'https://cdn.quasar.dev/img/avatar.png',
+const currentUser = computed(() => {
+  return authStore.user ? {
+    name: authStore.user.fullName,
+    email: authStore.user.email,
+    avatar: 'https://cdn.quasar.dev/img/avatar.png',
+  } : {
+    name: 'Guest User',
+    email: '',
+    avatar: 'https://cdn.quasar.dev/img/avatar.png',
+  }
 })
 
 
 function alert () {
   console.log('alert')
 }
+
 function toggleLeftDrawer () {
   leftDrawerOpen.value = !leftDrawerOpen.value
+}
+
+async function handleLogout() {
+  authStore.logout()
+  await router.push('/login')
 }
 </script>
