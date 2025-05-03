@@ -75,10 +75,10 @@ function openAddDialog() {
 function addNewMaterial() {
   try {
     store.addMaterial(newMaterial.value);
-    
+
     // Close the dialog first
     showAddDialog.value = false;
-    
+
     // Show success notification after dialog is closed
     setTimeout(() => {
       $q.notify({
@@ -101,7 +101,7 @@ function addNewMaterial() {
 
 function applyFilters() {
   showFilterDialog.value = false;
-  
+
   $q.notify({
     color: 'positive',
     message: 'Filters applied successfully',
@@ -134,7 +134,6 @@ function previewImage(url: string) {
     <div class="q-pa-sm full-width">
       <!-- Materials Section -->
       <div class="q-mt-xl">
-        <div class="text-h6 q-mb-md">Materials</div>
         <div class="flex row q-my-sm">
           <div class="flex full-width col">
             <div class="flex col q-mr-sm">
@@ -164,30 +163,30 @@ function previewImage(url: string) {
         </div>
 
         <!--MATERIALS TABLE-->
-        <q-table 
-          class="my-sticky-column-table" 
-          flat 
-          bordered 
-          title="Materials" 
+        <q-table
+          class="my-sticky-column-table"
+          flat
+          bordered
+          title="Materials"
           :rows="store.filteredMaterialRows"
-          :columns="materialColumns" 
-          row-key="id" 
+          :columns="materialColumns"
+          row-key="id"
           :filter="store.materialSearch"
-          @row-click="onMaterialRowClick" 
+          @row-click="onMaterialRowClick"
         />
-        
+
         <!-- Existing Material Modal -->
-        <ProductCardModal 
-          v-model="showMaterial" 
+        <ProductCardModal
+          v-model="showMaterial"
           :image="selectedMaterial?.image || ''"
-          :title="selectedMaterial?.name || ''" 
-          :price="0" 
+          :title="selectedMaterial?.name || ''"
+          :price="0"
           :quantity="selectedMaterial?.quantity || 0"
-          :details="`Supplier: ${selectedMaterial?.supplier}`" 
+          :details="`Supplier: ${selectedMaterial?.supplier}`"
           :unit_color="selectedMaterial?.category || ''"
-          @addItem="addMaterialToCart" 
+          @addItem="addMaterialToCart"
         />
-        
+
         <!-- Add Material Dialog - Minimalistic Design -->
         <q-dialog v-model="showAddDialog" persistent>
           <q-card style="min-width: 400px; max-width: 95vw">
@@ -199,12 +198,12 @@ function previewImage(url: string) {
 
             <q-card-section>
               <q-form @submit.prevent="addNewMaterial" class="q-gutter-sm">
-                <q-input 
-                  v-model="newMaterial.name" 
-                  label="Material Name" 
-                  dense 
-                  outlined 
-                  required 
+                <q-input
+                  v-model="newMaterial.name"
+                  label="Material Name"
+                  dense
+                  outlined
+                  required
                   :rules="[val => !!val || 'Name is required']"
                 >
                   <template v-slot:prepend>
@@ -214,13 +213,13 @@ function previewImage(url: string) {
 
                 <div class="row q-col-gutter-sm">
                   <div class="col-12 col-sm-6">
-                    <q-select 
-                      v-model="newMaterial.category" 
-                      :options="categories" 
-                      label="Category" 
-                      dense 
-                      outlined 
-                      required 
+                    <q-select
+                      v-model="newMaterial.category"
+                      :options="categories"
+                      label="Category"
+                      dense
+                      outlined
+                      required
                       :rules="[val => !!val || 'Category is required']"
                     >
                       <template v-slot:prepend>
@@ -228,15 +227,15 @@ function previewImage(url: string) {
                       </template>
                     </q-select>
                   </div>
-                  
+
                   <div class="col-12 col-sm-6">
-                    <q-select 
-                      v-model="newMaterial.supplier" 
-                      :options="suppliers" 
-                      label="Supplier" 
-                      dense 
-                      outlined 
-                      required 
+                    <q-select
+                      v-model="newMaterial.supplier"
+                      :options="suppliers"
+                      label="Supplier"
+                      dense
+                      outlined
+                      required
                       :rules="[val => !!val || 'Supplier is required']"
                     >
                       <template v-slot:prepend>
@@ -248,13 +247,13 @@ function previewImage(url: string) {
 
                 <div class="row q-col-gutter-sm">
                   <div class="col-12 col-sm-6">
-                    <q-input 
-                      v-model.number="newMaterial.quantity" 
-                      type="number" 
-                      label="Quantity" 
-                      dense 
-                      outlined 
-                      required 
+                    <q-input
+                      v-model.number="newMaterial.quantity"
+                      type="number"
+                      label="Quantity"
+                      dense
+                      outlined
+                      required
                       :rules="[val => val >= 0 || 'Quantity must be positive']"
                     >
                       <template v-slot:prepend>
@@ -262,13 +261,13 @@ function previewImage(url: string) {
                       </template>
                     </q-input>
                   </div>
-                  
+
                   <div class="col-12 col-sm-6">
-                    <q-input 
-                      v-model="newMaterial.status" 
-                      label="Status" 
-                      dense 
-                      outlined 
+                    <q-input
+                      v-model="newMaterial.status"
+                      label="Status"
+                      dense
+                      outlined
                       readonly
                       disable
                     >
@@ -279,10 +278,10 @@ function previewImage(url: string) {
                   </div>
                 </div>
 
-                <q-input 
-                  v-model="newMaterial.image" 
-                  label="Image URL" 
-                  dense 
+                <q-input
+                  v-model="newMaterial.image"
+                  label="Image URL"
+                  dense
                   outlined
                   hint="Enter the URL for the material image"
                 >
@@ -290,8 +289,8 @@ function previewImage(url: string) {
                     <q-icon name="image" />
                   </template>
                   <template v-slot:append>
-                    <q-icon 
-                      name="preview" 
+                    <q-icon
+                      name="preview"
                       class="cursor-pointer"
                       @click="previewImage(newMaterial.image)"
                     >
@@ -327,7 +326,7 @@ function previewImage(url: string) {
                 outlined
                 class="q-mb-md"
               />
-              
+
               <q-select
                 v-model="store.filterSupplier"
                 :options="suppliers"
@@ -336,7 +335,7 @@ function previewImage(url: string) {
                 outlined
                 class="q-mb-md"
               />
-              
+
               <q-select
                 v-model="store.filterStatus"
                 :options="statuses"
