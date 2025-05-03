@@ -4,5 +4,5 @@ export interface menuItemsProps {
   to?: string;
   exact?: boolean;
   children?: menuItemsProps[];
-  isDropdown?: boolean;
+  hasSubmenu?: boolean;
 }

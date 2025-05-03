@@ -11,9 +11,9 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false },
     children: [
       { path: '', component: () => import('pages/DashboardPage.vue') },
-      { path: 'cabs', component: () => import('pages/CabsPage.vue') },
-      { path: 'materials', component: () => import('pages/MaterialsPage.vue') },
-      // { path: 'accessories', component: () => import('pages/AccessoriesPage.vue') },
+      { path: 'inventory/cabs', component: () => import('pages/CabsPage.vue') },
+      { path: 'inventory/materials', component: () => import('pages/MaterialsPage.vue') },
+      // { path: 'inventory/accessories', component: () => import('pages/AccessoriesPage.vue') },
       { path: 'sales', component: () => import('pages/SalesPage.vue') },
       { path: 'contacts', component: () => import('pages/ContactsPage.vue') },
     ],

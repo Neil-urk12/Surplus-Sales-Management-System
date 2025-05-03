@@ -2,7 +2,7 @@
   <div>
     <!-- Regular menu item -->
     <q-item
-      v-if="!isDropdown"
+      v-if="!hasSubmenu"
       clickable
       v-bind="$attrs"
       :to="to"
@@ -25,6 +25,7 @@
     <!-- Dropdown menu item -->
     <q-expansion-item
       v-else
+      :key="title"
       :icon="icon"
       :label="title"
       class="text-soft-light q-hoverable"
@@ -35,7 +36,7 @@
       <div>
         <q-item
           v-for="child in children"
-          :key="child.title"
+          :key="`${child.title}-${child.to}`"
           :to="child.to"
           clickable
           class="text-soft-light q-hoverable"
@@ -59,7 +60,7 @@ import type { menuItemsProps } from '../types/menu-items'
 withDefaults(defineProps<menuItemsProps>(), {
   icon: '',
   to: '/',
-  isDropdown: false,
+  hasSubmenu: false,
   children: () => []
 })
 </script>

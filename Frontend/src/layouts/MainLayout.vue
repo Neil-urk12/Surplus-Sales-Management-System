@@ -190,22 +190,22 @@ const menuItemsList: menuItemsProps[] = [
   {
     title: 'Inventory',
     icon: 'storage',
-    isDropdown: true,
+    hasSubmenu: true,
     children: [
       {
         title: 'Cabs',
-        icon: 'speaker',
-        to: '/cabs'
+        icon: 'directions_car',
+        to: '/inventory/cabs'
       },
       {
         title: 'Materials',
         icon: 'category',
-        to: '/materials'
+        to: '/inventory/materials'
       },
       {
         title: 'Accessories',
         icon: 'settings_input_component',
-        to: '/accessories'
+        to: '/inventory/accessories'
       }
     ]
   },
@@ -232,12 +232,15 @@ watch(() => route.path, (newPath) => {
     case '/sales':
       activePage.value = 'Sales'
       break
-    case '/inventory':
-      activePage.value = 'Inventory'
+    case '/inventory/cabs':
+      activePage.value = 'Cabs'
       break
-    case '/materials':
+    case '/inventory/materials':
       activePage.value = 'Materials'
-    break
+      break
+    case '/inventory/accessories':
+      activePage.value = 'Accessories'
+      break
     case '/contacts':
       activePage.value = 'Contacts'
       break
