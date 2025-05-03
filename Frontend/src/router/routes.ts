@@ -2,17 +2,12 @@ import type { RouteRecordRaw } from 'vue-router';
 
 const routes: RouteRecordRaw[] = [
   {
-    path: '/',
-    redirect: '/login' // TODO: change to '/app' after login is implemented
-  },
-  {
     path: '/login',
     component: () => import('pages/LoginPage.vue'),
   },
   {
-    path: '/app',
+    path: '/',
     component: () => import('layouts/MainLayout.vue'),
-    meta: { requiresAuth: false },
     children: [
       { path: '', component: () => import('pages/DashboardPage.vue') },
       { path: 'inventory', component: () => import('pages/InventoryPage.vue') },
@@ -20,6 +15,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'sales', component: () => import('pages/SalesPage.vue') },
       { path: 'contacts', component: () => import('pages/ContactsPage.vue') },
     ],
+    meta: { requiresAuth: true },
   },
   {
     path: '/:catchAll(.*)*',

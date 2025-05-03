@@ -5,9 +5,11 @@ import (
 	"encoding/base64"
 	"log"
 	"oop/internal/models"
+	"os"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
@@ -24,7 +26,6 @@ type UserRepository interface {
 	ActivateUser(id string) error
 	DeactivateUser(id string) error
 	EmailExists(email string) (bool, error)
-	UpdateToken(userID string, token string) error
 }
 
 // UserHandler handles HTTP requests related to users
@@ -39,25 +40,19 @@ func NewUserHandler(userRepo UserRepository) *UserHandler {
 	}
 }
 
-// RegisterRoutes registers all user-related routes
-func (h *UserHandler) RegisterRoutes(app *fiber.App) {
-	userGroup := app.Group("/api/users")
+// RegisterRoutes registers only the public user-related routes (register, login)
+// Protected routes are registered in main.go with middleware.
+func (h *UserHandler) RegisterRoutes(router fiber.Router) {
+	// Base path is assumed to be '/api' from main.go
+	userGroup := router.Group("/users")
 
 	// Public routes
 	userGroup.Post("/register", h.Register)
 	userGroup.Post("/login", h.Login)
 
-	// Protected routes (would normally have middleware for authentication)
-	userGroup.Get("/", h.GetAllUsers)
-	userGroup.Get("/:id", h.GetUser)
-	userGroup.Put("/:id", h.UpdateUser)
-	userGroup.Delete("/:id", h.DeleteUser)
-	userGroup.Put("/:id/activate", h.ActivateUser)
-	userGroup.Put("/:id/deactivate", h.DeactivateUser)
-	userGroup.Put("/:id/password", h.UpdatePassword)
 }
 
-// generateToken creates a secure random token
+// generateToken creates a secure random token (used for registration maybe)
 func generateToken() (string, error) {
 	b := make([]byte, 32)
 	_, err := rand.Read(b)
@@ -70,7 +65,7 @@ func generateToken() (string, error) {
 // Register handles user registration
 func (h *UserHandler) Register(c *fiber.Ctx) error {
 	var input struct {
-		Name     string `json:"name"`
+		Name     string `json:"fullName"`
 		Email    string `json:"email"`
 		Password string `json:"password"`
 		Role     string `json:"role"`
@@ -116,11 +111,10 @@ func (h *UserHandler) Register(c *fiber.Ctx) error {
 	// Create user
 	user := &models.User{
 		Id:       uuid.New().String(),
-		Name:     input.Name,
+		FullName: input.Name, // Use FullName from input
 		Email:    input.Email,
 		Password: input.Password, // Will be hashed in the repository
 		Role:     input.Role,
-		Token:    token,
 	}
 
 	if err := h.userRepo.Create(user); err != nil {
@@ -140,7 +134,7 @@ func (h *UserHandler) Register(c *fiber.Ctx) error {
 	})
 }
 
-// Login handles user authentication
+// Login handles user authentication and JWT generation
 func (h *UserHandler) Login(c *fiber.Ctx) error {
 	var input struct {
 		Email    string `json:"email"`
@@ -160,45 +154,94 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	// Verify credentials
-	user, err := h.userRepo.VerifyPassword(input.Email, input.Password)
+	// First, get the user by email to check if they exist and if they're active
+	user, err := h.userRepo.GetByEmail(input.Email)
 	if err != nil {
-		log.Printf("Login failed: %v", err)
+		log.Printf("Login failed - user not found for email %s: %v", input.Email, err)
+		// Return a generic error message to avoid revealing which part failed (email or password)
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Invalid credentials",
 		})
 	}
 
-	// Generate a new token for this session
-	token, err := generateToken()
+	// Check if user is active before verifying password
+	if !user.IsActive {
+		log.Printf("Login attempt for inactive user: %s", input.Email)
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Account is inactive",
+		})
+	}
+
+	// Verify password
+	user, err = h.userRepo.VerifyPassword(input.Email, input.Password)
 	if err != nil {
-		log.Printf("Error generating token: %v", err)
+		log.Printf("Login failed - invalid password for email %s: %v", input.Email, err)
+		// Return a generic error message to avoid revealing which part failed
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid credentials",
+		})
+	}
+
+	// Retrieve JWT secret from where it's defined (now in main.go context or config)
+	// NOTE: This handler doesn't have direct access to main.go's jwtSecret.
+	// For JWT generation, the secret should ideally be passed during handler setup
+	// or retrieved from a shared config.
+	// TEMPORARY WORKAROUND: Re-read from env here. This is NOT ideal.
+	// A better approach involves dependency injection of the secret or a config object.
+	tempJwtSecret := []byte(os.Getenv("JWT_SECRET"))
+	if len(tempJwtSecret) == 0 {
+		tempJwtSecret = []byte("your-very-secret-key-change-me") // Fallback ONLY for temporary fix
+		log.Println("Warning: JWT_SECRET env var not found in Login handler, using default (INSECURE)")
+	}
+
+	// Create the claims
+	claims := jwt.MapClaims{
+		"user_id": user.Id,
+		"email":   user.Email,
+		"role":    user.Role,
+		"exp":     time.Now().Add(time.Hour * 72).Unix(), // Token expires in 72 hours
+		"iat":     time.Now().Unix(),                     // Issued at
+	}
+
+	// Create token
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	// Generate encoded token string
+	tokenString, err := token.SignedString(tempJwtSecret) // Use the (temporarily re-read) secret
+	if err != nil {
+		log.Printf("Error signing JWT token: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to generate authentication token",
 		})
 	}
 
-	// Update the user's token in the database
-	user.Token = token
-	if err := h.userRepo.UpdateToken(user.Id, token); err != nil {
-		log.Printf("Error updating token: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to update authentication token",
-		})
-	}
+	// Optionally update the token in the database (Consider if needed for session invalidation)
+	// if err := h.userRepo.UpdateToken(user.Id, tokenString); err != nil {
+	// 	log.Printf("Error updating JWT token in DB: %v", err)
+	// 	// Decide if this should be a fatal error for login
+	// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	// 		"error": "Failed to update session", // More generic error
+	// 	})
+	// }
 
 	// Don't return the password hash
 	user.Password = ""
 
+	// Return user info and the JWT
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Login successful",
 		"user":    user,
-		"token":   token,
+		"token":   tokenString, // Return the JWT string
 	})
 }
 
 // GetAllUsers returns a list of all users
 func (h *UserHandler) GetAllUsers(c *fiber.Ctx) error {
+	// Access user info from middleware if needed:
+	// userID := c.Locals("user_id")
+	// userRole := c.Locals("role")
+	// log.Printf("GetAllUsers called by user %s with role %s", userID, userRole)
+
 	users, err := h.userRepo.GetAll()
 	if err != nil {
 		log.Printf("Error getting users: %v", err)
@@ -220,11 +263,12 @@ func (h *UserHandler) GetAllUsers(c *fiber.Ctx) error {
 // GetUser returns a single user by ID
 func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 	id := c.Params("id")
-	if id == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "User ID is required",
-		})
-	}
+	// Optional: Check if the requesting user (c.Locals("user_id")) is allowed to view this profile
+	// requestedUserID := c.Locals("user_id")
+	// requestedUserRole := c.Locals("role")
+	// if requestedUserID != id && requestedUserRole != "admin" { // Example policy
+	// 	return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied"})
+	// }
 
 	user, err := h.userRepo.GetByID(id)
 	if err != nil {
@@ -245,11 +289,12 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 // UpdateUser updates a user's information
 func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	id := c.Params("id")
-	if id == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "User ID is required",
-		})
-	}
+	// Optional: Check permissions similar to GetUser
+	// requestedUserID := c.Locals("user_id")
+	// requestedUserRole := c.Locals("role")
+	// if requestedUserID != id && requestedUserRole != "admin" {
+	// 	return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied"})
+	// }
 
 	// Get existing user
 	existingUser, err := h.userRepo.GetByID(id)
@@ -257,6 +302,14 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 		log.Printf("Error getting user: %v", err)
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "User not found",
+		})
+	}
+
+	// Check if user is active
+	if !existingUser.IsActive {
+		log.Printf("Update attempt for inactive user: %s", existingUser.Email)
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Account is inactive",
 		})
 	}
 
@@ -275,7 +328,7 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 
 	// Update user fields if provided
 	if input.Name != "" {
-		existingUser.Name = input.Name
+		existingUser.FullName = input.Name // Update FullName
 	}
 	if input.Email != "" && input.Email != existingUser.Email {
 		// Check if new email already exists
@@ -300,7 +353,7 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	}
 
 	// Update timestamp
-	existingUser.UpdatedAt = time.Now().Format(time.RFC3339)
+	existingUser.UpdatedAt = time.Now() // Use time.Time directly
 
 	// Save changes
 	if err := h.userRepo.Update(existingUser); err != nil {
@@ -322,11 +375,7 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 // DeleteUser removes a user from the system
 func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 	id := c.Params("id")
-	if id == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "User ID is required",
-		})
-	}
+	// Optional: Check permissions
 
 	if err := h.userRepo.Delete(id); err != nil {
 		log.Printf("Error deleting user: %v", err)
@@ -343,11 +392,7 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 // ActivateUser activates a user account
 func (h *UserHandler) ActivateUser(c *fiber.Ctx) error {
 	id := c.Params("id")
-	if id == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "User ID is required",
-		})
-	}
+	// Optional: Check permissions
 
 	if err := h.userRepo.ActivateUser(id); err != nil {
 		log.Printf("Error activating user: %v", err)
@@ -364,11 +409,7 @@ func (h *UserHandler) ActivateUser(c *fiber.Ctx) error {
 // DeactivateUser deactivates a user account
 func (h *UserHandler) DeactivateUser(c *fiber.Ctx) error {
 	id := c.Params("id")
-	if id == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "User ID is required",
-		})
-	}
+	// Optional: Check permissions
 
 	if err := h.userRepo.DeactivateUser(id); err != nil {
 		log.Printf("Error deactivating user: %v", err)
@@ -385,11 +426,7 @@ func (h *UserHandler) DeactivateUser(c *fiber.Ctx) error {
 // UpdatePassword updates a user's password
 func (h *UserHandler) UpdatePassword(c *fiber.Ctx) error {
 	id := c.Params("id")
-	if id == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "User ID is required",
-		})
-	}
+	// Optional: Check permissions
 
 	var input struct {
 		CurrentPassword string `json:"current_password"`
@@ -415,6 +452,14 @@ func (h *UserHandler) UpdatePassword(c *fiber.Ctx) error {
 		log.Printf("Error getting user: %v", err)
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "User not found",
+		})
+	}
+
+	// Check if user is active
+	if !user.IsActive {
+		log.Printf("Password update attempt for inactive user: %s", user.Email)
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Account is inactive",
 		})
 	}
 

@@ -1,15 +1,16 @@
 package models
 
+import "time"
+
 type User struct {
-	Id        string
-	Name      string
-	Email     string
-	Password  string
-	Role      string
-	CreatedAt string
-	UpdatedAt string
-	IsActive  bool
-	Token     string
+	Id        string    `json:"id"`
+	FullName  string    `json:"fullName"`
+	Email     string    `json:"email"`
+	Password  string    `json:"-"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+	IsActive  bool      `json:"isActive"`
 }
 
 type Customer struct {
