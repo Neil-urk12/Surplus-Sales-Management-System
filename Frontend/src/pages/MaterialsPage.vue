@@ -418,7 +418,7 @@ const showEditDialog = ref(false);
 </script>
 
 <template>
-  <q-page class="flex q-pa-md">
+  <q-page class="flex inventory-page-padding">
     <div class="q-pa-sm full-width">
       <!-- Materials Section -->
       <div class="q-mt-sm">

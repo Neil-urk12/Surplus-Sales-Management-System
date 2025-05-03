@@ -1,6 +1,8 @@
 export interface menuItemsProps {
   title: string;
   icon?: string;
-  to: string;
+  to?: string;
   exact?: boolean;
+  children?: menuItemsProps[];
+  isDropdown?: boolean;
 }

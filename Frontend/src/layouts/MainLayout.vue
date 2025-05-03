@@ -70,12 +70,12 @@
         </q-item>
         <div class="flex-col ">
           <!-- menu -->
-          <MenuItems
+          <side-menu-items
             class="text-soft-light"
             v-for="link in menuItemsList"
             :key="link.title"
             v-bind="link"
-            />
+          />
             <q-item
               clickable
               v-bind="$attrs"
@@ -177,7 +177,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router';
 import { useQuasar } from 'quasar'
-import MenuItems from 'components/SideMenuItems.vue'
+import SideMenuItems from 'components/SideMenuItems.vue'
 import type { menuItemsProps } from '../types/menu-items'
 
 const menuItemsList: menuItemsProps[] = [
@@ -190,11 +190,25 @@ const menuItemsList: menuItemsProps[] = [
   {
     title: 'Inventory',
     icon: 'storage',
-    to: '/app/inventory'
+    isDropdown: true,
+    children: [
+      {
+        title: 'Cabs',
+        icon: 'speaker',
+        to: '/cabs'
+      },
+      {
+        title: 'Materials',
+        icon: 'category',
+        to: '/materials'
+      },
+      {
+        title: 'Accessories',
+        icon: 'settings_input_component',
+        to: '/accessories'
+      }
+    ]
   },
-  { title: 'Materials',
-    icon: 'storage',
-    to: '/app/materials' },
   {
     title: 'Sales',
     icon: 'trending_up',
