@@ -7,13 +7,15 @@ const props = defineProps<{
   image: string
   title: string
   price: number
+  unit_color: string
   quantity?: number  // Add quantity prop
   details?: string
+  status?: string
 }>()
 
 const emit = defineEmits<{
   (e: 'update:modelValue', v: boolean): void
-  (e: 'add'): void
+  (e: 'addItem'): void
 }>()
 
 const isOpen = computed({
@@ -24,60 +26,75 @@ const isOpen = computed({
 function close() {
   isOpen.value = false
 }
-function add() {
-  emit('add')
+function addItem() {
+  emit('addItem')
   close()
 }
 </script>
 
 
 <template>
-  <q-dialog v-model="isOpen" persistent>
-    <q-card style="width: 320px; max-width: 90vw" class="q-pa-none">
-      <!-- Close button in the top-right -->
-      <q-btn flat dense round icon="close" class="absolute-top-right z-top q-mt-xs q-mr-xs" @click="close" />
+  <q-dialog v-model="isOpen" dismissible >
+    <q-card style="width: 45rem; max-width: 90vw" class="q-pa-none">
+      <q-card-section>
+        <div class="row q-pt-md q-px-md">
+          <div class="col-12 col-md-8">
+<!-- Image area -->
+            <q-img
+              :src="image || placeholder"
+              ratio="4/3"
+              height="240px"
+              :placeholder-src="placeholder"
+              :error-src="placeholder"
+              spinner-color="primary"
+              spinner-size="82px"
+              class="product-rounded"
+            >
+              <template v-slot:loading>
+                <q-spinner-dots color="primary" size="40px" />
+              </template>
+              <template v-slot:error>
+                <div class="absolute-full flex flex-center bg-negative text-white">
+                  Cannot load image
+                </div>
+              </template>
+              <q-btn
+                flat
+                dense
+                class="absolute-bottom-right q-mb-sm q-mr-sm"
 
-      <!-- Image area -->
-      <q-img
-        :src="image || placeholder"
-        ratio="4/3"
-        height="240px"
-        :placeholder-src="placeholder"
-        :error-src="placeholder"
-        spinner-color="primary"
-        spinner-size="82px"
-      >
-        <template v-slot:loading>
-          <q-spinner-dots color="primary" size="40px" />
-        </template>
-        <template v-slot:error>
-          <div class="absolute-full flex flex-center bg-negative text-white">
-            Cannot load image
+              >
+                <q-icon name="description" class="text-white" />
+              </q-btn>
+            </q-img>
           </div>
-        </template>
-      </q-img>
-
-      <!-- Information section with name, details, and price -->
-      <q-card-section class="q-pt-md q-pb-none">
-        <div class="row justify-between items-center">
-          <!-- Left side - Product info -->
-          <div class="col-7">
-            <div class="text-h6">{{ title }}</div>
-            <div class="text-subtitle2">Quantity: {{ quantity }}</div>
-            <div class="text-body2">{{ details }}</div>
-          </div>
-
-          <!-- Right side - Price -->
-          <div class="col-5 text-right text-h6">
-            ₱{{ price.toLocaleString() }}
+          <div class="col-12 col-md-4">
+                  <!-- Information section with name, details, and price -->
+            <q-card-section class="q-pt-md q-pb-none q-mb-md">
+              <div class="row justify-between items-center">
+                <!-- Left side - Product info -->
+                <div class="col-7">
+                  <div class="text-h6 text-bold">{{ title }}</div>
+                  <div class="text-body2">{{ details }}</div>
+                  <div class="text-body2">{{ unit_color }}</div>
+                  <div class="col-5 text-h6 text-bold q-mt-md">
+                    ₱{{ price.toLocaleString() }}
+                  </div>
+                  <div class="text-subtitle2">Quantity: {{ quantity }}</div>
+                  <!--need to add this -->
+                  <div class="text-h5 text-bold text-positive q-mt-md">{{ status }}</div>
+                </div>
+              </div>
+            </q-card-section>
+            <!-- Action buttons -->
+            <q-card-actions align="right" class="q-pa-none">
+                <q-btn color="primary" label="ADD" style="width: 30%;" @click="addItem" />
+              </q-card-actions>
           </div>
         </div>
       </q-card-section>
-
-      <!-- Action buttons -->
-      <q-card-actions align="right" class="q-pa-md">
-        <q-btn color="primary" label="ADD" @click="add" />
-      </q-card-actions>
+<!-- Close button in the top-right -->
+      <q-btn flat dense round class="absolute-top-right z-top q-mt-xs q-mr-xs"  @click="close"> <q-icon name="close" class="text-primary"/></q-btn>
     </q-card>
   </q-dialog>
 </template>

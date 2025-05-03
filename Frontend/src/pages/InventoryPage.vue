@@ -1,30 +1,34 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import type { QTableColumn } from 'quasar';
+import type { QTableColumn, QTableProps} from 'quasar';
 import ProductCardModal from 'src/components/Global/ProductModal.vue'
 const search = ref('');
-const selected = ref<DessertRow>({
+const show = ref(false)
+const title  = ref('')
+const selected = ref<CabsRow>({
   name: '',
   id: 0,
   make: '',
   quantity: 0,
   price: 0,
+  unit_color: '',
   status: '',
-  image: ''
+  image: '',
 })
 
-interface DessertRow {
+interface CabsRow {
   name: string
   id: number
   make: string
   quantity: number
   price: number
   status: string
+  unit_color: string
   image: string
-
 }
 
 const columns: QTableColumn[] = [
+  { name: 'id', align: 'center', label: 'ID', field: 'id', sortable: true },
   {
     name: 'unitName',
     required: true,
@@ -33,37 +37,29 @@ const columns: QTableColumn[] = [
     field: 'name',
     sortable: true
   },
-  { name: 'id', align: 'center', label: 'ID', field: 'id', sortable: true },
   { name: 'make', label: 'Make', field: 'make' },
   { name: 'quantity', label: 'Quantity', field: 'quantity', sortable: true },
-  { name: 'price', label: 'Price', field: 'price', sortable: true },
+  { name: 'price', label: 'Price', field: 'price', sortable: true, format: (val: number) =>
+        `₱ ${val.toLocaleString('en-PH', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        })}`
+  },
+
   { name: 'status', label: 'Status', field: 'status' },
-  // { name: 'action', label: 'Action', field: 'action' },
-  // {
-  //   name: 'calcium',
-  //   label: 'Calcium (%)',
-  //   field: 'calcium',
-  //   sortable: true,
-  //   sort: (a: string, b: string) => parseInt(a) - parseInt(b)
-  // },
-  // {
-  //   name: 'iron',
-  //   label: 'Iron (%)',
-  //   field: 'iron',
-  //   sortable: true,
-  //   sort: (a: string, b: string) => parseInt(a) - parseInt(b)
-  // }
+  {name: 'color', label: 'Color', field: 'unit_color'},
 ];
 
-const rows: DessertRow[] = [
+const rows: CabsRow[] = [
   {
     name: 'RX‑7',
     id: 1,
     make: 'Mazda',
     quantity: 4,
     price: 7_000_000,
-    status: 'Available',
-    image: 'https://loremflickr.com/600/400/mazda',      // ✅ working link
+    status: 'In Stock',
+    unit_color: 'Black',
+    image: 'https://loremflickr.com/600/400/mazda',
   },
   {
     name: '911 GT3',
@@ -71,26 +67,70 @@ const rows: DessertRow[] = [
     make: 'Porsche',
     quantity: 2,
     price: 10_000_000,
+    status: 'In Stock',
+    unit_color: 'Black',
+    image: 'https://loremflickr.com/600/400/porsche',
+  },
+  {
+    name: '911 GT3',
+    id: 3,
+    make: 'Porsche',
+    quantity: 2,
+    price: 10_000_000,
     status: 'Available',
-    image: 'https://loremflickr.com/600/400/porsche',    // ✅ working link
+    unit_color: 'Black',
+    image: 'https://loremflickr.com/600/400/porsche',
+  },
+  {
+    name: 'Corolla',
+    id: 4,
+    make: 'Toyota',
+    quantity: 2,
+    price: 10_000_000,
+    status: 'In Stock',
+    unit_color: 'Black',
+    image: 'https://loremflickr.com/600/400/porsche',
+  },
+  {
+    name: 'Navara',
+    id: 5,
+    make: 'Nissan',
+    quantity: 2,
+    price: 10_000_000,
+    status: 'In Stock',
+    unit_color: 'Black',
+    image: 'src/assets/images/Cars/navara.avif',
+  },
+  {
+    name: 'Vios',
+    id: 6,
+    make: 'Toyota',
+    quantity: 2,
+    price: 10_000_000,
+    status: 'In Stock',
+    unit_color: 'Black',
+    image: 'https://loremflickr.com/600/400/porsche',
+  },
+  {
+    name: 'Ranger',
+    id: 7,
+    make: 'Ford',
+    quantity: 2,
+    price: 10_000_000,
+    status: 'In Stock',
+    unit_color: 'Black',
+    image: 'https://loremflickr.com/600/400/porsche',
   },
 ]
 
-
-
-
-import type { QTableProps } from 'quasar'
-const show = ref(false)
-const title  = ref('')
-
 const onRowClick: QTableProps['onRowClick'] = (_e, row) => {
-  selected.value = row as DessertRow
+  selected.value = row as CabsRow
   show.value = true
 }
-
+//for future function
 function addToCart () {
   console.log('added to cart for', title.value)
-  show.value = false           // close after adding (optional)
+  show.value = false
 }
 
 </script>
@@ -154,9 +194,11 @@ function addToCart () {
         v-model="show"
         :image="selected?.image || ''"
         :title="selected?.name  || ''"
+        :unit_color="selected?.unit_color || ''"
         :price="selected?.price || 0"
         :quantity="selected?.quantity || 0"
-        :details="`Make: ${selected?.make}`"
+        :details="`${selected?.make}`"
+        :status="selected?.status || ''"
         @add="addToCart"
       />
     </div>
@@ -168,14 +210,14 @@ function addToCart () {
 .my-sticky-column-table
   max-width: 100%
 
-  thead tr:first-child th:first-child
+  thead tr:first-child th:nth-child(2)
     background-color: #00b4ff
 
-  td:first-child
+  td:nth-child(2)
     background-color: #00b4ff
 
-  th:first-child,
-  td:first-child
+  th:nth-child(2),
+  td:nth-child(2)
     position: sticky
     left: 0
     z-index: 1
