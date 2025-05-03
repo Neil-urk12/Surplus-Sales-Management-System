@@ -70,7 +70,7 @@
         </q-item>
         <div class="flex-col ">
           <!-- menu -->
-          <side-menu-items
+          <MenuItems
             class="text-soft-light"
             v-for="link in menuItemsList"
             :key="link.title"
@@ -179,6 +179,7 @@ import { ref, watch, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar'
 import { useAuthStore } from '../stores/auth'
+import MenuItems from '../components/menu-items.vue'
 import type { menuItemsProps } from '../types/menu-items'
 
 const menuItemsList: menuItemsProps[] = [
