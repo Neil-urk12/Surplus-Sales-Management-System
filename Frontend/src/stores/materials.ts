@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 export interface MaterialRow {
   name: string
@@ -43,7 +43,27 @@ export const useMaterialsStore = defineStore('materials', () => {
     },
   ])
 
+  // Search with debounce
+  const rawMaterialSearch = ref('')
   const materialSearch = ref('')
+  let debounceTimeout: ReturnType<typeof setTimeout> | null = null
+
+  // Debounce function to update materialSearch after typing stops
+  function updateMaterialSearch(value: string) {
+    if (debounceTimeout) {
+      clearTimeout(debounceTimeout)
+    }
+
+    debounceTimeout = setTimeout(() => {
+      materialSearch.value = value
+    }, 300) // 300ms debounce delay
+  }
+
+  // Watch for changes in rawMaterialSearch
+  watch(rawMaterialSearch, (newValue) => {
+    updateMaterialSearch(newValue)
+  })
+
   const filterCategory = ref('')
   const filterSupplier = ref('')
   const filterStatus = ref('')
@@ -59,22 +79,27 @@ export const useMaterialsStore = defineStore('materials', () => {
       const matchesCategory = !filterCategory.value || row.category === filterCategory.value
       const matchesSupplier = !filterSupplier.value || row.supplier === filterSupplier.value
       const matchesStatus = !filterStatus.value || row.status === filterStatus.value
-      const matchesSearch = !materialSearch.value || 
+      const matchesSearch = !materialSearch.value ||
         row.name.toLowerCase().includes(materialSearch.value.toLowerCase()) ||
         row.category.toLowerCase().includes(materialSearch.value.toLowerCase()) ||
         row.supplier.toLowerCase().includes(materialSearch.value.toLowerCase())
-      
+
       return matchesCategory && matchesSupplier && matchesStatus && matchesSearch
     })
   })
 
   // Actions
-  function addMaterial(material: Omit<MaterialRow, 'id'>) {
+  async function addMaterial(material: Omit<MaterialRow, 'id'>) {
+    // Simulate a brief network delay that would happen in a real API call
+    await new Promise(resolve => setTimeout(resolve, 200));
+
     const newId = Math.max(...materialRows.value.map(item => item.id)) + 1
     materialRows.value.push({
       ...material,
       id: newId
     })
+
+    return { success: true, id: newId }
   }
 
   function updateMaterialStatus(id: number, quantity: number) {
@@ -82,10 +107,12 @@ export const useMaterialsStore = defineStore('materials', () => {
     if (material) {
       if (quantity === 0) {
         material.status = 'Out of Stock'
-      } else if (quantity < 10) {
+      } else if (quantity <= 10) {
         material.status = 'Low Stock'
-      } else {
+      } else if (quantity <= 50) {
         material.status = 'In Stock'
+      } else {
+        material.status = 'Available'
       }
     }
   }
@@ -94,12 +121,41 @@ export const useMaterialsStore = defineStore('materials', () => {
     filterCategory.value = ''
     filterSupplier.value = ''
     filterStatus.value = ''
+    rawMaterialSearch.value = ''
     materialSearch.value = ''
+  }
+
+  async function deleteMaterial(id: number) {
+    // Simulate a brief network delay that would happen in a real API call
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const index = materialRows.value.findIndex(m => m.id === id);
+    if (index !== -1) {
+      materialRows.value.splice(index, 1);
+      return { success: true };
+    }
+    throw new Error('Material not found');
+  }
+
+  async function updateMaterial(id: number, material: Omit<MaterialRow, 'id'>) {
+    // Simulate a brief network delay that would happen in a real API call
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const index = materialRows.value.findIndex(m => m.id === id);
+    if (index !== -1) {
+      materialRows.value[index] = {
+        ...material,
+        id
+      };
+      return { success: true };
+    }
+    throw new Error('Material not found');
   }
 
   return {
     // State
     materialRows,
+    rawMaterialSearch,
     materialSearch,
     filterCategory,
     filterSupplier,
@@ -113,6 +169,8 @@ export const useMaterialsStore = defineStore('materials', () => {
     // Actions
     addMaterial,
     updateMaterialStatus,
-    resetFilters
+    resetFilters,
+    deleteMaterial,
+    updateMaterial
   }
-}) 
+})
