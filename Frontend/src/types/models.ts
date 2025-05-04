@@ -44,6 +44,11 @@ export interface SaleItem {
   updatedAt: string;
 }
 
+// Extended SaleItem interface that includes name
+export interface ExtendedSaleItem extends SaleItem {
+  name?: string;
+}
+
 export interface StockTransaction {
   id: string;
   userId: string;
