@@ -17,6 +17,7 @@
     "@quasar/extras": "^1.16.4",
     "@types/uuid": "^10.0.0",
     "axios": "^1.2.1",
+    "chart.js": "^4.4.9",
     "pinia": "^3.0.1",
     "quasar": "^2.16.0",
     "uuid": "^11.1.0",

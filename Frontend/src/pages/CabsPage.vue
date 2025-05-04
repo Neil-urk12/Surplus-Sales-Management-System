@@ -157,7 +157,6 @@ function addToCart () {
           <div class="flex col">
             <q-btn
               outline
-              color="primary"
               icon="filter_list"
               label="Filters"
             />
@@ -211,15 +210,19 @@ function addToCart () {
   max-width: 100%
 
   thead tr:first-child th:nth-child(2)
-    background-color: #00b4ff
+    background-color: var(--sticky-column-bg)
 
   td:nth-child(2)
-    background-color: #00b4ff
+    background-color: var(--sticky-column-bg)
 
   th:nth-child(2),
   td:nth-child(2)
     position: sticky
     left: 0
     z-index: 1
-</style>
+    color: white
 
+.body--dark .my-sticky-column-table th:nth-child(2),
+.body--dark .my-sticky-column-table td:nth-child(2)
+  color: black
+</style>
