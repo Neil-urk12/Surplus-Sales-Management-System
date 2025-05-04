@@ -45,29 +45,30 @@ export function showInfoNotification(options: NotifyOptions) {
   });
 }
 
-// Predefined notifications for common operations
+type ItemType = string;
+
 export const operationNotifications = {
   add: {
-    success: (itemName: string) => showSuccessNotification({
+    success: (itemName: ItemType) => showSuccessNotification({
       message: `Added new ${itemName}`,
     }),
-    error: (itemName: string) => showErrorNotification({
+    error: (itemName: ItemType) => showErrorNotification({
       message: `Failed to add ${itemName}`,
     }),
   },
   update: {
-    success: (itemName: string) => showSuccessNotification({
+    success: (itemName: ItemType) => showSuccessNotification({
       message: `Updated ${itemName}`,
     }),
-    error: (itemName: string) => showErrorNotification({
+    error: (itemName: ItemType) => showErrorNotification({
       message: `Failed to update ${itemName}`,
     }),
   },
   delete: {
-    success: (itemName: string) => showSuccessNotification({
+    success: (itemName: ItemType) => showSuccessNotification({
       message: `Successfully deleted ${itemName}`,
     }),
-    error: (itemName: string) => showErrorNotification({
+    error: (itemName: ItemType) => showErrorNotification({
       message: `Failed to delete ${itemName}`,
     }),
   },
