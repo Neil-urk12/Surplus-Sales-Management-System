@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
 import type { 
   CabsRow, 
   NewCabInput, 
@@ -12,6 +15,7 @@ import type {
   CabMakeInput,
   CabColorInput
 } from 'src/types/cabs'
+<<<<<<< HEAD
 
 export type { CabsRow } from 'src/types/cabs'
 
@@ -105,20 +109,14 @@ export const useCabsStore = defineStore('cabs', () => {
     }
   }
 =======
+=======
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
 
-export interface CabsRow {
-  name: string
-  id: number
-  make: string
-  quantity: number
-  price: number
-  status: string
-  unit_color: string
-  image: string
-}
+export type { CabsRow } from 'src/types/cabs'
 
 export const useCabsStore = defineStore('cabs', () => {
   // State
+<<<<<<< HEAD
   const cabRows = ref<CabsRow[]>([
     {
       name: 'RX‑7',
@@ -192,6 +190,95 @@ export const useCabsStore = defineStore('cabs', () => {
     },
   ])
 >>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
+=======
+  const cabRows = ref<CabsRow[]>([])
+  const isLoading = ref(false)
+  
+  // Initialize data
+  async function initializeCabs() {
+    try {
+      isLoading.value = true
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 500))
+      cabRows.value = [
+        {
+          name: 'RX‑7',
+          id: 1,
+          make: 'Mazda',
+          quantity: 4,
+          price: 7_000_000,
+          status: 'In Stock',
+          unit_color: 'Black',
+          image: 'https://loremflickr.com/600/400/mazda',
+        },
+        {
+          name: '911 GT3',
+          id: 2,
+          make: 'Porsche',
+          quantity: 2,
+          price: 10_000_000,
+          status: 'In Stock',
+          unit_color: 'Black',
+          image: 'https://loremflickr.com/600/400/porsche',
+        },
+        {
+          name: '911 GT3',
+          id: 3,
+          make: 'Porsche',
+          quantity: 2,
+          price: 10_000_000,
+          status: 'Available',
+          unit_color: 'Black',
+          image: 'https://loremflickr.com/600/400/porsche',
+        },
+        {
+          name: 'Corolla',
+          id: 4,
+          make: 'Toyota',
+          quantity: 2,
+          price: 10_000_000,
+          status: 'In Stock',
+          unit_color: 'Black',
+          image: 'https://loremflickr.com/600/400/toyota',
+        },
+        {
+          name: 'Navara',
+          id: 5,
+          make: 'Nissan',
+          quantity: 2,
+          price: 10_000_000,
+          status: 'In Stock',
+          unit_color: 'Black',
+          image: 'src/assets/images/Cars/navara.avif',
+        },
+        {
+          name: 'Vios',
+          id: 6,
+          make: 'Toyota',
+          quantity: 2,
+          price: 10_000_000,
+          status: 'In Stock',
+          unit_color: 'Black',
+          image: 'https://loremflickr.com/600/400/toyota',
+        },
+        {
+          name: 'Ranger',
+          id: 7,
+          make: 'Ford',
+          quantity: 2,
+          price: 10_000_000,
+          status: 'In Stock',
+          unit_color: 'Black',
+          image: 'https://loremflickr.com/600/400/ford',
+        },
+      ]
+    } catch (error) {
+      console.error('Error initializing cabs:', error)
+    } finally {
+      isLoading.value = false
+    }
+  }
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
 
   // Search with debounce
   const rawCabSearch = ref('')
@@ -215,10 +302,14 @@ export const useCabsStore = defineStore('cabs', () => {
   })
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
   // Use input types that allow empty strings for filters
   const filterMake = ref<CabMakeInput>('')
   const filterColor = ref<CabColorInput>('')
   const filterStatus = ref<CabStatus | ''>('')
+<<<<<<< HEAD
 
   // Available options
   const makes: CabMake[] = ['Mazda', 'Porsche', 'Toyota', 'Nissan', 'Ford']
@@ -234,6 +325,13 @@ export const useCabsStore = defineStore('cabs', () => {
   const colors = ['Black', 'White', 'Silver', 'Red', 'Blue']
   const statuses = ['In Stock', 'Low Stock', 'Out of Stock', 'Available']
 >>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
+=======
+
+  // Available options
+  const makes: CabMake[] = ['Mazda', 'Porsche', 'Toyota', 'Nissan', 'Ford']
+  const colors: CabColor[] = ['Black', 'White', 'Silver', 'Red', 'Blue']
+  const statuses: CabStatus[] = ['In Stock', 'Low Stock', 'Out of Stock', 'Available']
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
 
   // Computed
   const filteredCabRows = computed(() => {
@@ -250,6 +348,9 @@ export const useCabsStore = defineStore('cabs', () => {
   })
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
   // Type guard functions
   function isValidCabMake(make: CabMakeInput): make is CabMake {
     return make !== '';
@@ -259,6 +360,7 @@ export const useCabsStore = defineStore('cabs', () => {
     return color !== '';
   }
 
+<<<<<<< HEAD
   // Actions
   async function addCab(cab: NewCabInput): Promise<CabOperationResponse> {
     try {
@@ -297,19 +399,50 @@ export const useCabsStore = defineStore('cabs', () => {
       isLoading.value = false
     }
 =======
+=======
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
   // Actions
-  async function addCab(cab: Omit<CabsRow, 'id'>) {
-    // Simulate a brief network delay that would happen in a real API call
-    await new Promise(resolve => setTimeout(resolve, 200));
+  async function addCab(cab: NewCabInput): Promise<CabOperationResponse> {
+    try {
+      isLoading.value = true
+      // Validate required fields
+      if (!cab.make || !cab.unit_color) {
+        throw new Error('Make and color are required');
+      }
 
-    const newId = Math.max(...cabRows.value.map(item => item.id)) + 1
-    cabRows.value.push({
-      ...cab,
-      id: newId
-    })
+      // Simulate a brief network delay that would happen in a real API call
+      await new Promise(resolve => setTimeout(resolve, 200));
 
+<<<<<<< HEAD
     return { success: true, id: newId }
 >>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
+=======
+      const newId = Math.max(...cabRows.value.map(item => item.id)) + 1;
+      
+      // Create a new cab with validated types
+      const newCab: CabsRow = {
+        id: newId,
+        name: cab.name,
+        make: cab.make,
+        quantity: cab.quantity,
+        price: cab.price,
+        status: cab.status,
+        unit_color: cab.unit_color,
+        image: cab.image
+      };
+
+      cabRows.value.push(newCab);
+
+      return { success: true, id: newId }
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      }
+    } finally {
+      isLoading.value = false
+    }
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
   }
 
   function updateCabStatus(id: number, quantity: number) {
@@ -336,11 +469,15 @@ export const useCabsStore = defineStore('cabs', () => {
   }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
   async function deleteCab(id: number): Promise<CabOperationResponse> {
     try {
       isLoading.value = true
       // Simulate a brief network delay that would happen in a real API call
       await new Promise(resolve => setTimeout(resolve, 200));
+<<<<<<< HEAD
 
       const index = cabRows.value.findIndex(c => c.id === id);
       if (index !== -1) {
@@ -422,38 +559,103 @@ export const useCabsStore = defineStore('cabs', () => {
   async function deleteCab(id: number) {
     // Simulate a brief network delay that would happen in a real API call
     await new Promise(resolve => setTimeout(resolve, 200));
+=======
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
 
-    const index = cabRows.value.findIndex(c => c.id === id);
-    if (index !== -1) {
-      cabRows.value.splice(index, 1);
-      return { success: true };
+      const index = cabRows.value.findIndex(c => c.id === id);
+      if (index !== -1) {
+        cabRows.value.splice(index, 1);
+        return { success: true };
+      }
+      throw new Error('Cab not found');
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      }
+    } finally {
+      isLoading.value = false
     }
-    throw new Error('Cab not found');
   }
 
-  async function updateCab(id: number, cab: Omit<CabsRow, 'id'>) {
-    // Simulate a brief network delay that would happen in a real API call
-    await new Promise(resolve => setTimeout(resolve, 200));
-
-    const index = cabRows.value.findIndex(c => c.id === id);
-    if (index !== -1) {
-      cabRows.value[index] = {
-        ...cab,
-        id
+  async function updateCab(id: number, cab: UpdateCabInput): Promise<CabOperationResponse> {
+    const existingCab = cabRows.value.find(c => c.id === id);
+    if (!existingCab) {
+      return {
+        success: false,
+        error: 'Cab not found'
       };
-      return { success: true };
     }
+<<<<<<< HEAD
     throw new Error('Cab not found');
 >>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
+=======
+    
+    // Create a deep copy of the existing cab
+    const originalCab: CabsRow = { ...existingCab };
+    
+    try {
+      isLoading.value = true;
+      // Simulate a brief network delay that would happen in a real API call
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      const index = cabRows.value.findIndex(c => c.id === id);
+      
+      // Use type guards to validate make and color
+      const updatedMake = cab.make && isValidCabMake(cab.make) ? cab.make : originalCab.make;
+      const updatedColor = cab.unit_color && isValidCabColor(cab.unit_color) ? cab.unit_color : originalCab.unit_color;
+
+      // Create updated cab with all required properties
+      const updatedCab: CabsRow = {
+        id,
+        name: cab.name ?? originalCab.name,
+        make: updatedMake,
+        quantity: cab.quantity ?? originalCab.quantity,
+        price: cab.price ?? originalCab.price,
+        status: cab.status ?? originalCab.status,
+        unit_color: updatedColor,
+        image: cab.image ?? originalCab.image
+      };
+
+      try {
+        // Attempt to update the cab in the store
+        cabRows.value[index] = updatedCab;
+      } catch (updateError) {
+        // If the update fails, restore the original cab
+        console.error('Error updating cab in store:', updateError);
+        cabRows.value[index] = originalCab;
+        throw new Error('Failed to update cab data');
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error in updateCab:', error);
+      // Ensure the original state is restored in case of any error
+      const index = cabRows.value.findIndex(c => c.id === id);
+      if (index !== -1) {
+        cabRows.value[index] = originalCab;
+      }
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error occurred while updating cab'
+      };
+    } finally {
+      isLoading.value = false;
+    }
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
   }
 
   return {
     // State
     cabRows,
 <<<<<<< HEAD
+<<<<<<< HEAD
     isLoading,
 =======
 >>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
+=======
+    isLoading,
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
     rawCabSearch,
     cabSearch,
     filterMake,
@@ -467,9 +669,13 @@ export const useCabsStore = defineStore('cabs', () => {
     filteredCabRows,
     // Actions
 <<<<<<< HEAD
+<<<<<<< HEAD
     initializeCabs,
 =======
 >>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
+=======
+    initializeCabs,
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
     addCab,
     updateCabStatus,
     resetFilters,

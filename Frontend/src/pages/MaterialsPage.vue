@@ -4,8 +4,13 @@ import type { QTableColumn, QTableProps } from 'quasar';
 import ProductCardModal from 'src/components/Global/ProductModal.vue'
 import { useQuasar } from 'quasar';
 import { useMaterialsStore } from 'src/stores/materials';
+<<<<<<< HEAD
 import type { MaterialRow, NewMaterialInput } from 'src/stores/materials';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
+=======
+import type { MaterialRow } from 'src/stores/materials';
+import { validateImageFile, validateAndSanitizeBase64Image } from '../utils/imageValidation';
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
 import { operationNotifications } from '../utils/notifications';
 
 const $q = useQuasar();
@@ -302,6 +307,7 @@ function handleDrop(event: DragEvent) {
   }
 }
 
+<<<<<<< HEAD
 // Update handleFile function
 async function handleFile(file: File) {
   try {
@@ -318,6 +324,38 @@ async function handleFile(file: File) {
         timeout: 3000
       });
       return;
+=======
+// Function to handle the file
+function handleFile(file: File) {
+  const validationResult = validateImageFile(file);
+  if (!validationResult.isValid) {
+    $q.notify({
+      color: 'negative',
+      message: validationResult.error || 'Invalid file',
+      position: 'top',
+    });
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    if (e.target?.result) {
+      const base64String = e.target.result as string;
+      const base64ValidationResult = validateAndSanitizeBase64Image(base64String);
+      
+      if (!base64ValidationResult.isValid) {
+        $q.notify({
+          color: 'negative',
+          message: base64ValidationResult.error || 'Invalid image data',
+          position: 'top',
+        });
+        return;
+      }
+
+      previewUrl.value = base64ValidationResult.sanitizedData!;
+      newMaterial.value.image = base64ValidationResult.sanitizedData!;
+      imageUrlValid.value = true;
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
     }
     console.log('File validation passed');
 
@@ -389,6 +427,7 @@ async function handleFile(file: File) {
   }
 }
 
+<<<<<<< HEAD
 // Update validateFile function
 async function validateFile(file: File): Promise<{ isValid: boolean; error?: string }> {
   try {
@@ -567,6 +606,12 @@ function clearImageInput() {
     URL.revokeObjectURL(previewUrl.value);
   }
   previewUrl.value = defaultImageUrl;
+=======
+// Function to remove image
+function removeImage(event: MouseEvent) {
+  event.stopPropagation(); // Prevent triggering file input click
+  previewUrl.value = '';
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
   newMaterial.value.image = defaultImageUrl;
   imageUrlValid.value = true;
   if (fileInput.value) {

@@ -45,6 +45,7 @@ export function showInfoNotification(options: NotifyOptions) {
   });
 }
 
+<<<<<<< HEAD
 type ItemType = string;
 
 export const operationNotifications = {
@@ -53,22 +54,45 @@ export const operationNotifications = {
       message: `Added new ${itemName}`,
     }),
     error: (itemName: ItemType) => showErrorNotification({
+=======
+// Predefined notifications for common operations
+export const operationNotifications = {
+  add: {
+    success: (itemName: string) => showSuccessNotification({
+      message: `Added new ${itemName}`,
+    }),
+    error: (itemName: string) => showErrorNotification({
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
       message: `Failed to add ${itemName}`,
     }),
   },
   update: {
+<<<<<<< HEAD
     success: (itemName: ItemType) => showSuccessNotification({
       message: `Updated ${itemName}`,
     }),
     error: (itemName: ItemType) => showErrorNotification({
+=======
+    success: (itemName: string) => showSuccessNotification({
+      message: `Updated ${itemName}`,
+    }),
+    error: (itemName: string) => showErrorNotification({
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
       message: `Failed to update ${itemName}`,
     }),
   },
   delete: {
+<<<<<<< HEAD
     success: (itemName: ItemType) => showSuccessNotification({
       message: `Successfully deleted ${itemName}`,
     }),
     error: (itemName: ItemType) => showErrorNotification({
+=======
+    success: (itemName: string) => showSuccessNotification({
+      message: `Successfully deleted ${itemName}`,
+    }),
+    error: (itemName: string) => showErrorNotification({
+>>>>>>> 52c0309 (feat(ProductModal, CabsPage, MaterialsPage) Enhance image handling and validation)
       message: `Failed to delete ${itemName}`,
     }),
   },
