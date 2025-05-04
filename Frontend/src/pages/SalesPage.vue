@@ -455,6 +455,12 @@ const salesByModelData = computed(() => {
 });
 
 // Format recent sales data for the table
+const dateFormatOptions = {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric'
+} as const;
+
 const recentSales = computed(() => {
   return mockSales.value
     .slice(0, 7) // Get only the first 7 sales (non-historical)
@@ -467,8 +473,10 @@ const recentSales = computed(() => {
         id: sale.id,
         carModel: car?.model || 'Unknown Model',
         date: sale.saleDate,
+        formattedDate: new Date(sale.saleDate).toLocaleDateString('en-US', dateFormatOptions),
         price: sale.totalPrice,
-        customer: customer?.fullName || 'Unknown Customer', // Use fullName
+        formattedPrice: formatNumber(sale.totalPrice),
+        customer: customer?.fullName || 'Unknown Customer',
         salesperson: salesperson?.fullName || 'Unknown Salesperson',
         color: car?.color || 'Unknown'
       };
@@ -478,12 +486,6 @@ const recentSales = computed(() => {
 // Format number with commas
 function formatNumber(num: number): string {
   return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
-}
-
-// Format date
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 </script>
 
@@ -600,7 +602,7 @@ function formatDate(dateString: string): string {
               <q-td :props="props">
                 <div class="row items-center">
                   <q-icon name="event" size="xs" class="q-mr-sm" />
-                  {{ formatDate(props.value) }}
+                  {{ props.row.formattedDate }}
                 </div>
               </q-td>
             </template>
@@ -608,7 +610,7 @@ function formatDate(dateString: string): string {
               <q-td :props="props">
                 <div class="row items-center">
                   <q-icon name="attach_money" size="xs" class="q-mr-sm" />
-                  ${{ formatNumber(props.value) }}
+                  ${{ props.row.formattedPrice }}
                 </div>
               </q-td>
             </template>
