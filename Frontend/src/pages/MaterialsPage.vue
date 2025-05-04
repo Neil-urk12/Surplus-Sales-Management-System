@@ -461,7 +461,7 @@ const showEditDialog = ref(false);
           row-key="id"
           :filter="store.materialSearch"
           @row-click="onMaterialRowClick"
-          :pagination="{ rowsPerPage: 10 }"
+          :pagination="{ rowsPerPage: 5 }"
         >
           <template v-slot:body-cell-actions="props">
             <q-td :props="props" auto-width>
