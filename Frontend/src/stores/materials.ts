@@ -1,101 +1,65 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
+import type { 
+  MaterialRow, 
+  NewMaterialInput, 
+  UpdateMaterialInput, 
+  MaterialOperationResponse,
+  MaterialCategory,
+  MaterialSupplier,
+  MaterialStatus,
+  MaterialCategoryInput,
+  MaterialSupplierInput
+} from 'src/types/materials'
 
-export interface MaterialRow {
-  name: string
-  id: number
-  category: string
-  supplier: string
-  quantity: number
-  status: string
-  image: string
-}
+export type { MaterialRow, NewMaterialInput } from 'src/types/materials'
 
 export const useMaterialsStore = defineStore('materials', () => {
   // State
-  const materialRows = ref<MaterialRow[]>([
-    {
-      name: 'Steel Beams',
-      id: 101,
-      category: 'Lumber',
-      supplier: 'Steel Co.',
-      quantity: 25,
-      status: 'In Stock',
-      image: 'https://loremflickr.com/600/400/steel',
-    },
-    {
-      name: 'Concrete Mix',
-      id: 102,
-      category: 'Building',
-      supplier: 'Construction Supplies Inc.',
-      quantity: 50,
-      status: 'Low Stock',
-      image: 'https://loremflickr.com/600/400/concrete',
-    },
-    {
-      name: 'Lumber',
-      id: 103,
-      category: 'Lumber',
-      supplier: 'Wood Works',
-      quantity: 100,
-      status: 'Available',
-      image: 'https://loremflickr.com/600/400/lumber',
-    },
-    {
-      name: 'Concrete Mix',
-      id: 102,
-      category: 'Building',
-      supplier: 'Construction Supplies Inc.',
-      quantity: 50,
-      status: 'Low Stock',
-      image: 'https://loremflickr.com/600/400/concrete',
-    },
-    {
-      name: 'Lumber',
-      id: 103,
-      category: 'Lumber',
-      supplier: 'Wood Works',
-      quantity: 100,
-      status: 'Available',
-      image: 'https://loremflickr.com/600/400/lumber',
-    },
-    {
-      name: 'Concrete Mix',
-      id: 102,
-      category: 'Building',
-      supplier: 'Construction Supplies Inc.',
-      quantity: 50,
-      status: 'Low Stock',
-      image: 'https://loremflickr.com/600/400/concrete',
-    },
-    {
-      name: 'Lumber',
-      id: 103,
-      category: 'Lumber',
-      supplier: 'Wood Works',
-      quantity: 100,
-      status: 'Available',
-      image: 'https://loremflickr.com/600/400/lumber',
-    },
-    {
-      name: 'Concrete Mix',
-      id: 102,
-      category: 'Building',
-      supplier: 'Construction Supplies Inc.',
-      quantity: 50,
-      status: 'Low Stock',
-      image: 'https://loremflickr.com/600/400/concrete',
-    },
-    {
-      name: 'Lumber',
-      id: 103,
-      category: 'Lumber',
-      supplier: 'Wood Works',
-      quantity: 100,
-      status: 'Available',
-      image: 'https://loremflickr.com/600/400/lumber',
-    },
-  ])
+  const materialRows = ref<MaterialRow[]>([])
+  const isLoading = ref(false)
+
+  // Initialize data
+  async function initializeMaterials() {
+    try {
+      isLoading.value = true
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 500))
+      materialRows.value = [
+        {
+          name: 'Steel Beams',
+          id: 101,
+          category: 'Building',
+          supplier: 'Steel Co.',
+          quantity: 25,
+          status: 'In Stock',
+          image: 'https://loremflickr.com/600/400/steel',
+        },
+        {
+          name: 'Concrete Mix',
+          id: 102,
+          category: 'Building',
+          supplier: 'Construction Supplies Inc.',
+          quantity: 50,
+          status: 'Low Stock',
+          image: 'https://loremflickr.com/600/400/concrete',
+        },
+        {
+          name: 'Lumber',
+          id: 103,
+          category: 'Lumber',
+          supplier: 'Wood Works',
+          quantity: 100,
+          status: 'Available',
+          image: 'https://loremflickr.com/600/400/lumber',
+        },
+      ]
+    } catch (error) {
+      console.error('Error initializing materials:', error)
+    } finally {
+      isLoading.value = false
+    }
+  }
 
   // Search with debounce
   const rawMaterialSearch = ref('')
@@ -118,14 +82,15 @@ export const useMaterialsStore = defineStore('materials', () => {
     updateMaterialSearch(newValue)
   })
 
-  const filterCategory = ref('')
-  const filterSupplier = ref('')
-  const filterStatus = ref('')
+  // Use input types that allow empty strings for filters
+  const filterCategory = ref<MaterialCategoryInput>('')
+  const filterSupplier = ref<MaterialSupplierInput>('')
+  const filterStatus = ref<MaterialStatus | ''>('')
 
   // Available options
-  const categories = ['Lumber', 'Building', 'Electrical', 'Plumbing', 'Hardware']
-  const suppliers = ['Steel Co.', 'Construction Supplies Inc.', 'Wood Works']
-  const statuses = ['In Stock', 'Low Stock', 'Out of Stock', 'Available']
+  const categories: MaterialCategory[] = ['Lumber', 'Building', 'Electrical', 'Plumbing', 'Hardware']
+  const suppliers: MaterialSupplier[] = ['Steel Co.', 'Construction Supplies Inc.', 'Wood Works']
+  const statuses: MaterialStatus[] = ['In Stock', 'Low Stock', 'Out of Stock', 'Available']
 
   // Computed
   const filteredMaterialRows = computed(() => {
@@ -142,18 +107,51 @@ export const useMaterialsStore = defineStore('materials', () => {
     })
   })
 
+  // Type guard functions
+  function isValidMaterialCategory(category: MaterialCategoryInput): category is MaterialCategory {
+    return category !== '';
+  }
+
+  function isValidMaterialSupplier(supplier: MaterialSupplierInput): supplier is MaterialSupplier {
+    return supplier !== '';
+  }
+
   // Actions
-  async function addMaterial(material: Omit<MaterialRow, 'id'>) {
-    // Simulate a brief network delay that would happen in a real API call
-    await new Promise(resolve => setTimeout(resolve, 200));
+  async function addMaterial(material: NewMaterialInput): Promise<MaterialOperationResponse> {
+    try {
+      isLoading.value = true
+      // Validate required fields
+      if (!material.category || !material.supplier) {
+        throw new Error('Category and supplier are required');
+      }
 
-    const newId = Math.max(...materialRows.value.map(item => item.id)) + 1
-    materialRows.value.push({
-      ...material,
-      id: newId
-    })
+      // Simulate a brief network delay that would happen in a real API call
+      await new Promise(resolve => setTimeout(resolve, 200));
 
-    return { success: true, id: newId }
+      const newId = Math.max(...materialRows.value.map(item => item.id)) + 1;
+      
+      // Create a new material with validated types
+      const newMaterial: MaterialRow = {
+        id: newId,
+        name: material.name,
+        category: material.category,
+        supplier: material.supplier,
+        quantity: material.quantity,
+        status: material.status,
+        image: material.image
+      };
+
+      materialRows.value.push(newMaterial);
+
+      return { success: true, id: newId }
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      }
+    } finally {
+      isLoading.value = false
+    }
   }
 
   function updateMaterialStatus(id: number, quantity: number) {
@@ -179,36 +177,93 @@ export const useMaterialsStore = defineStore('materials', () => {
     materialSearch.value = ''
   }
 
-  async function deleteMaterial(id: number) {
-    // Simulate a brief network delay that would happen in a real API call
-    await new Promise(resolve => setTimeout(resolve, 200));
+  async function deleteMaterial(id: number): Promise<MaterialOperationResponse> {
+    try {
+      isLoading.value = true
+      // Simulate a brief network delay that would happen in a real API call
+      await new Promise(resolve => setTimeout(resolve, 200));
 
-    const index = materialRows.value.findIndex(m => m.id === id);
-    if (index !== -1) {
-      materialRows.value.splice(index, 1);
-      return { success: true };
+      const index = materialRows.value.findIndex(m => m.id === id);
+      if (index !== -1) {
+        materialRows.value.splice(index, 1);
+        return { success: true };
+      }
+      throw new Error('Material not found');
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      }
+    } finally {
+      isLoading.value = false
     }
-    throw new Error('Material not found');
   }
 
-  async function updateMaterial(id: number, material: Omit<MaterialRow, 'id'>) {
-    // Simulate a brief network delay that would happen in a real API call
-    await new Promise(resolve => setTimeout(resolve, 200));
-
-    const index = materialRows.value.findIndex(m => m.id === id);
-    if (index !== -1) {
-      materialRows.value[index] = {
-        ...material,
-        id
+  async function updateMaterial(id: number, material: UpdateMaterialInput): Promise<MaterialOperationResponse> {
+    const existingMaterial = materialRows.value.find(m => m.id === id);
+    if (!existingMaterial) {
+      return {
+        success: false,
+        error: 'Material not found'
       };
-      return { success: true };
     }
-    throw new Error('Material not found');
+    
+    // Create a deep copy of the existing material
+    const originalMaterial: MaterialRow = { ...existingMaterial };
+    
+    try {
+      isLoading.value = true;
+      // Simulate a brief network delay that would happen in a real API call
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      const index = materialRows.value.findIndex(m => m.id === id);
+      
+      // Use type guards to validate category and supplier
+      const updatedCategory = material.category && isValidMaterialCategory(material.category) ? material.category : originalMaterial.category;
+      const updatedSupplier = material.supplier && isValidMaterialSupplier(material.supplier) ? material.supplier : originalMaterial.supplier;
+
+      // Create updated material with all required properties
+      const updatedMaterial: MaterialRow = {
+        id,
+        name: material.name ?? originalMaterial.name,
+        category: updatedCategory,
+        supplier: updatedSupplier,
+        quantity: material.quantity ?? originalMaterial.quantity,
+        status: material.status ?? originalMaterial.status,
+        image: material.image ?? originalMaterial.image
+      };
+
+      try {
+        // Attempt to update the material in the store
+        materialRows.value[index] = updatedMaterial;
+      } catch (updateError) {
+        // If the update fails, restore the original material
+        console.error('Error updating material in store:', updateError);
+        materialRows.value[index] = originalMaterial;
+        throw new Error('Failed to update material data');
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error in updateMaterial:', error);
+      // Ensure the original state is restored in case of any error
+      const index = materialRows.value.findIndex(m => m.id === id);
+      if (index !== -1) {
+        materialRows.value[index] = originalMaterial;
+      }
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error occurred while updating material'
+      };
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   return {
     // State
     materialRows,
+    isLoading,
     rawMaterialSearch,
     materialSearch,
     filterCategory,
@@ -221,6 +276,7 @@ export const useMaterialsStore = defineStore('materials', () => {
     // Computed
     filteredMaterialRows,
     // Actions
+    initializeMaterials,
     addMaterial,
     updateMaterialStatus,
     resetFilters,
