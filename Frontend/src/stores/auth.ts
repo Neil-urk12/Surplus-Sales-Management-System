@@ -12,7 +12,7 @@ interface LoginResponse {
 export const useAuthStore = defineStore('auth', () => {
   // --- State --- Reactive refs
   const token = ref<string | null>(localStorage.getItem('authToken') || null)
-  const user = ref<User | null>(null)
+  const user = ref<User | null>(JSON.parse(localStorage.getItem('user') || 'null'))
 
   // --- Getters --- Computed properties
   const isAuthenticated = computed(() => !!token.value)
@@ -27,12 +27,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   function setUser(newUser: User) {
     user.value = newUser
+    localStorage.setItem('user', JSON.stringify(newUser))
   }
 
   function clearAuth() {
     token.value = null
     user.value = null
     localStorage.removeItem('authToken')
+    localStorage.removeItem('user')
   }
 
   async function login(credentials: { email: string; password: string }): Promise<{ success: boolean; message?: string }> {
@@ -76,10 +78,8 @@ export const useAuthStore = defineStore('auth', () => {
           return { success: false, message: errorMessage };
         }
       }
-
       return { success: false, message: 'An error occurred while connecting to the server. Please try again later.' };
     }
-
   }
   function logout() {
     clearAuth()
