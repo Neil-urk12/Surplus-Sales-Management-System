@@ -7,81 +7,83 @@ import SalesByModelChart from '../components/charts/SalesByModelChart.vue';
 
 const $q = useQuasar();
 
-// Mock data for sales
-const mockSales = ref<Sale[]>([
-  {
-    id: '1',
-    customerId: '1',
-    soldBy: '1',
-    saleDate: '2025-04-28T10:30:00Z',
-    totalPrice: 20541,
-    createdAt: '2025-04-28T10:30:00Z',
-    updatedAt: '2025-04-28T10:30:00Z',
-    multiCabId: '1' // Linked to mockMultiCabs[0]
-  },
-  {
-    id: '2',
-    customerId: '1',
-    soldBy: '1',
-    saleDate: '2025-04-26T14:15:00Z',
-    totalPrice: 47432,
-    createdAt: '2025-04-26T14:15:00Z',
-    updatedAt: '2025-04-26T14:15:00Z',
-    multiCabId: '2' // Linked to mockMultiCabs[1]
-  },
-  {
-    id: '3',
-    customerId: '2',
-    soldBy: '2',
-    saleDate: '2025-04-24T09:45:00Z',
-    totalPrice: 68118,
-    createdAt: '2025-04-24T09:45:00Z',
-    updatedAt: '2025-04-24T09:45:00Z',
-    multiCabId: '3' // Linked to mockMultiCabs[2]
-  },
-  {
-    id: '4',
-    customerId: '1',
-    soldBy: '3',
-    saleDate: '2025-04-23T16:20:00Z',
-    totalPrice: 30526,
-    createdAt: '2025-04-23T16:20:00Z',
-    updatedAt: '2025-04-23T16:20:00Z',
-    multiCabId: '4' // Linked to mockMultiCabs[3]
-  },
-  {
-    id: '5',
-    customerId: '2',
-    soldBy: '2',
-    saleDate: '2025-04-23T11:10:00Z',
-    totalPrice: 47182,
-    createdAt: '2025-04-23T11:10:00Z',
-    updatedAt: '2025-04-23T11:10:00Z',
-    multiCabId: '5' // Linked to mockMultiCabs[4]
-  },
-  {
-    id: '6',
-    customerId: '3',
-    soldBy: '2',
-    saleDate: '2025-04-20T13:30:00Z',
-    totalPrice: 15186,
-    createdAt: '2025-04-20T13:30:00Z',
-    updatedAt: '2025-04-20T13:30:00Z',
-    multiCabId: '6' // Linked to mockMultiCabs[5]
-  },
-  {
-    id: '7',
-    customerId: '1',
-    soldBy: '4',
-    saleDate: '2025-04-18T10:00:00Z',
-    totalPrice: 49451,
-    createdAt: '2025-04-18T10:00:00Z',
-    updatedAt: '2025-04-18T10:00:00Z',
-    multiCabId: '7' // Linked to mockMultiCabs[6]
-  },
-  // Additional historical data for the chart
-  ...generateHistoricalSales()
-]);
+// Generate historical sales data for the chart
+function generateHistoricalSales(existingCarIds: string[]) {
+  const months = [
+    'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'
+  ];
+
+  const historicalSales: Sale[] = [];
+
+  // Generate monthly sales data to match the chart in the mockup
+  const monthlyRevenues = [700000, 400000, 600000, 500000, 400000, 400000, 400000, 600000, 300000, 500000, 300000];
+
+  let saleId = 100;
+
+  months.forEach((month, index) => {
+    const year = index < 7 ? 2024 : 2025;
+    const monthIndex = index < 7 ? index + 5 : index - 7;
+
+    // Generate multiple sales for each month to reach the target revenue
+    const targetRevenue = monthlyRevenues[index] || 0; // Default to 0 if undefined
+    let currentRevenue = 0;
+
+    while (currentRevenue < targetRevenue) {
+      const price = 15000 + Math.floor(Math.random() * 55000);
+      currentRevenue += price;
+
+      const day = Math.floor(Math.random() * 28) + 1;
+      const date = new Date(year, monthIndex, day);
+      const randomCarId = existingCarIds[Math.floor(Math.random() * existingCarIds.length)] || 'unknown'; // Assign a random car ID
+
+      historicalSales.push({
+        id: `hist-${saleId++}`,
+        customerId: String(Math.floor(Math.random() * 3) + 1),
+        soldBy: String(Math.floor(Math.random() * 4) + 1),
+        saleDate: date.toISOString(),
+        totalPrice: price,
+        createdAt: date.toISOString(),
+        updatedAt: date.toISOString(),
+        multiCabId: randomCarId // Add the multiCabId
+      });
+    }
+  });
+
+  return historicalSales;
+}
+
+// Generate additional cars for the statistics
+function generateAdditionalCars() {
+  const models = ['Coupe B', 'Truck Z', 'Hatchback J', 'Sedan X', 'SUV Y', 'Minivan C'];
+  const colors = ['Red', 'Blue', 'Black', 'White', 'Silver', 'Gray'];
+  const makes = ['BMW', 'Toyota', 'Honda', 'Nissan', 'Suzuki', 'Ford'];
+
+  const additionalCars: MultiCab[] = [];
+
+  // Generate more cars to match the statistics in the mockup
+  for (let i = 0; i < 193; i++) { // To reach a total of 200 cars
+    const modelIndex = i % models.length;
+    const model = models[modelIndex]!;
+    const make = makes[modelIndex]!;
+
+    additionalCars.push({
+      id: `additional-${i + 1}`,
+      make,
+      model,
+      year: 2023 + Math.floor(Math.random() * 2),
+      color: colors[Math.floor(Math.random() * colors.length)]!,
+      condition: Math.random() > 0.3 ? 'New' : 'Used',
+      price: 15000 + Math.floor(Math.random() * 55000),
+      status: 'Sold',
+      dateAdded: new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString(),
+      serialNumber: `${model.substring(0, 2)}-${2023 + Math.floor(Math.random() * 2)}-${1000 + i}`,
+      createdAt: new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString(),
+      updatedAt: new Date(2025, Math.floor(Math.random() * 4), Math.floor(Math.random() * 28) + 1).toISOString()
+    });
+  }
+
+  return additionalCars;
+}
 
 // Mock data for multicabs
 const mockMultiCabs = ref<MultiCab[]>([
@@ -187,6 +189,85 @@ const mockMultiCabs = ref<MultiCab[]>([
   ...generateAdditionalCars()
 ]);
 
+// Get all car IDs for historical sales
+const allCarIds = [...mockMultiCabs.value.map(car => car.id), ...generateAdditionalCars().map(car => car.id)];
+
+// Mock data for sales
+const mockSales = ref<Sale[]>([
+  {
+    id: '1',
+    customerId: '1',
+    soldBy: '1',
+    saleDate: '2025-04-28T10:30:00Z',
+    totalPrice: 20541,
+    createdAt: '2025-04-28T10:30:00Z',
+    updatedAt: '2025-04-28T10:30:00Z',
+    multiCabId: '1' // Linked to mockMultiCabs[0]
+  },
+  {
+    id: '2',
+    customerId: '1',
+    soldBy: '1',
+    saleDate: '2025-04-26T14:15:00Z',
+    totalPrice: 47432,
+    createdAt: '2025-04-26T14:15:00Z',
+    updatedAt: '2025-04-26T14:15:00Z',
+    multiCabId: '2' // Linked to mockMultiCabs[1]
+  },
+  {
+    id: '3',
+    customerId: '2',
+    soldBy: '2',
+    saleDate: '2025-04-24T09:45:00Z',
+    totalPrice: 68118,
+    createdAt: '2025-04-24T09:45:00Z',
+    updatedAt: '2025-04-24T09:45:00Z',
+    multiCabId: '3' // Linked to mockMultiCabs[2]
+  },
+  {
+    id: '4',
+    customerId: '1',
+    soldBy: '3',
+    saleDate: '2025-04-23T16:20:00Z',
+    totalPrice: 30526,
+    createdAt: '2025-04-23T16:20:00Z',
+    updatedAt: '2025-04-23T16:20:00Z',
+    multiCabId: '4' // Linked to mockMultiCabs[3]
+  },
+  {
+    id: '5',
+    customerId: '2',
+    soldBy: '2',
+    saleDate: '2025-04-23T11:10:00Z',
+    totalPrice: 47182,
+    createdAt: '2025-04-23T11:10:00Z',
+    updatedAt: '2025-04-23T11:10:00Z',
+    multiCabId: '5' // Linked to mockMultiCabs[4]
+  },
+  {
+    id: '6',
+    customerId: '3',
+    soldBy: '2',
+    saleDate: '2025-04-20T13:30:00Z',
+    totalPrice: 15186,
+    createdAt: '2025-04-20T13:30:00Z',
+    updatedAt: '2025-04-20T13:30:00Z',
+    multiCabId: '6' // Linked to mockMultiCabs[5]
+  },
+  {
+    id: '7',
+    customerId: '1',
+    soldBy: '4',
+    saleDate: '2025-04-18T10:00:00Z',
+    totalPrice: 49451,
+    createdAt: '2025-04-18T10:00:00Z',
+    updatedAt: '2025-04-18T10:00:00Z',
+    multiCabId: '7' // Linked to mockMultiCabs[6]
+  },
+  // Additional historical data for the chart
+  ...generateHistoricalSales(allCarIds)
+]);
+
 // Mock data for customers
 const mockCustomers = ref<Customer[]>([
   {
@@ -260,85 +341,6 @@ const mockUsers = ref<User[]>([
     isActive: true
   }
 ]);
-
-// Generate additional cars for the statistics
-function generateAdditionalCars() {
-  const models = ['Coupe B', 'Truck Z', 'Hatchback J', 'Sedan X', 'SUV Y', 'Minivan C'];
-  const colors = ['Red', 'Blue', 'Black', 'White', 'Silver', 'Gray'];
-  const makes = ['BMW', 'Toyota', 'Honda', 'Nissan', 'Suzuki', 'Ford'];
-
-  const additionalCars: MultiCab[] = [];
-
-  // Generate more cars to match the statistics in the mockup
-  for (let i = 0; i < 193; i++) { // To reach a total of 200 cars
-    const modelIndex = i % models.length;
-    const model = models[modelIndex]!;
-    const make = makes[modelIndex]!;
-
-    additionalCars.push({
-      id: `additional-${i + 1}`,
-      make,
-      model,
-      year: 2023 + Math.floor(Math.random() * 2),
-      color: colors[Math.floor(Math.random() * colors.length)]!,
-      condition: Math.random() > 0.3 ? 'New' : 'Used',
-      price: 15000 + Math.floor(Math.random() * 55000),
-      status: 'Sold',
-      dateAdded: new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString(),
-      serialNumber: `${model.substring(0, 2)}-${2023 + Math.floor(Math.random() * 2)}-${1000 + i}`,
-      createdAt: new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString(),
-      updatedAt: new Date(2025, Math.floor(Math.random() * 4), Math.floor(Math.random() * 28) + 1).toISOString()
-    });
-  }
-
-  return additionalCars;
-}
-
-// Generate historical sales data for the chart
-function generateHistoricalSales() {
-  const months = [
-    'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'
-  ];
-
-  const historicalSales: Sale[] = [];
-
-  // Generate monthly sales data to match the chart in the mockup
-  const monthlyRevenues = [700000, 400000, 600000, 500000, 400000, 400000, 400000, 600000, 300000, 500000, 300000];
-
-  let saleId = 100;
-  const allCarIds = mockMultiCabs.value.map(car => car.id).concat(generateAdditionalCars().map(car => car.id));
-
-  months.forEach((month, index) => {
-    const year = index < 7 ? 2024 : 2025;
-    const monthIndex = index < 7 ? index + 5 : index - 7;
-
-    // Generate multiple sales for each month to reach the target revenue
-    const targetRevenue = monthlyRevenues[index] || 0; // Default to 0 if undefined
-    let currentRevenue = 0;
-
-    while (currentRevenue < targetRevenue) {
-      const price = 15000 + Math.floor(Math.random() * 55000);
-      currentRevenue += price;
-
-      const day = Math.floor(Math.random() * 28) + 1;
-      const date = new Date(year, monthIndex, day);
-      const randomCarId = allCarIds[Math.floor(Math.random() * allCarIds.length)] || 'unknown'; // Assign a random car ID
-
-      historicalSales.push({
-        id: `hist-${saleId++}`,
-        customerId: String(Math.floor(Math.random() * 3) + 1),
-        soldBy: String(Math.floor(Math.random() * 4) + 1),
-        saleDate: date.toISOString(),
-        totalPrice: price,
-        createdAt: date.toISOString(),
-        updatedAt: date.toISOString(),
-        multiCabId: randomCarId // Add the multiCabId
-      });
-    }
-  });
-
-  return historicalSales;
-}
 
 // Table columns
 const columns = [
