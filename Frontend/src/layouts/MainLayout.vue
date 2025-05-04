@@ -75,6 +75,7 @@
             v-for="link in menuItemsList"
             :key="link.title"
             v-bind="link"
+            :isDark="isDark"
           />
             <q-item
               clickable
@@ -168,7 +169,6 @@
     </q-drawer>
 
     <q-page-container style="padding-top: 62px;">
-
       <router-view />
     </q-page-container>
   </q-layout>
@@ -214,12 +214,12 @@ const menuItemsList: menuItemsProps[] = [
   {
     title: 'Sales',
     icon: 'trending_up',
-    to: '/app/sales'
+    to: '/sales'
   },
   {
     title:"Contacts",
     icon:"contacts",
-    to: '/app/contacts'
+    to: '/contacts'
   },
 ]
 
