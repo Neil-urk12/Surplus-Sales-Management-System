@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import type { QTableColumn, QTableProps } from 'quasar';
 import ProductCardModal from 'src/components/Global/ProductModal.vue'
 import { useAccessoriesStore } from 'src/stores/accessories';
@@ -148,6 +148,24 @@ const capitalizedName = computed({
       newAccessory.value.name = value;
     }
   }
+});
+
+// Update status based on quantity
+function updateStatus(quantity: number) {
+  if (quantity === 0) {
+    return 'Out of Stock';
+  } else if (quantity <= 2) {
+    return 'Low Stock';
+  } else if (quantity <= 5) {
+    return 'In Stock';
+  } else {
+    return 'Available';
+  }
+}
+
+// Watch for quantity changes and update status
+watch(() => newAccessory.value.quantity, (newQuantity) => {
+  newAccessory.value.status = updateStatus(newQuantity);
 });
 
 const columns: QTableColumn[] = [

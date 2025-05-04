@@ -250,23 +250,13 @@ export const useAccessoriesStore = defineStore('accessories', () => {
         make: updatedMake,
         quantity: accessory.quantity ?? originalAccessory.quantity,
         price: accessory.price ?? originalAccessory.price,
-        status: originalAccessory.status, // We'll update this based on quantity
+        status: determineAccessoryStatus(accessory.quantity ?? originalAccessory.quantity), // Determine status based on quantity
         unit_color: updatedColor,
         image: accessory.image ?? originalAccessory.image
       };
 
       try {
-        // Update the status based on the new quantity
-        if (typeof accessory.quantity === 'number') {
-          updateAccessoryStatus(id, accessory.quantity);
-          const updatedExistingAccessory = accessoryRows.value.find(a => a.id === id);
-          if (!updatedExistingAccessory) {
-            throw new Error('Failed to update accessory status');
-          }
-          updatedAccessory.status = updatedExistingAccessory.status;
-        }
-
-        // Attempt to update the accessory in the store
+        // Update the accessory in the store
         accessoryRows.value[index] = updatedAccessory;
       } catch (updateError) {
         // If the update fails, restore the original accessory

@@ -10,12 +10,6 @@ export const defaultImages = {
     'https://placehold.co/600x400/png?text=Accessory',
     'https://via.placeholder.com/600x400.png?text=Accessory',
     '/assets/images/default-accessory.png'
-  ],
-  material: [
-    'https://loremflickr.com/600/400/material',
-    'https://placehold.co/600x400/png?text=Material',
-    'https://via.placeholder.com/600x400.png?text=Material',
-    '/assets/images/default-material.png'
   ]
 } as const;
 
@@ -28,7 +22,7 @@ type DefaultImageType<T extends keyof typeof defaultImages> = DefaultImageTypeAr
  * This function always returns the first image in the fallback sequence, regardless
  * of any previous fallback attempts.
  * 
- * @param type - The type of image fallback chain to use (e.g., 'cab', 'accessory', or 'material')
+ * @param type - The type of image fallback chain to use (e.g., 'cab' or 'accessory')
  * @returns The first fallback image URL in the chain
  */
 function getFirstFallbackImage<T extends keyof typeof defaultImages>(type: T): DefaultImageType<T> {
@@ -41,7 +35,7 @@ function getFirstFallbackImage<T extends keyof typeof defaultImages>(type: T): D
  * If the current image is not found in the sequence, returns the first fallback image.
  * 
  * @param currentImage - The current image URL in use
- * @param type - The type of image fallback chain to use (e.g., 'cab', 'accessory', or 'material')
+ * @param type - The type of image fallback chain to use (e.g., 'cab' or 'accessory')
  * @returns The next fallback image URL in the chain
  * @throws Error if there are no fallback images defined for the given type
  */
