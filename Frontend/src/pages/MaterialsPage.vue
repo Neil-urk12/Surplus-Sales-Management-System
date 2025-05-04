@@ -5,6 +5,8 @@ import ProductCardModal from 'src/components/Global/ProductModal.vue'
 import { useQuasar } from 'quasar';
 import { useMaterialsStore } from 'src/stores/materials';
 import type { MaterialRow } from 'src/stores/materials';
+import { validateImageFile, validateAndSanitizeBase64Image } from '../utils/imageValidation';
+import { operationNotifications } from '../utils/notifications';
 
 const $q = useQuasar();
 const store = useMaterialsStore();
@@ -65,7 +67,8 @@ const materialColumns: QTableColumn[] = [
     name: 'actions',
     label: 'Actions',
     field: 'actions',
-    align: 'center'
+    align: 'center',
+    sortable: false
   }
 ];
 
@@ -104,12 +107,7 @@ async function addNewMaterial() {
   try {
     // Validate image URL before proceeding
     if (!imageUrlValid.value) {
-      $q.notify({
-        color: 'negative',
-        message: 'Please provide a valid image URL',
-        position: 'top',
-        timeout: 2000
-      });
+      operationNotifications.validation.error('Please provide a valid image URL');
       return;
     }
 
@@ -124,34 +122,17 @@ async function addNewMaterial() {
     // Only close dialog and show notification after operation successfully completes
     if (result.success) {
       showAddDialog.value = false;
-
-      $q.notify({
-        color: 'positive',
-        message: `Added new material: ${newMaterial.value.name}`,
-        position: 'top',
-        timeout: 2000
-      });
+      operationNotifications.add.success(`material: ${newMaterial.value.name}`);
     }
   } catch (error) {
     console.error('Error adding material:', error);
-    $q.notify({
-      color: 'negative',
-      message: 'Failed to add material',
-      position: 'top',
-      timeout: 2000
-    });
+    operationNotifications.add.error('material');
   }
 }
 
 function applyFilters() {
   showFilterDialog.value = false;
-
-  $q.notify({
-    color: 'positive',
-    message: 'Filters applied successfully',
-    position: 'top',
-    timeout: 2000
-  });
+  operationNotifications.filters.success();
 }
 
 // Add watch for quantity changes
@@ -168,6 +149,8 @@ watch(() => newMaterial.value.quantity, (newQuantity) => {
 });
 
 // Function to validate if URL is a valid image
+let currentAbortController: AbortController | null = null;
+
 async function validateImageUrl(url: string): Promise<boolean> {
   if (!url) {
     imageUrlValid.value = false;
@@ -181,6 +164,15 @@ async function validateImageUrl(url: string): Promise<boolean> {
 
   validatingImage.value = true;
 
+  // Abort any existing validation
+  if (currentAbortController) {
+    currentAbortController.abort();
+  }
+
+  // Create new abort controller for this validation
+  currentAbortController = new AbortController();
+  const signal = currentAbortController.signal;
+
   try {
     const result = await new Promise<boolean>((resolve) => {
       const img = new Image();
@@ -188,7 +180,16 @@ async function validateImageUrl(url: string): Promise<boolean> {
       const cleanup = () => {
         img.onload = null;
         img.onerror = null;
+        if (currentAbortController?.signal === signal) {
+          currentAbortController = null;
+        }
       };
+
+      // Handle abort signal
+      signal.addEventListener('abort', () => {
+        cleanup();
+        resolve(false);
+      });
 
       img.onload = () => {
         cleanup();
@@ -205,12 +206,19 @@ async function validateImageUrl(url: string): Promise<boolean> {
       };
 
       // Set a timeout to avoid hanging
-      setTimeout(() => {
-        cleanup();
-        imageUrlValid.value = false;
-        validatingImage.value = false;
-        resolve(false);
+      const timeoutId = setTimeout(() => {
+        if (!signal.aborted) {
+          currentAbortController?.abort();
+          imageUrlValid.value = false;
+          validatingImage.value = false;
+          resolve(false);
+        }
       }, 5000);
+
+      // Clean up timeout if aborted
+      signal.addEventListener('abort', () => {
+        clearTimeout(timeoutId);
+      });
 
       img.src = url;
     });
@@ -228,7 +236,7 @@ async function validateImageUrl(url: string): Promise<boolean> {
   }
 }
 
-// Modify the watch for image URL changes to handle the default image case
+// Modify the watch for image URL changes to handle base64 validation
 watch(() => newMaterial.value.image, async (newUrl: string) => {
   if (!newUrl || newUrl === defaultImageUrl) {
     imageUrlValid.value = true; // Default image or empty should be valid
@@ -236,7 +244,18 @@ watch(() => newMaterial.value.image, async (newUrl: string) => {
   }
   try {
     if (newUrl.startsWith('data:image/')) {
-      imageUrlValid.value = true; // Base64 image data is valid
+      const validationResult = validateAndSanitizeBase64Image(newUrl);
+      if (validationResult.isValid) {
+        newMaterial.value.image = validationResult.sanitizedData!;
+        imageUrlValid.value = true;
+      } else {
+        $q.notify({
+          color: 'negative',
+          message: validationResult.error || 'Invalid image data',
+          position: 'top',
+        });
+        imageUrlValid.value = false;
+      }
     } else {
       await validateImageUrl(newUrl);
     }
@@ -273,10 +292,11 @@ function handleDrop(event: DragEvent) {
 
 // Function to handle the file
 function handleFile(file: File) {
-  if (!file.type.startsWith('image/')) {
+  const validationResult = validateImageFile(file);
+  if (!validationResult.isValid) {
     $q.notify({
       color: 'negative',
-      message: 'Please upload an image file',
+      message: validationResult.error || 'Invalid file',
       position: 'top',
     });
     return;
@@ -285,8 +305,20 @@ function handleFile(file: File) {
   const reader = new FileReader();
   reader.onload = (e) => {
     if (e.target?.result) {
-      previewUrl.value = e.target.result as string;
-      newMaterial.value.image = e.target.result as string;
+      const base64String = e.target.result as string;
+      const base64ValidationResult = validateAndSanitizeBase64Image(base64String);
+      
+      if (!base64ValidationResult.isValid) {
+        $q.notify({
+          color: 'negative',
+          message: base64ValidationResult.error || 'Invalid image data',
+          position: 'top',
+        });
+        return;
+      }
+
+      previewUrl.value = base64ValidationResult.sanitizedData!;
+      newMaterial.value.image = base64ValidationResult.sanitizedData!;
       imageUrlValid.value = true;
     }
   };
@@ -294,7 +326,7 @@ function handleFile(file: File) {
 }
 
 // Function to remove image
-function removeImage(event: Event) {
+function removeImage(event: MouseEvent) {
   event.stopPropagation(); // Prevent triggering file input click
   previewUrl.value = '';
   newMaterial.value.image = defaultImageUrl;
@@ -318,7 +350,7 @@ function clearImageInput() {
 }
 
 // Function to handle edit material
-function editMaterial(material: MaterialRow) {
+async function editMaterial(material: MaterialRow) {
   selectedMaterial.value = { ...material };
   newMaterial.value = {
     name: material.name,
@@ -328,7 +360,42 @@ function editMaterial(material: MaterialRow) {
     status: material.status,
     image: material.image
   };
-  previewUrl.value = material.image; // Set the preview URL for the existing image
+
+  // Validate the image URL before setting preview
+  if (material.image.startsWith('data:image/')) {
+    const validationResult = validateAndSanitizeBase64Image(material.image);
+    if (validationResult.isValid) {
+      previewUrl.value = validationResult.sanitizedData!;
+      newMaterial.value.image = validationResult.sanitizedData!;
+      imageUrlValid.value = true;
+    } else {
+      // If invalid, use default image
+      previewUrl.value = defaultImageUrl;
+      newMaterial.value.image = defaultImageUrl;
+      imageUrlValid.value = true;
+      operationNotifications.validation.warning('Invalid image data, using default image');
+    }
+  } else {
+    try {
+      const isValid = await validateImageUrl(material.image);
+      if (isValid) {
+        previewUrl.value = material.image;
+        imageUrlValid.value = true;
+      } else {
+        // If invalid, use default image
+        previewUrl.value = defaultImageUrl;
+        newMaterial.value.image = defaultImageUrl;
+        imageUrlValid.value = true;
+        operationNotifications.validation.warning('Invalid image URL, using default image');
+      }
+    } catch (error) {
+      console.error('Error validating image URL:', error);
+      previewUrl.value = defaultImageUrl;
+      newMaterial.value.image = defaultImageUrl;
+      imageUrlValid.value = true;
+      operationNotifications.validation.warning('Error validating image, using default image');
+    }
+  }
   showEditDialog.value = true;
 }
 
@@ -337,12 +404,7 @@ async function updateMaterial() {
   try {
     // Validate image URL before proceeding
     if (!imageUrlValid.value) {
-      $q.notify({
-        color: 'negative',
-        message: 'Please provide a valid image URL',
-        position: 'top',
-        timeout: 2000
-      });
+      operationNotifications.validation.error('Please provide a valid image URL');
       return;
     }
 
@@ -358,22 +420,11 @@ async function updateMaterial() {
     if (result.success) {
       showEditDialog.value = false;
       clearImageInput();
-
-      $q.notify({
-        color: 'positive',
-        message: `Updated material: ${newMaterial.value.name}`,
-        position: 'top',
-        timeout: 2000
-      });
+      operationNotifications.update.success(`material: ${newMaterial.value.name}`);
     }
   } catch (error) {
     console.error('Error updating material:', error);
-    $q.notify({
-      color: 'negative',
-      message: 'Failed to update material',
-      position: 'top',
-      timeout: 2000
-    });
+    operationNotifications.update.error('material');
   }
 }
 
@@ -395,21 +446,10 @@ async function confirmDelete() {
     await store.deleteMaterial(materialToDelete.value.id);
     showDeleteDialog.value = false;
     materialToDelete.value = null;
-
-    $q.notify({
-      color: 'positive',
-      message: `Successfully deleted material`,
-      position: 'top',
-      timeout: 2000
-    });
+    operationNotifications.delete.success('material');
   } catch (error) {
     console.error('Error deleting material:', error);
-    $q.notify({
-      color: 'negative',
-      message: 'Failed to delete material',
-      position: 'top',
-      timeout: 2000
-    });
+    operationNotifications.delete.error('material');
   }
 }
 
@@ -465,21 +505,42 @@ const showEditDialog = ref(false);
         >
           <template v-slot:body-cell-actions="props">
             <q-td :props="props" auto-width>
-              <q-btn flat round dense color="grey" icon="more_vert" class="action-button">
-                <q-menu class="action-menu">
+              <q-btn
+                flat
+                round
+                dense
+                color="grey"
+                icon="more_vert"
+                class="action-button"
+                :aria-label="'Actions for ' + props.row.name"
+              >
+                <q-menu class="action-menu" :aria-label="'Available actions for ' + props.row.name">
                   <q-list style="min-width: 100px">
-                    <q-item clickable v-close-popup @click.stop="editMaterial(props.row)">
+                    <q-item
+                      clickable
+                      v-close-popup
+                      @click.stop="editMaterial(props.row)"
+                      role="button"
+                      :aria-label="'Edit ' + props.row.name"
+                    >
                       <q-item-section>
                         <q-item-label>
-                          <q-icon name="edit" size="xs" class="q-mr-sm" />
+                          <q-icon name="edit" size="xs" class="q-mr-sm" aria-hidden="true" />
                           Edit
                         </q-item-label>
                       </q-item-section>
                     </q-item>
-                    <q-item clickable v-close-popup @click.stop="deleteMaterial(props.row)">
+                    <q-item
+                      clickable
+                      v-close-popup
+                      @click.stop="deleteMaterial(props.row)"
+                      role="button"
+                      :aria-label="'Delete ' + props.row.name"
+                      class="text-negative"
+                    >
                       <q-item-section>
                         <q-item-label class="text-negative">
-                          <q-icon name="delete" size="xs" class="q-mr-sm" />
+                          <q-icon name="delete" size="xs" class="q-mr-sm" aria-hidden="true" />
                           Delete
                         </q-item-label>
                       </q-item-section>
@@ -635,7 +696,7 @@ const showEditDialog = ref(false);
                             round
                             color="negative"
                             icon="close"
-                            @click.stop="removeImage($event)"
+                            @mousedown.stop="removeImage($event)"
                           >
                             <q-tooltip>Remove Image</q-tooltip>
                           </q-btn>
@@ -837,7 +898,7 @@ const showEditDialog = ref(false);
                             round
                             color="negative"
                             icon="close"
-                            @click.stop="removeImage($event)"
+                            @mousedown.stop="removeImage($event)"
                           >
                             <q-tooltip>Remove Image</q-tooltip>
                           </q-btn>
