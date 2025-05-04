@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"log"
 	"oop/internal/models"
+	"os"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -29,15 +30,13 @@ type UserRepository interface {
 
 // UserHandler handles HTTP requests related to users
 type UserHandler struct {
-	userRepo  UserRepository
-	jwtSecret []byte
+	userRepo UserRepository
 }
 
 // NewUserHandler creates a new UserHandler instance
-func NewUserHandler(userRepo UserRepository, jwtSecret []byte) *UserHandler {
+func NewUserHandler(userRepo UserRepository) *UserHandler {
 	return &UserHandler{
-		userRepo:  userRepo,
-		jwtSecret: jwtSecret,
+		userRepo: userRepo,
 	}
 }
 
@@ -183,6 +182,18 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 		})
 	}
 
+	// Retrieve JWT secret from where it's defined (now in main.go context or config)
+	// NOTE: This handler doesn't have direct access to main.go's jwtSecret.
+	// For JWT generation, the secret should ideally be passed during handler setup
+	// or retrieved from a shared config.
+	// TEMPORARY WORKAROUND: Re-read from env here. This is NOT ideal.
+	// A better approach involves dependency injection of the secret or a config object.
+	tempJwtSecret := []byte(os.Getenv("JWT_SECRET"))
+	if len(tempJwtSecret) == 0 {
+		tempJwtSecret = []byte("your-very-secret-key-change-me") // Fallback ONLY for temporary fix
+		log.Println("Warning: JWT_SECRET env var not found in Login handler, using default (INSECURE)")
+	}
+
 	// Create the claims
 	claims := jwt.MapClaims{
 		"user_id": user.Id,
@@ -196,7 +207,7 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	// Generate encoded token string
-	tokenString, err := token.SignedString(h.jwtSecret) // Use the injected secret
+	tokenString, err := token.SignedString(tempJwtSecret) // Use the (temporarily re-read) secret
 	if err != nil {
 		log.Printf("Error signing JWT token: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

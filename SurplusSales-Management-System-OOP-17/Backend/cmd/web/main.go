@@ -147,18 +147,15 @@ func main() {
 
 	// Initialize repositories
 	userRepo := repositories.NewUserRepository(dbClient)
-	materialRepo := repositories.NewMaterialRepository(dbClient.DB)
 
 	// Initialize handlers
-	userHandler := handlers.NewUserHandler(userRepo, jwtSecret)
-	materialHandler := handlers.NewMaterialHandlers(materialRepo, jwtSecret)
+	userHandler := handlers.NewUserHandler(userRepo)
 
 	// --- Route Registration ---
 	api := app.Group("/api") // Base group for API routes
 
 	// Public User Routes (register, login)
 	userHandler.RegisterRoutes(api) // This will now only register public routes
-	materialHandler.RegisterMaterialRoutes(api)
 
 	// Protected User Routes (require JWT)
 	authMiddleware := middleware.JWTMiddleware(jwtSecret)

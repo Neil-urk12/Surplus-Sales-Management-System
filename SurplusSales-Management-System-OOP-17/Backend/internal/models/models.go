@@ -80,15 +80,11 @@ type MultiCabAccessory struct {
 }
 
 type Material struct {
-	ID        int       `json:"id"`
-	Name      string    `json:"name"`
-	Category  string    `json:"category"`
-	Supplier  string    `json:"supplier"`
-	Quantity  int       `json:"quantity"`
-	Status    string    `json:"status"`
-	Image     string    `json:"image"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID        string
+	Name      string
+	Quantity  int
+	CreatedAt string
+	UpdatedAt string
 }
 
 type MultiCabMaterial struct {

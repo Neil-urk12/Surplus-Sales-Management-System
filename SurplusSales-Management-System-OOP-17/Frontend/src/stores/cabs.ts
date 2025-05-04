@@ -14,10 +14,37 @@ import type {
 
 export type { CabsRow } from 'src/types/cabs'
 
+export interface Accessory {
+  id: number;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
 export const useCabsStore = defineStore('cabs', () => {
   // State
   const cabRows = ref<CabsRow[]>([])
   const isLoading = ref(false)
+  const accessories = ref<Accessory[]>([
+    {
+      id: 1,
+      name: 'LED Headlights',
+      price: 15000,
+      quantity: 10
+    },
+    {
+      id: 2,
+      name: 'Alloy Wheels',
+      price: 25000,
+      quantity: 8
+    },
+    {
+      id: 3,
+      name: 'Seat Covers',
+      price: 5000,
+      quantity: 15
+    }
+  ])
   
   // Initialize data
   async function initializeCabs() {
@@ -313,6 +340,7 @@ export const useCabsStore = defineStore('cabs', () => {
     filterMake,
     filterColor,
     filterStatus,
+    accessories,
     // Constants
     makes,
     colors,

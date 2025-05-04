@@ -92,7 +92,7 @@ func (m *MockUserRepository) EmailExists(email string) (bool, error) {
 func setupTest() (*fiber.App, *UserHandler, *MockUserRepository) {
 	app := fiber.New()
 	mockRepo := new(MockUserRepository)
-	handler := NewUserHandler(mockRepo, []byte("dummy_secret_for_test"))
+	handler := NewUserHandler(mockRepo)
 	return app, handler, mockRepo
 }
 
