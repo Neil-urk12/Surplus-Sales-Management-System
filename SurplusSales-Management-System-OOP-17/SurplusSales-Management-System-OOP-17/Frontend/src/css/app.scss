@@ -1,0 +1,246 @@
+// app global css in SCSS form
+//TEXT CONFIGURATION
+.title-text {
+    font-size: 1.1rem; 
+  
+    @media (min-width: 576px) {
+      font-size: 1.1rem;
+    }
+  
+    @media (min-width: 992px) {
+      font-size: 1.1rem;
+    }
+  }
+  .text-soft-light {
+    color: rgb(97, 97, 97);
+  }
+  //PLACEHOLDER CONFIGURATION
+  /* Input text color (yellow) */
+  .custom-style {
+    color: rgb(97, 97, 97);
+  }
+
+  /* Placeholder color (red) */
+  .custom-style::placeholder {
+    color: rgb(97, 97, 97);;
+    opacity: 1 ;
+    
+  }
+  .custom-style::-webkit-input-placeholder { color: rgb(97, 97, 97) ; }
+  .custom-style::-moz-placeholder { color: rgb(97, 97, 97) ; }
+  .custom-style:-ms-input-placeholder { color: rgb(97, 97, 97) ; }
+  .custom-style:-moz-placeholder { color: rgb(97, 97, 97) ; }
+//LAYOUT CONFIGURATION
+  //*Navbar
+  .custom-nav-height-width {
+    height: 62px; 
+    min-height: 62px;
+  };
+  .custom-rounded{
+    border-radius: 6px;
+  }
+  .product-rounded{
+    border-radius: 10px;
+  }
+  //User Profile
+  .user-profile-width {
+    width: 44px;
+  }
+  .user-profile-height {
+    height: 44px;
+  }
+  //BORDER
+ 
+
+
+  //DARK THEME
+  body {
+    // Light theme colors from shadcn UI
+    --page-bg: #ffffff;
+    --header-nav-bg: #ffffff;
+    --icon-text-color: #71717a;
+    --header-content-color: #18181b;
+    --input-placeholder-color: #71717a;
+    --card-bg: #ffffff;
+    --border-color: #e4e4e7;
+    --hover-bg: #f4f4f5;
+    --sticky-column-bg: #09090b; // Light theme sticky column background
+  }
+  
+  body.body--dark {
+    // Dark theme colors from shadcn UI
+    --page-bg: #09090b;
+    --header-nav-bg: #111113;
+    --icon-text-color: #a1a1aa;
+    --header-content-color: #f4f4f5;
+    --input-placeholder-color: #a1a1aa;
+    --card-bg: #111113;
+    --border-color: #27272a;
+    --hover-bg: #18181b;
+    --sticky-column-bg: #ffffff; // Dark theme sticky column background
+  }
+  
+  
+  .q-page-container,
+  .q-page {
+    background-color: var(--page-bg) ;
+  }
+  
+  .q-header,
+  .q-drawer {
+    background-color: var(--header-nav-bg) ;
+  }
+  
+  
+  .q-icon,
+  .text-soft-light,
+  .text-primary,
+  .text-secondary {
+    color: var(--icon-text-color) ;
+  }
+  
+  
+  .q-toolbar,
+  .q-toolbar-title,
+  .q-btn {
+    color: var(--header-content-color) ;
+  }
+  
+  
+  .custom-style {
+    color: var(--header-content-color) ;
+  }
+  
+  .custom-style::placeholder {
+    color: var(--input-placeholder-color) ;
+    opacity: 1 ;
+  }
+  
+  .custom-style::-webkit-input-placeholder { color: var(--input-placeholder-color) ; }
+  .custom-style::-moz-placeholder { color: var(--input-placeholder-color) ; }
+  .custom-style:-ms-input-placeholder { color: var(--input-placeholder-color) ; }
+  .custom-style:-moz-placeholder { color: var(--input-placeholder-color) ; }
+  
+//INVENTORY PAGE
+.inventory-header {
+  height: 10rem;
+  min-height: 10rem;
+}
+
+.inventory-page-padding {
+  padding: 1rem;
+}
+
+// ShadCN UI Theme Styles
+
+// Card styling
+.q-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius, 0.5rem);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+// Button styling
+.q-btn {
+  border-radius: var(--radius, 0.5rem);
+  font-weight: 500;
+  transition: all 0.2s ease;
+
+  &.q-btn--standard {
+    background-color: var(--primary);
+    color: var(--primary-foreground, white);
+
+    &:hover {
+      background-color: color-mix(in srgb, var(--primary), black 10%);
+    }
+  }
+
+  &.q-btn--outline {
+    border: 1px solid var(--border-color);
+    background-color: transparent;
+    color: var(--foreground);
+
+    &:hover {
+      background-color: var(--hover-bg);
+    }
+  }
+
+  &.q-btn--secondary {
+    background-color: var(--secondary);
+    color: var(--secondary-foreground);
+
+    &:hover {
+      background-color: color-mix(in srgb, var(--secondary), black 10%);
+    }
+  }
+
+  &.q-btn--flat {
+    background-color: transparent;
+    color: var(--foreground);
+
+    &:hover {
+      background-color: var(--hover-bg);
+    }
+  }
+}
+
+// Input styling
+.q-field {
+  &.q-field--outlined {
+    .q-field__control {
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius, 0.5rem);
+      background-color: transparent;
+
+      &:hover {
+        border-color: var(--input);
+      }
+
+      &:focus-within {
+        border-color: var(--ring);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring), transparent 70%);
+      }
+    }
+  }
+}
+
+// Table styling
+.q-table {
+  border-radius: var(--radius, 0.5rem);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+
+  .q-table__top,
+  thead tr:first-child th {
+    background-color: var(--card-bg);
+    color: var(--muted-foreground);
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border-color);
+
+    &:hover {
+      background-color: var(--hover-bg);
+    }
+  }
+}
+
+body {
+  color: var(--foreground); // Ensure general text uses theme-aware foreground color
+}
+
+.my-sticky-column-table {
+  thead tr:first-child th:nth-child(2) {
+    background-color: var(--sticky-column-bg);
+  }
+
+  td:nth-child(2) {
+    background-color: var(--sticky-column-bg);
+  }
+}
