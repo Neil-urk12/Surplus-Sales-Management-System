@@ -5,6 +5,7 @@ import { useQuasar } from 'quasar';
 import type { Customer } from '../types/models';
 import { useCustomerStore } from '../stores/customerStore';
 import CustomerPurchaseHistoryModal from '../components/CustomerPurchaseHistoryModal.vue';
+import ConfirmationDialog from '../components/ConfirmationDialog.vue';
 
 const customerStore = useCustomerStore();
 const { customers, isLoading, error } = storeToRefs(customerStore);
@@ -23,6 +24,9 @@ const newCustomer = ref<Omit<Customer, 'id' | 'createdAt' | 'updatedAt' | 'dateR
 
 const isHistoryModalOpen = ref(false);
 const selectedCustomerIdForHistory = ref<string | null>(null);
+
+const isConfirmDialogOpen = ref(false);
+const selectedCustomerId = ref<string | null>(null);
 
 onMounted(async () => {
   await fetchCustomers();
@@ -44,20 +48,17 @@ const handleAddCustomer = async () => {
 const handleEditCustomer = async () => {
   if (editingCustomer.value && newCustomer.value.fullName.trim() && newCustomer.value.email.trim() && newCustomer.value.phone.trim()) {
     await updateCustomer(editingCustomer.value.id, newCustomer.value);
-     if (!error.value) {
-        resetCustomerForm();
-        isCustomerModalOpen.value = false;
-        $q.notify({ type: 'positive', message: 'Customer updated successfully!' });
-      } else {
-        $q.notify({ type: 'negative', message: `Error updating customer: ${error.value}` });
-      }
+    if (!error.value) {
+      resetCustomerForm();
+      isCustomerModalOpen.value = false;
+      $q.notify({ type: 'positive', message: 'Customer updated successfully!' });
+    } else {
+      $q.notify({ type: 'negative', message: `Error updating customer: ${error.value}` });
+    }
   }
 };
 
-const showDeleteDialog = ref(false);
-const selectedCustomerId = ref<string | null>(null);
-
-const confirmDelete = () => {
+const executeDelete = () => {
   if (selectedCustomerId.value) {
     deleteCustomer(selectedCustomerId.value);
     if (!error.value) {
@@ -65,14 +66,13 @@ const confirmDelete = () => {
     } else {
       $q.notify({ type: 'negative', message: `Error deleting customer: ${error.value}` });
     }
-    showDeleteDialog.value = false;
     selectedCustomerId.value = null;
   }
 };
 
 const handleDeleteCustomer = (customerId: string) => {
-  showDeleteDialog.value = true;
   selectedCustomerId.value = customerId;
+  isConfirmDialogOpen.value = true;
 };
 
 const openAddCustomerModal = () => {
@@ -224,7 +224,7 @@ const viewPurchaseHistory = (customerId: string) => {
       </q-inner-loading>
 
       <!-- Modals -->
-      <q-dialog v-model="isCustomerModalOpen" @hide="closeCustomerModal">
+      <q-dialog v-model="isCustomerModalOpen" @hide="closeCustomerModal" persistent>
         <q-card style="min-width: 350px;">
           <q-card-section class="row items-center">
             <div class="text-h6">{{ editingCustomer ? 'Edit Customer' : 'Add New Customer' }}</div>
@@ -235,7 +235,7 @@ const viewPurchaseHistory = (customerId: string) => {
           <q-form @submit.prevent="editingCustomer ? handleEditCustomer() : handleAddCustomer()">
             <q-card-section class="q-pt-none">
               <q-input
-                dense
+                filled
                 v-model="newCustomer.fullName"
                 label="Name *"
                 autofocus
@@ -243,7 +243,7 @@ const viewPurchaseHistory = (customerId: string) => {
                 :disable="isLoading"
               />
               <q-input
-                dense
+                filled
                 v-model="newCustomer.email"
                 label="Email *"
                 type="email"
@@ -251,17 +251,20 @@ const viewPurchaseHistory = (customerId: string) => {
                 :disable="isLoading"
               />
               <q-input
-                dense
+                filled
                 v-model="newCustomer.phone"
                 label="Phone *"
-                :rules="[val => !!val || 'Phone is required']"
+                lazy-rules
+                :rules="[
+                  val => val && val.length > 0 || 'Please type the phone number',
+                  val => /^\+639\d{9}$/.test(val) || 'Phone number must be in the format +639xxxxxxxxx'
+                ]"
                 :disable="isLoading"
               />
               <q-input
-                dense
+                filled
                 v-model="newCustomer.address"
                 label="Address"
-                type="textarea"
                 autogrow
                 :disable="isLoading"
               />
@@ -281,23 +284,16 @@ const viewPurchaseHistory = (customerId: string) => {
         </q-card>
       </q-dialog>
 
-      <q-dialog v-model="showDeleteDialog" persistent>
-        <q-card>
-          <q-card-section class="column items-center">
-            <div class="text-h6 q-mb-md">Confirm Deletion</div>
-            <q-avatar icon="warning" color="negative" text-color="white" size="56px" class="q-mb-md" />
-            <p class="text-center">Are you sure you want to delete this customer? This action cannot be undone.</p>
-          </q-card-section>
-          <q-card-actions align="right">
-            <q-btn flat label="Cancel" color="primary" v-close-popup />
-            <q-btn flat label="Delete" color="negative" @click="confirmDelete" />
-          </q-card-actions>
-        </q-card>
-      </q-dialog>
-
       <customer-purchase-history-modal
         v-model="isHistoryModalOpen"
         :customer-id="selectedCustomerIdForHistory"
+      />
+
+      <confirmation-dialog
+        v-model="isConfirmDialogOpen"
+        title="Delete Customer"
+        message="Are you sure you want to delete this customer? This action cannot be undone."
+        @confirm="executeDelete"
       />
 
     </div> <!-- End wrapper div -->

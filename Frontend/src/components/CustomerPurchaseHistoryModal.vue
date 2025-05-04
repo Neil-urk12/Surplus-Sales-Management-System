@@ -69,7 +69,7 @@ const formatCurrency = (value: number) => {
               :key="sale.id"
               group="sales"
               icon="shopping_cart"
-              :label="`Sale ID: ${sale.id} - Date: ${new Date(sale.saleDate).toLocaleDateString()}`"
+              :label="`Sale ID: ${sale.id} - Date: ${new Date(sale.saleDate).toLocaleDateString(undefined, { dateStyle: 'medium' })}`"
               :caption="`Total: ${formatCurrency(sale.totalPrice)} - Sold By: ${sale.soldBy}`"
               header-class="text-primary"
             >
@@ -77,7 +77,7 @@ const formatCurrency = (value: number) => {
                 <q-card-section>
                   <div class="text-subtitle2 q-mb-sm">Items Sold:</div>
                   <q-list dense bordered padding class="rounded-borders">
-                     <q-item v-if="!sale.items || sale.items.length === 0">
+                     <q-item v-if="!sale.items?.length">
                       <q-item-section class="text-grey">No items recorded for this sale.</q-item-section>
                     </q-item>
                     <q-item v-for="item in sale.items" :key="item.id">
