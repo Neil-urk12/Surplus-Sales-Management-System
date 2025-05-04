@@ -27,6 +27,7 @@ export interface Sale {
   totalPrice: number;
   createdAt: string;
   updatedAt: string;
+  multiCabId: string;
 }
 
 export interface SaleItem {

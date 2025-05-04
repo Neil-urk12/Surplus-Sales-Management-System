@@ -8,8 +8,6 @@ export interface SaleWithItems extends Sale {
   items: SaleItem[];
 }
 
-// Define the initial dummy data directly in the store for now
-// In a real app, this would likely be fetched via an action
 const initialCustomers: Customer[] = [
   {
     id: uid(),
@@ -63,10 +61,6 @@ export const useCustomerStore = defineStore('customer', () => {
     try {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 500));
-      // In real app: 
-      // const response = await api.get('/customers');
-      // customers.value = response.data;
-      // For now, just ensure the initial data is set (it already is)
       console.log('Fetched customers (simulated)');
     } catch (err) {
       error.value = 'Failed to fetch customers.';
@@ -89,12 +83,8 @@ export const useCustomerStore = defineStore('customer', () => {
         createdAt: currentDate,
         updatedAt: currentDate,
       };
-      // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 300));
-      // In real app: 
-      // const response = await api.post('/customers', newCustomer);
-      // customers.value.push(response.data); // Add the customer returned by the API (with backend ID)
-      customers.value.push(newCustomer); // Add locally for now
+      customers.value.push(newCustomer); 
     } catch (err) {
       error.value = 'Failed to add customer.';
       console.error(err);
@@ -108,35 +98,23 @@ export const useCustomerStore = defineStore('customer', () => {
     isLoading.value = true;
     error.value = null;
     try {
-       // Simulate API delay
        await new Promise(resolve => setTimeout(resolve, 300));
-      // In real app: 
-      // const response = await api.put(`/customers/${customerId}`, { ...customerData });
-      // const updatedCustomerFromApi = response.data;
-      // customers.value = customers.value.map(c => c.id === customerId ? updatedCustomerFromApi : c);
-
-      // Update locally for now
       const index = customers.value.findIndex(c => c.id === customerId);
       if (index !== -1) {
-        // Access original customer safely within the check
         const originalCustomer = customers.value[index]; 
-        
-        // Explicitly check if originalCustomer is defined before using it
         if (originalCustomer) {
-          // Construct the new object now that originalCustomer is confirmed defined
           const updatedCustomer: Customer = {
-              id: originalCustomer.id, // Required
-              fullName: customerData.fullName, // Updated
-              email: customerData.email, // Updated
-              phone: customerData.phone, // Updated
-              address: customerData.address, // Updated
-              dateRegistered: originalCustomer.dateRegistered, // Required, kept from original
-              createdAt: originalCustomer.createdAt, // Required, kept from original
-              updatedAt: new Date().toISOString(), // Updated
+              id: originalCustomer.id, 
+              fullName: customerData.fullName,
+              email: customerData.email,
+              phone: customerData.phone,
+              address: customerData.address,
+              dateRegistered: originalCustomer.dateRegistered,
+              createdAt: originalCustomer.createdAt,
+              updatedAt: new Date().toISOString(),
           };
           customers.value[index] = updatedCustomer;
         } else {
-          // Handle unexpected case where customer at index is undefined (log error)
           console.error(`Customer with id ${customerId} found at index ${index}, but the value was undefined.`);
           error.value = 'An internal error occurred while updating the customer.';
         }
@@ -171,43 +149,38 @@ export const useCustomerStore = defineStore('customer', () => {
     selectedCustomerHistory.value = []; // Clear previous history
     console.log(`Fetching history for customer ${customerId}...`);
     try {
-      // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 800));
-
-      // --- Dummy History Data (Replace with API call) ---
-      // In a real app: const response = await api.get(`/customers/${customerId}/sales?include=items`);
-      // const historyData = response.data;
-
       let historyData: SaleWithItems[] = [];
-      // Example: Return some dummy sales only for specific dummy customers
-      if (customerId === customers.value[0]?.id) { // Alice Wonderland Store
+      if (customerId === customers.value[0]?.id) {
         const sale1Id = uid();
         historyData = [
           {
             id: sale1Id,
             customerId: customerId,
-            soldBy: 'User1', // Example user ID or name
-            saleDate: new Date(Date.now() - 86400000 * 3).toISOString(), // 3 days ago
+            soldBy: 'User1',
+            saleDate: new Date(Date.now() - 86400000 * 3).toISOString(),
             totalPrice: 150.75,
             createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
             updatedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+            multiCabId: '',
             items: [
               { id: uid(), saleId: sale1Id, itemType: 'Accessory', multiCabId: '', accessoryId: 'ACC001', materialId: '', quantity: 2, unitPrice: 50.00, subtotal: 100.00, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
               { id: uid(), saleId: sale1Id, itemType: 'Material', multiCabId: '', accessoryId: '', materialId: 'MAT005', quantity: 5, unitPrice: 10.15, subtotal: 50.75, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
             ]
           }
         ];
-      } else if (customerId === customers.value[1]?.id) { // Bob The Builder Store
+      } else if (customerId === customers.value[1]?.id) {
          const sale2Id = uid();
          historyData = [
            {
              id: sale2Id,
              customerId: customerId,
              soldBy: 'User2',
-             saleDate: new Date(Date.now() - 86400000 * 8).toISOString(), // 8 days ago
+             saleDate: new Date(Date.now() - 86400000 * 8).toISOString(),
              totalPrice: 25000.00,
              createdAt: new Date(Date.now() - 86400000 * 8).toISOString(),
              updatedAt: new Date(Date.now() - 86400000 * 8).toISOString(),
+             multiCabId: '',
              items: [
                 { id: uid(), saleId: sale2Id, itemType: 'MultiCab', multiCabId: 'MC001', accessoryId: '', materialId: '', quantity: 1, unitPrice: 25000.00, subtotal: 25000.00, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
              ]
@@ -235,7 +208,6 @@ export const useCustomerStore = defineStore('customer', () => {
     addCustomer,
     updateCustomer,
     deleteCustomer,
-    // Expose history state and actions
     selectedCustomerHistory,
     isLoadingHistory,
     historyError,

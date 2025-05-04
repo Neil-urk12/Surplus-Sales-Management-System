@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { watch } from 'vue';
 import { storeToRefs } from 'pinia';
-import { useCustomerStore } from '../stores/customerStore'; // Assuming history logic is added here
-import { Sale, SaleItem } from '../types/models'; // Assuming Sale/SaleItem types exist
+import { useCustomerStore } from '../stores/customerStore'; 
 
 interface Props {
-  modelValue: boolean; // Controls modal visibility (v-model)
+  modelValue: boolean;
   customerId: string | null;
 }
 
@@ -20,7 +19,7 @@ const { fetchPurchaseHistory } = customerStore;
 watch(() => [props.modelValue, props.customerId], ([newVisible, newCustomerId]) => {
   // Ensure customerId is a valid string before fetching
   if (newVisible && newCustomerId && typeof newCustomerId === 'string') {
-    fetchPurchaseHistory(newCustomerId);
+    void fetchPurchaseHistory(newCustomerId);
   }
 }, { immediate: true }); // Check immediately on component mount if modal starts open
 
@@ -28,10 +27,8 @@ const closeModal = () => {
   emit('update:modelValue', false);
 };
 
-// Helper to format currency
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-  // Adjust currency code (e.g., 'PHP') as needed
 };
 
 </script>
@@ -117,5 +114,4 @@ const formatCurrency = (value: number) => {
 </template>
 
 <style scoped>
-/* Add any specific styles if needed */
 </style>
