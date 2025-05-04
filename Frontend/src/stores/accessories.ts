@@ -118,10 +118,33 @@ export const useAccessoriesStore = defineStore('accessories', () => {
     return color !== '';
   }
 
+  /**
+   * Determines the appropriate status based on the quantity
+   * @param quantity - The current quantity of the accessory
+   * @returns The appropriate AccessoryStatus
+   * 
+   * Quantity thresholds:
+   * - 0: Out of Stock
+   * - 1-2: Low Stock
+   * - 3-10: In Stock
+   * - >10: Available
+   */
+  function determineAccessoryStatus(quantity: number): AccessoryStatus {
+    if (quantity === 0) {
+      return 'Out of Stock';
+    } else if (quantity <= 2) {
+      return 'Low Stock';
+    } else if (quantity <= 10) {
+      return 'In Stock';
+    } else {
+      return 'Available';
+    }
+  }
+
   // Actions
   async function addAccessory(accessory: NewAccessoryInput): Promise<AccessoryOperationResponse> {
     try {
-      isLoading.value = true
+      isLoading.value = true;
       // Validate required fields
       if (!accessory.make || !accessory.unit_color) {
         throw new Error('Make and color are required');
@@ -132,46 +155,35 @@ export const useAccessoriesStore = defineStore('accessories', () => {
 
       const newId = Math.max(...accessoryRows.value.map(item => item.id)) + 1;
       
-      // Create a new accessory with validated types
+      // Create a new accessory with validated types and determined status
       const newAccessory: AccessoryRow = {
         id: newId,
         name: accessory.name,
         make: accessory.make,
         quantity: accessory.quantity,
         price: accessory.price,
-        status: 'Out of Stock', // We'll update this based on quantity
+        status: determineAccessoryStatus(accessory.quantity), // Set initial status based on quantity
         unit_color: accessory.unit_color,
         image: accessory.image
       };
 
-      // Update the status based on the quantity
-      updateAccessoryStatus(newId, accessory.quantity);
-
       accessoryRows.value.push(newAccessory);
 
-      return { success: true, id: newId }
+      return { success: true, id: newId };
     } catch (error) {
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error occurred'
-      }
+      };
     } finally {
-      isLoading.value = false
+      isLoading.value = false;
     }
   }
 
   function updateAccessoryStatus(id: number, quantity: number) {
-    const accessory = accessoryRows.value.find(a => a.id === id)
+    const accessory = accessoryRows.value.find(a => a.id === id);
     if (accessory) {
-      if (quantity === 0) {
-        accessory.status = 'Out of Stock'
-      } else if (quantity <= 2) {
-        accessory.status = 'Low Stock'
-      } else if (quantity <= 5) {
-        accessory.status = 'In Stock'
-      } else {
-        accessory.status = 'Available'
-      }
+      accessory.status = determineAccessoryStatus(quantity);
     }
   }
 

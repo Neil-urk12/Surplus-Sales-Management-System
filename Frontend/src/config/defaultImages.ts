@@ -13,36 +13,42 @@ export const defaultImages = {
   ]
 } as const;
 
-type ImageType = keyof typeof defaultImages;
-type FallbackArray<T extends ImageType> = (typeof defaultImages)[T];
-type FallbackImage<T extends ImageType> = FallbackArray<T>[number];
+// More descriptive type names that better explain their purpose
+type DefaultImageTypeArray<T extends keyof typeof defaultImages> = (typeof defaultImages)[T];
+type DefaultImageType<T extends keyof typeof defaultImages> = DefaultImageTypeArray<T>[number];
 
-function getDefaultImage<T extends ImageType>(type: T): FallbackImage<T> {
+/**
+ * Returns the first fallback image from the fallback chain for the specified type.
+ * This function always returns the first image in the fallback sequence, regardless
+ * of any previous fallback attempts.
+ * 
+ * @param type - The type of image fallback chain to use (e.g., 'cab' or 'accessory')
+ * @returns The first fallback image URL in the chain
+ */
+function getFirstFallbackImage<T extends keyof typeof defaultImages>(type: T): DefaultImageType<T> {
   return defaultImages[type][0];
 }
 
-function getNextFallbackImage<T extends ImageType>(currentImage: string, type: T): FallbackImage<T> {
+/**
+ * Returns the next fallback image in the sequence for the specified type.
+ * If the current image is the last in the sequence, it wraps around to the first image.
+ * If the current image is not found in the sequence, returns the first fallback image.
+ * 
+ * @param currentImage - The current image URL in use
+ * @param type - The type of image fallback chain to use (e.g., 'cab' or 'accessory')
+ * @returns The next fallback image URL in the chain
+ * @throws Error if there are no fallback images defined for the given type
+ */
+function getNextFallbackImage<T extends keyof typeof defaultImages>(currentImage: string, type: T): DefaultImageType<T> {
   const fallbacks = defaultImages[type] as readonly string[];
-  let currentIndex = -1;
   
-  // Find the index of the current image
-  for (let i = 0; i < fallbacks.length; i++) {
-    if (fallbacks[i] === currentImage) {
-      currentIndex = i;
-      break;
-    }
+  if (fallbacks.length === 0) {
+    throw new Error(`No fallback images defined for type: ${type}`);
   }
-  
-  // If current image is not found or is the last one, return first fallback
-  if (currentIndex === -1 || currentIndex >= fallbacks.length - 1) {
-    return fallbacks[0] as FallbackImage<T>;
-  }
-  
-  return fallbacks[currentIndex + 1] as FallbackImage<T>;
+
+  const currentIndex = fallbacks.indexOf(currentImage);
+  const nextIndex = (currentIndex + 1) % fallbacks.length;
+  return fallbacks[nextIndex] as DefaultImageType<T>;
 }
 
-export { getDefaultImage, getNextFallbackImage };
-
-// Note: getNextFallbackImage is not currently used in the codebase,
-// so we're removing it to avoid type issues and simplify the code.
-// If needed later, we can reimplement it with proper typing. 
+export { getFirstFallbackImage, getNextFallbackImage }; 

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import type { QTableColumn, QTableProps } from 'quasar';
 import ProductCardModal from 'src/components/Global/ProductModal.vue'
 import { useAccessoriesStore } from 'src/stores/accessories';
 import type { AccessoryRow, NewAccessoryInput } from 'src/types/accessories';
-import { getDefaultImage } from 'src/config/defaultImages';
+import { getFirstFallbackImage } from 'src/config/defaultImages';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
 
@@ -17,35 +17,92 @@ const accessoryToDelete = ref<AccessoryRow | null>(null);
 const showProductCardModal = ref(false);
 const isDragging = ref(false);
 
-// Add global drag event handlers
+// Track drag leave timeout for debouncing
+let dragLeaveTimeout: number | null = null;
+// Add a small buffer zone (in pixels) around the drop target
+const DRAG_BOUNDARY_BUFFER = 50;
+
+// Add at the top with other imports and constants
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif'] as const;
+type AllowedMimeType = typeof ALLOWED_TYPES[number];
+
+/**
+ * Global drag event handlers are necessary to handle edge cases in drag-and-drop operations:
+ * 1. When the user drags outside the browser window and releases the mouse
+ * 2. When the drag operation ends outside the drop zone
+ * 3. When the drag operation is cancelled with ESC key
+ * 
+ * Without these handlers, the isDragging state might remain true in these cases,
+ * leading to the upload zone staying in a dragging visual state incorrectly.
+ * Local dragend events within the drop zone alone are not sufficient to catch
+ * all possible ways a drag operation can end.
+ */
 onMounted(() => {
   const handleGlobalDragEnd = () => {
     isDragging.value = false;
+    if (dragLeaveTimeout) {
+      clearTimeout(dragLeaveTimeout);
+      dragLeaveTimeout = null;
+    }
   };
 
   document.addEventListener('dragend', handleGlobalDragEnd);
 
-  // Clean up on unmount
+  // Clean up on unmount to prevent memory leaks
   onUnmounted(() => {
     document.removeEventListener('dragend', handleGlobalDragEnd);
+    if (dragLeaveTimeout) {
+      clearTimeout(dragLeaveTimeout);
+      dragLeaveTimeout = null;
+    }
   });
 });
 
-// Enhanced drag event handlers
+/**
+ * Handles the drag leave event with debouncing and a buffer zone.
+ * This prevents flickering of the drop zone styling when:
+ * 1. The drag briefly leaves and re-enters the zone
+ * 2. The drag moves near the edges of the zone
+ * 3. The user moves the mouse quickly within the zone
+ * 
+ * @param event - The drag event object
+ */
 function handleDragLeave(event: DragEvent) {
-  // Check if the mouse left the container (not just moved between child elements)
+  // Clear any existing timeout to prevent premature state changes
+  if (dragLeaveTimeout) {
+    clearTimeout(dragLeaveTimeout);
+    dragLeaveTimeout = null;
+  }
+
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
   const x = event.clientX;
   const y = event.clientY;
 
-  // Check if the mouse is outside the container's bounds
-  if (x <= rect.left || x >= rect.right || y <= rect.top || y >= rect.bottom) {
-    isDragging.value = false;
+  // Check if the mouse is significantly outside the container's bounds
+  // Add a buffer zone to make the interaction more forgiving
+  const isOutsideBounds = 
+    x <= rect.left - DRAG_BOUNDARY_BUFFER || 
+    x >= rect.right + DRAG_BOUNDARY_BUFFER || 
+    y <= rect.top - DRAG_BOUNDARY_BUFFER || 
+    y >= rect.bottom + DRAG_BOUNDARY_BUFFER;
+
+  if (isOutsideBounds) {
+    // Debounce the state change to prevent flickering
+    dragLeaveTimeout = window.setTimeout(() => {
+      isDragging.value = false;
+      dragLeaveTimeout = null;
+    }, 100) as unknown as number; // 100ms debounce
   }
 }
 
 function handleDrop(event: DragEvent) {
   event.preventDefault();
+  // Clear any pending drag leave timeout
+  if (dragLeaveTimeout) {
+    clearTimeout(dragLeaveTimeout);
+    dragLeaveTimeout = null;
+  }
   isDragging.value = false;
 
   if (event.dataTransfer?.files && event.dataTransfer.files[0]) {
@@ -77,7 +134,7 @@ const newAccessory = ref<NewAccessoryInput>({
 
 // Image validation
 const imageUrlValid = ref(true);
-const defaultImageUrl = getDefaultImage('accessory');
+const defaultImageUrl = getFirstFallbackImage('accessory');
 
 // Available options from store
 const { makes, colors, statuses } = store;
@@ -90,19 +147,6 @@ const capitalizedName = computed({
     } else {
       newAccessory.value.name = value;
     }
-  }
-});
-
-// Add watch for quantity changes
-watch(() => newAccessory.value.quantity, (newQuantity) => {
-  if (newQuantity === 0) {
-    newAccessory.value.status = 'Out of Stock';
-  } else if (newQuantity <= 2) {
-    newAccessory.value.status = 'Low Stock';
-  } else if (newQuantity <= 5) {
-    newAccessory.value.status = 'In Stock';
-  } else {
-    newAccessory.value.status = 'Available';
   }
 });
 
@@ -135,30 +179,91 @@ const columns: QTableColumn[] = [
   }
 ];
 
+/**
+ * Validates and processes a base64 image, falling back to default if invalid.
+ * This function handles the validation and sanitization of base64 encoded images,
+ * updating the image state appropriately based on validation results.
+ * 
+ * @param base64Image - The base64 image string to validate
+ * @param defaultImage - The fallback image URL to use if validation fails
+ * @returns An object containing the validated image URL and validation status
+ */
+function validateAndProcessBase64Image(base64Image: string, defaultImage: string): { 
+  imageUrl: string;
+  isValid: boolean;
+} {
+  const validationResult = validateAndSanitizeBase64Image(base64Image);
+  
+  if (validationResult.isValid && validationResult.sanitizedData) {
+    return {
+      imageUrl: validationResult.sanitizedData,
+      isValid: true
+    };
+  }
+
+  // If validation fails, notify user and use default image
+  operationNotifications.validation.warning('Invalid image data, using default image');
+  return {
+    imageUrl: defaultImage,
+    isValid: true // We consider it valid since we're using a fallback
+  };
+}
+
+/**
+ * Handles image validation and state updates for both new and existing images.
+ * This function centralizes the image processing logic to ensure consistent
+ * behavior across different parts of the application.
+ * 
+ * @param imageUrl - The image URL or base64 string to validate
+ * @param defaultUrl - The fallback URL to use if validation fails
+ * @returns An object containing the processed image URL and validation state
+ */
+function handleImageValidation(imageUrl: string | undefined | null, defaultUrl: string): {
+  processedUrl: string;
+  isValid: boolean;
+  previewUrl: string;
+} {
+  // Handle undefined or empty image URLs
+  if (!imageUrl) {
+    return {
+      processedUrl: defaultUrl,
+      isValid: true,
+      previewUrl: defaultUrl
+    };
+  }
+
+  // Handle base64 images
+  if (imageUrl.startsWith('data:image/')) {
+    const { imageUrl: validatedUrl, isValid } = validateAndProcessBase64Image(imageUrl, defaultUrl);
+    return {
+      processedUrl: validatedUrl,
+      isValid,
+      previewUrl: validatedUrl
+    };
+  }
+
+  // For regular URLs, use as is with default fallback preview
+  return {
+    processedUrl: imageUrl,
+    isValid: true,
+    previewUrl: defaultUrl
+  };
+}
+
 const onRowClick: QTableProps['onRowClick'] = (evt, row) => {
   // Check if the click originated from the action button or its menu
   const target = evt.target as HTMLElement;
   if (target.closest('.action-button') || target.closest('.action-menu')) {
-    return; // Do nothing if clicked on action button or its menu
+    return;
   }
   
   // Update selected with a proper copy of the row data
   selected.value = { ...row as AccessoryRow };
   
-  // Validate and set the image
-  if (selected.value.image) {
-    if (selected.value.image.startsWith('data:image/')) {
-      // For base64 images, validate but preserve the original if it's a valid format
-      const validationResult = validateAndSanitizeBase64Image(selected.value.image);
-      if (validationResult.isValid && validationResult.sanitizedData) {
-        selected.value.image = validationResult.sanitizedData;
-      }
-      // Even if validation fails, we'll let the ProductCardModal handle the fallback
-    }
-  } else {
-    // If no image, use default
-    selected.value.image = defaultImageUrl;
-  }
+  // Validate and set the image using the centralized handler
+  const { processedUrl, isValid } = handleImageValidation(selected.value.image, defaultImageUrl);
+  selected.value.image = processedUrl;
+  imageUrlValid.value = isValid;
   
   showProductCardModal.value = true;
 }
@@ -180,8 +285,12 @@ function openAddDialog() {
     status: 'Out of Stock',
     image: defaultImageUrl
   };
-  previewUrl.value = defaultImageUrl;
-  imageUrlValid.value = true;
+  
+  // Use the centralized handler for consistent image state initialization
+  const { previewUrl: newPreviewUrl, isValid } = handleImageValidation(defaultImageUrl, defaultImageUrl);
+  previewUrl.value = newPreviewUrl;
+  imageUrlValid.value = isValid;
+  
   if (fileInput.value) {
     fileInput.value.value = ''; // Clear the file input
   }
@@ -227,16 +336,32 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const previewUrl = ref<string>(defaultImageUrl);
 const isUploadingImage = ref(false);
 
+/**
+ * Clears all image-related state and resets the file input.
+ * This is necessary to:
+ * 1. Prevent the same file from being re-selected (browsers won't fire change event)
+ * 2. Clear security-sensitive file references from memory
+ * 3. Allow the same file to be uploaded again if needed
+ * 4. Reset UI state for a clean user experience
+ */
 function clearImageInput() {
+  // Clean up any existing blob URLs to prevent memory leaks
   if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
     URL.revokeObjectURL(previewUrl.value);
   }
+  
+  // Reset all image-related state to defaults
   previewUrl.value = defaultImageUrl;
   newAccessory.value.image = defaultImageUrl;
   imageUrlValid.value = true;
+  
+  // Clear the file input value to ensure change events fire even if 
+  // the same file is selected again. This is crucial for proper UX
+  // when users want to re-upload the same file after an error.
   if (fileInput.value) {
     fileInput.value.value = '';
   }
+  
   isUploadingImage.value = false;
 }
 
@@ -253,25 +378,16 @@ function editAccessory(accessory: AccessoryRow) {
     image: accessory.image
   };
 
-  // Handle the image preview for base64 images
-  if (accessory.image.startsWith('data:image/')) {
-    const validationResult = validateAndSanitizeBase64Image(accessory.image);
-    if (validationResult.isValid) {
-      previewUrl.value = validationResult.sanitizedData!;
-      newAccessory.value.image = validationResult.sanitizedData!;
-      imageUrlValid.value = true;
-    } else {
-      previewUrl.value = defaultImageUrl;
-      newAccessory.value.image = defaultImageUrl;
-      imageUrlValid.value = true;
-      operationNotifications.validation.warning('Invalid image data, using default image');
-    }
-  } else {
-    // For any other case, use default image
-    previewUrl.value = defaultImageUrl;
-    newAccessory.value.image = defaultImageUrl;
-    imageUrlValid.value = true;
-  }
+  // Handle image validation and state updates using the centralized handler
+  const { processedUrl, isValid, previewUrl: newPreviewUrl } = handleImageValidation(
+    accessory.image,
+    defaultImageUrl
+  );
+  
+  newAccessory.value.image = processedUrl;
+  imageUrlValid.value = isValid;
+  previewUrl.value = newPreviewUrl;
+  
   showEditDialog.value = true;
 }
 
@@ -335,45 +451,74 @@ async function confirmDelete() {
   }
 }
 
-// Function to handle file selection
-async function handleFileSelect(event: Event) {
-  const input = event.target as HTMLInputElement;
-  if (input.files && input.files[0]) {
-    const file = input.files[0];
-    await handleFile(file);
+/**
+ * Processes and validates an uploaded image file.
+ * Handles file type checking, conversion to base64, and validation.
+ * 
+ * @param file - The uploaded image file to process
+ * @returns Promise resolving to the processed image data
+ * @throws Error if file validation or processing fails
+ */
+async function processImageUpload(file: File): Promise<string> {
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Please upload an image file');
   }
+
+  // Convert file to base64
+  const base64Data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  // Validate and sanitize the base64 image
+  const validationResult = validateAndSanitizeBase64Image(base64Data);
+  if (!validationResult.isValid || !validationResult.sanitizedData) {
+    throw new Error('Invalid image data');
+  }
+
+  return validationResult.sanitizedData;
 }
 
-// Function to handle file processing
+/**
+ * Creates a preview URL for an image file.
+ * Handles cleanup of previous preview URLs to prevent memory leaks.
+ * 
+ * @param file - The image file to preview
+ * @returns The blob URL for the preview
+ */
+function createImagePreview(file: File): string {
+  // Clean up any existing preview URL
+  if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
+    URL.revokeObjectURL(previewUrl.value);
+  }
+  return URL.createObjectURL(file);
+}
+
+/**
+ * Handles the complete image file upload process including validation,
+ * preview generation, and state updates.
+ * 
+ * @param file - The uploaded image file
+ */
 async function handleFile(file: File) {
   try {
     isUploadingImage.value = true;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      throw new Error('Please upload an image file');
-    }
+    // Generate preview immediately for better UX
+    previewUrl.value = createImagePreview(file);
 
-    // Create a blob URL for preview
-    const blobUrl = URL.createObjectURL(file);
-    previewUrl.value = blobUrl;
-
-    // Convert file to base64
-    const base64Data = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    // Validate and sanitize the base64 image
-    const validationResult = validateAndSanitizeBase64Image(base64Data);
-    if (!validationResult.isValid) {
-      throw new Error('Invalid image data');
-    }
-
-    newAccessory.value.image = validationResult.sanitizedData!;
+    // Process and validate the image
+    const processedImage = await processImageUpload(file);
+    
+    // Update component state with the processed image
+    newAccessory.value.image = processedImage;
     imageUrlValid.value = true;
+
+    // Show success notification using the appropriate notification type
+    operationNotifications.validation.warning('Image uploaded successfully');
   } catch (error) {
     console.error('Error handling file:', error);
     operationNotifications.validation.error(error instanceof Error ? error.message : 'Error processing image');
@@ -381,6 +526,47 @@ async function handleFile(file: File) {
   } finally {
     isUploadingImage.value = false;
   }
+}
+
+/**
+ * Handles file selection from input element.
+ * Validates file size and type before processing.
+ * 
+ * @param event - The file input change event
+ */
+async function handleFileSelect(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  
+  if (!file) {
+    operationNotifications.validation.warning('No file selected');
+    return;
+  }
+
+  console.log('Selected file:', {
+    name: file.name,
+    type: file.type,
+    size: file.size
+  });
+
+  // Validate file size
+  if (file.size > MAX_FILE_SIZE) {
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    operationNotifications.validation.error(
+      `File size (${sizeMB}MB) exceeds the 5MB limit`
+    );
+    return;
+  }
+
+  // Validate file type
+  if (!ALLOWED_TYPES.includes(file.type as AllowedMimeType)) {
+    operationNotifications.validation.error(
+      `Invalid file type: ${file.type}. Allowed types are: JPEG, PNG, and GIF`
+    );
+    return;
+  }
+
+  await handleFile(file);
 }
 
 function removeImage() {

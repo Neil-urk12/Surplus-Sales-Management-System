@@ -5,7 +5,7 @@ import ProductCardModal from 'src/components/Global/ProductModal.vue'
 import { useQuasar } from 'quasar';
 import { useCabsStore } from 'src/stores/cabs';
 import type { CabsRow, NewCabInput } from 'src/types/cabs';
-import { getDefaultImage, getNextFallbackImage } from 'src/config/defaultImages';
+import { getFirstFallbackImage, getNextFallbackImage } from 'src/config/defaultImages';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
 
@@ -80,7 +80,7 @@ const newCab = ref<NewCabInput>({
 // Image validation
 const imageUrlValid = ref(true);
 const validatingImage = ref(false);
-const defaultImageUrl = getDefaultImage('cab');
+const defaultImageUrl = getFirstFallbackImage('cab');
 
 // Available options from store
 const { makes, colors, statuses } = store;
