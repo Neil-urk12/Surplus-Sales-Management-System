@@ -16,7 +16,8 @@ const mockSales = ref<Sale[]>([
     saleDate: '2025-04-28T10:30:00Z',
     totalPrice: 20541,
     createdAt: '2025-04-28T10:30:00Z',
-    updatedAt: '2025-04-28T10:30:00Z'
+    updatedAt: '2025-04-28T10:30:00Z',
+    multiCabId: '1' // Linked to mockMultiCabs[0]
   },
   {
     id: '2',
@@ -25,7 +26,8 @@ const mockSales = ref<Sale[]>([
     saleDate: '2025-04-26T14:15:00Z',
     totalPrice: 47432,
     createdAt: '2025-04-26T14:15:00Z',
-    updatedAt: '2025-04-26T14:15:00Z'
+    updatedAt: '2025-04-26T14:15:00Z',
+    multiCabId: '2' // Linked to mockMultiCabs[1]
   },
   {
     id: '3',
@@ -34,7 +36,8 @@ const mockSales = ref<Sale[]>([
     saleDate: '2025-04-24T09:45:00Z',
     totalPrice: 68118,
     createdAt: '2025-04-24T09:45:00Z',
-    updatedAt: '2025-04-24T09:45:00Z'
+    updatedAt: '2025-04-24T09:45:00Z',
+    multiCabId: '3' // Linked to mockMultiCabs[2]
   },
   {
     id: '4',
@@ -43,7 +46,8 @@ const mockSales = ref<Sale[]>([
     saleDate: '2025-04-23T16:20:00Z',
     totalPrice: 30526,
     createdAt: '2025-04-23T16:20:00Z',
-    updatedAt: '2025-04-23T16:20:00Z'
+    updatedAt: '2025-04-23T16:20:00Z',
+    multiCabId: '4' // Linked to mockMultiCabs[3]
   },
   {
     id: '5',
@@ -52,7 +56,8 @@ const mockSales = ref<Sale[]>([
     saleDate: '2025-04-23T11:10:00Z',
     totalPrice: 47182,
     createdAt: '2025-04-23T11:10:00Z',
-    updatedAt: '2025-04-23T11:10:00Z'
+    updatedAt: '2025-04-23T11:10:00Z',
+    multiCabId: '5' // Linked to mockMultiCabs[4]
   },
   {
     id: '6',
@@ -61,7 +66,8 @@ const mockSales = ref<Sale[]>([
     saleDate: '2025-04-20T13:30:00Z',
     totalPrice: 15186,
     createdAt: '2025-04-20T13:30:00Z',
-    updatedAt: '2025-04-20T13:30:00Z'
+    updatedAt: '2025-04-20T13:30:00Z',
+    multiCabId: '6' // Linked to mockMultiCabs[5]
   },
   {
     id: '7',
@@ -70,7 +76,8 @@ const mockSales = ref<Sale[]>([
     saleDate: '2025-04-18T10:00:00Z',
     totalPrice: 49451,
     createdAt: '2025-04-18T10:00:00Z',
-    updatedAt: '2025-04-18T10:00:00Z'
+    updatedAt: '2025-04-18T10:00:00Z',
+    multiCabId: '7' // Linked to mockMultiCabs[6]
   },
   // Additional historical data for the chart
   ...generateHistoricalSales()
@@ -184,7 +191,7 @@ const mockMultiCabs = ref<MultiCab[]>([
 const mockCustomers = ref<Customer[]>([
   {
     id: '1',
-    name: 'Jane Roe',
+    fullName: 'Jane Roe',
     email: 'jane.roe@example.com',
     phone: '555-123-4567',
     address: '123 Main St',
@@ -194,7 +201,7 @@ const mockCustomers = ref<Customer[]>([
   },
   {
     id: '2',
-    name: 'Emily Stone',
+    fullName: 'Emily Stone',
     email: 'emily.stone@example.com',
     phone: '555-987-6543',
     address: '456 Oak Ave',
@@ -204,7 +211,7 @@ const mockCustomers = ref<Customer[]>([
   },
   {
     id: '3',
-    name: 'Chris Evans',
+    fullName: 'Chris Evans',
     email: 'chris.evans@example.com',
     phone: '555-456-7890',
     address: '789 Pine Rd',
@@ -299,6 +306,7 @@ function generateHistoricalSales() {
   const monthlyRevenues = [700000, 400000, 600000, 500000, 400000, 400000, 400000, 600000, 300000, 500000, 300000];
 
   let saleId = 100;
+  const allCarIds = mockMultiCabs.value.map(car => car.id).concat(generateAdditionalCars().map(car => car.id));
 
   months.forEach((month, index) => {
     const year = index < 7 ? 2024 : 2025;
@@ -314,6 +322,7 @@ function generateHistoricalSales() {
 
       const day = Math.floor(Math.random() * 28) + 1;
       const date = new Date(year, monthIndex, day);
+      const randomCarId = allCarIds[Math.floor(Math.random() * allCarIds.length)] || 'unknown'; // Assign a random car ID
 
       historicalSales.push({
         id: `hist-${saleId++}`,
@@ -322,7 +331,8 @@ function generateHistoricalSales() {
         saleDate: date.toISOString(),
         totalPrice: price,
         createdAt: date.toISOString(),
-        updatedAt: date.toISOString()
+        updatedAt: date.toISOString(),
+        multiCabId: randomCarId // Add the multiCabId
       });
     }
   });
@@ -447,7 +457,7 @@ const recentSales = computed(() => {
   return mockSales.value
     .slice(0, 7) // Get only the first 7 sales (non-historical)
     .map(sale => {
-      const car = mockMultiCabs.value.find(car => car.updatedAt === sale.saleDate);
+      const car = mockMultiCabs.value.find(car => car.id === sale.multiCabId); // Link using multiCabId
       const customer = mockCustomers.value.find(customer => customer.id === sale.customerId);
       const salesperson = mockUsers.value.find(user => user.id === sale.soldBy);
 
@@ -456,7 +466,7 @@ const recentSales = computed(() => {
         carModel: car?.model || 'Unknown Model',
         date: sale.saleDate,
         price: sale.totalPrice,
-        customer: customer?.name || 'Unknown Customer',
+        customer: customer?.fullName || 'Unknown Customer', // Use fullName
         salesperson: salesperson?.fullName || 'Unknown Salesperson',
         color: car?.color || 'Unknown'
       };

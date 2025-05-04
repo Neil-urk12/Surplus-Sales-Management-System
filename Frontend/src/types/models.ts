@@ -10,7 +10,7 @@ export interface User {
 
 export interface Customer {
   id: string;
-  name: string;
+  fullName: string;
   email: string;
   phone: string;
   address: string;
@@ -27,6 +27,7 @@ export interface Sale {
   totalPrice: number;
   createdAt: string;
   updatedAt: string;
+  multiCabId: string;
 }
 
 export interface SaleItem {
