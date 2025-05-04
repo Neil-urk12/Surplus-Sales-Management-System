@@ -8,6 +8,7 @@
       :to="to"
       class="text-soft-light q-hoverable"
       :active="$route.path === to"
+      :class="{ 'text-dark': $route.path === to && !isDark, 'text-white': $route.path === to && isDark }"
       :exact="exact"
     >
       <q-item-section
@@ -39,6 +40,7 @@
           :to="child.to"
           clickable
           class="text-soft-light q-hoverable"
+          :class="{ 'text-dark': $route.path === child.to && !isDark, 'text-white': $route.path === child.to && isDark }"
         >
           <q-item-section avatar v-if="child.icon">
             <q-icon :name="child.icon" />
@@ -56,11 +58,12 @@
 <script setup lang="ts">
 import type { menuItemsProps } from '../types/menu-items'
 
-withDefaults(defineProps<menuItemsProps>(), {
+withDefaults(defineProps<menuItemsProps & { isDark: boolean }>(), {
   icon: '',
   to: '/',
   hasSubmenu: false,
-  children: () => []
+  children: () => [],
+  isDark: false
 })
 </script>
 

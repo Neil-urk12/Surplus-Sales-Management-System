@@ -432,18 +432,18 @@ const showEditDialog = ref(false);
               </q-input>
             </div>
             <div class="flex col">
-              <q-btn outline color="primary" icon="filter_list" label="Filters" @click="showFilterDialog = true" />
+              <q-btn outline icon="filter_list" label="Filters" @click="showFilterDialog = true" />
             </div>
           </div>
 
           <div class="flex row q-gutter-x-sm">
-            <q-btn class="text-white bg-primary" @click="openAddDialog">
-              <q-icon color="white" name="add" />
+            <q-btn class="text-white bg-primary" unelevated @click="openAddDialog">
+              <q-icon name="add" color="white" />
               Add
             </q-btn>
             <div class="flex row">
               <q-btn dense flat class="bg-primary text-white q-pa-sm">
-                <q-icon color="white" name="download" />
+                <q-icon name="download" color="white" />
                 Download CSV
               </q-btn>
             </div>
@@ -461,6 +461,7 @@ const showEditDialog = ref(false);
           row-key="id"
           :filter="store.materialSearch"
           @row-click="onMaterialRowClick"
+          :pagination="{ rowsPerPage: 10 }"
         >
           <template v-slot:body-cell-actions="props">
             <q-td :props="props" auto-width>
@@ -646,8 +647,8 @@ const showEditDialog = ref(false);
               </q-form>
             </q-card-section>
 
-            <q-card-actions align="right" class="bg-dark text-primary q-pa-md">
-              <q-btn flat label="Cancel" color="negative" v-close-popup />
+            <q-card-actions align="right" class="q-pa-md">
+              <q-btn flat label="Cancel" v-close-popup />
               <q-btn
                 unelevated
                 color="primary"
@@ -848,8 +849,8 @@ const showEditDialog = ref(false);
               </q-form>
             </q-card-section>
 
-            <q-card-actions align="right" class="bg-dark text-primary q-pa-md">
-              <q-btn flat label="Cancel" color="negative" v-close-popup />
+            <q-card-actions align="right" class="q-pa-md">
+              <q-btn flat label="Cancel" v-close-popup />
               <q-btn
                 unelevated
                 color="primary"
@@ -874,7 +875,7 @@ const showEditDialog = ref(false);
             </q-card-section>
 
             <q-card-actions align="right">
-              <q-btn flat label="Cancel" color="primary" v-close-popup />
+              <q-btn flat label="Cancel" v-close-popup />
               <q-btn flat label="Delete" color="negative" @click="confirmDelete" />
             </q-card-actions>
           </q-card>
@@ -889,16 +890,20 @@ const showEditDialog = ref(false);
   max-width: 100%
 
   thead tr:first-child th:nth-child(2)
-    background-color: #00b4ff
+    background-color: var(--sticky-column-bg)
 
   td:nth-child(2)
-    background-color: #00b4ff
+    background-color: var(--sticky-column-bg)
 
   th:nth-child(2),
   td:nth-child(2)
     position: sticky
     left: 0
     z-index: 1
+    color: white
+
+    .body--dark &
+      color: black
 
 .z-top
   z-index: 1000
