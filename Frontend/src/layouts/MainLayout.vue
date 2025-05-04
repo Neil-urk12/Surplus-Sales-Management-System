@@ -72,7 +72,7 @@
           <!-- menu -->
           <MenuItems
             class="text-soft-light"
-            v-for="link in menuItemsList"
+            v-for="link in filteredMenuItems"
             :key="link.title"
             v-bind="link"
             :isDark="isDark"
@@ -221,7 +221,22 @@ const menuItemsList: menuItemsProps[] = [
     icon:"contacts",
     to: '/contacts'
   },
-]
+];
+
+const userManagementMenuItem: menuItemsProps = {
+  title: 'User Management',
+  icon: 'manage_accounts',
+  to: '/user-management'
+};
+
+const filteredMenuItems = computed(() => {
+  const baseItems = [...menuItemsList]; // Create a mutable copy
+  const userRole = authStore.user?.role;
+  if (userRole === 'admin' || userRole === 'staff') {
+    baseItems.splice(1, 0, userManagementMenuItem);
+  }
+  return baseItems;
+});
 
 const route = useRoute();
 const router = useRouter();
@@ -254,9 +269,8 @@ watch(() => route.path, (newPath) => {
 }, { immediate: true })
 
 const leftDrawerOpen = ref(false)
-const isDark = ref(false)
+const isDark = computed(() => $q.dark.isActive)
 const $q = useQuasar()
-
 
 const text = ref<string>('')
 const timeoutId = ref<ReturnType<typeof setTimeout> | null>(null)
@@ -274,44 +288,29 @@ watch(text, (newValue) => {
   }, 300)
 })
 
-const themeMode = ref('')
+const themeMode = computed(() => ($q.dark.isActive ? 'Dark Mode' : 'Light Mode'))
 
 onMounted(() => {
   const savedMode = localStorage.getItem('quasar-theme')
   if (savedMode) {
-    isDark.value = savedMode === 'dark'
-    themeMode.value = savedMode
+    $q.dark.set(savedMode === 'dark')
   } else {
-    isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches
+    $q.dark.set(window.matchMedia('(prefers-color-scheme: dark)').matches)
   }
-  $q.dark.set(isDark.value)
 //for the time out cleanup
 })
 
 const toggleColorMode = () => {
-  isDark.value = !isDark.value
-  $q.dark.set(isDark.value)
-  localStorage.setItem('quasar-theme', isDark.value ? 'dark' : 'light')
-
-  if(isDark.value){
-    themeMode.value = 'Dark Mode'
-  }else{
-    themeMode.value = 'Light Mode'
-  }
+  $q.dark.toggle()
 }
 
 const currentUser = computed(() => {
   return authStore.user ? {
     name: authStore.user.fullName,
     email: authStore.user.email,
-    avatar: 'https://cdn.quasar.dev/img/avatar.png',
-  } : {
-    name: 'Guest User',
-    email: '',
-    avatar: 'https://cdn.quasar.dev/img/avatar.png',
-  }
+    role: authStore.user.role
+  } : { name: 'Guest', email: '', role: 'guest' }
 })
-
 
 function alert () {
   console.log('alert')

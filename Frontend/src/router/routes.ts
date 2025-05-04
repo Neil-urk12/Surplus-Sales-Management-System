@@ -15,6 +15,11 @@ const routes: RouteRecordRaw[] = [
       { path: 'inventory/accessories', component: () => import('pages/AccessoriesPage.vue') },
       { path: 'sales', component: () => import('pages/SalesPage.vue') },
       { path: 'contacts', component: () => import('pages/ContactsPage.vue') },
+      {
+        path: 'user-management',
+        component: () => import('pages/UserManagementPage.vue'),
+        meta: { roles: ['admin', 'staff'] } 
+      },
     ],
     meta: { requiresAuth: true },
   },

@@ -308,7 +308,7 @@ const mockUsers = ref<User[]>([
     id: '1',
     fullName: 'Edward Allen',
     email: 'edward.allen@company.com',
-    role: 'salesperson',
+    role: 'staff',
     createdAt: '2024-12-01T00:00:00Z',
     updatedAt: '2024-12-01T00:00:00Z',
     isActive: true
@@ -317,7 +317,7 @@ const mockUsers = ref<User[]>([
     id: '2',
     fullName: 'Charlie Brown',
     email: 'charlie.brown@company.com',
-    role: 'salesperson',
+    role: 'staff',
     createdAt: '2024-12-05T00:00:00Z',
     updatedAt: '2024-12-05T00:00:00Z',
     isActive: true
@@ -326,7 +326,7 @@ const mockUsers = ref<User[]>([
     id: '3',
     fullName: 'Bob Johnson',
     email: 'bob.johnson@company.com',
-    role: 'salesperson',
+    role: 'staff',
     createdAt: '2024-12-10T00:00:00Z',
     updatedAt: '2024-12-10T00:00:00Z',
     isActive: true
@@ -335,7 +335,7 @@ const mockUsers = ref<User[]>([
     id: '4',
     fullName: 'Alice Smith',
     email: 'alice.smith@company.com',
-    role: 'salesperson',
+    role: 'staff',
     createdAt: '2024-12-15T00:00:00Z',
     updatedAt: '2024-12-15T00:00:00Z',
     isActive: true

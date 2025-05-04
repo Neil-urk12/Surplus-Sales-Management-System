@@ -278,12 +278,11 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 // UpdateUser updates a user's information
 func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	id := c.Params("id")
-	// Optional: Check permissions similar to GetUser
-	// requestedUserID := c.Locals("user_id")
-	// requestedUserRole := c.Locals("role")
-	// if requestedUserID != id && requestedUserRole != "admin" {
-	// 	return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied"})
-	// }
+	// Check if the current user is admin or staff
+	requestUserRole := c.Locals("role").(string)
+	if requestUserRole != "admin" && requestUserRole != "staff" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied"})
+	}
 
 	// Get existing user
 	existingUser, err := h.userRepo.GetByID(id)
@@ -294,19 +293,10 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 		})
 	}
 
-	// Check if user is active
-	if !existingUser.IsActive {
-		log.Printf("Update attempt for inactive user: %s", existingUser.Email)
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error": "Account is inactive",
-		})
-	}
-
 	// Parse request body
 	var input struct {
-		Name  string `json:"name"`
-		Email string `json:"email"`
-		Role  string `json:"role"`
+		Role     string `json:"role"`
+		IsActive bool   `json:"isActive"`
 	}
 
 	if err := c.BodyParser(&input); err != nil {
@@ -315,34 +305,16 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 		})
 	}
 
-	// Update user fields if provided
-	if input.Name != "" {
-		existingUser.FullName = input.Name // Update FullName
-	}
-	if input.Email != "" && input.Email != existingUser.Email {
-		// Check if new email already exists
-		exists, err := h.userRepo.EmailExists(input.Email)
-		if err != nil {
-			log.Printf("Error checking email existence: %v", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
-
-		if exists {
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-				"error": "Email already in use",
-			})
-		}
-
-		existingUser.Email = input.Email
-	}
+	// Update only role and isActive fields
 	if input.Role != "" {
 		existingUser.Role = input.Role
 	}
+	
+	// Update isActive status
+	existingUser.IsActive = input.IsActive
 
 	// Update timestamp
-	existingUser.UpdatedAt = time.Now() // Use time.Time directly
+	existingUser.UpdatedAt = time.Now()
 
 	// Save changes
 	if err := h.userRepo.Update(existingUser); err != nil {
@@ -392,6 +364,76 @@ func (h *UserHandler) ActivateUser(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "User activated successfully",
+	})
+}
+
+// CreateUser creates a new user (admin/staff only)
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
+	// Check if the current user is admin or staff
+	requestUserRole := c.Locals("role").(string)
+	if requestUserRole != "admin" && requestUserRole != "staff" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied"})
+	}
+
+	// Parse request body
+	var input struct {
+		FullName string `json:"fullName"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		Role     string `json:"role"`
+	}
+
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	// Validate input
+	if input.FullName == "" || input.Email == "" || input.Password == "" || input.Role == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Full name, email, password, and role are required",
+		})
+	}
+
+	// Check if email already exists
+	exists, err := h.userRepo.EmailExists(input.Email)
+	if err != nil {
+		log.Printf("Error checking email existence: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	if exists {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error": "Email already in use",
+		})
+	}
+
+	// Create user
+	user := &models.User{
+		Id:       uuid.New().String(),
+		FullName: input.FullName,
+		Email:    input.Email,
+		Password: input.Password, // Will be hashed in the repository
+		Role:     input.Role,
+		IsActive: true,
+	}
+
+	if err := h.userRepo.Create(user); err != nil {
+		log.Printf("Error creating user: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create user",
+		})
+	}
+
+	// Don't return the password hash
+	user.Password = ""
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "User created successfully",
+		"user":    user,
 	})
 }
 
