@@ -6,7 +6,7 @@
     <q-separator />
     <q-card-section class="q-pa-none">
       <q-list separator>
-        <q-item v-for="activity in activities" :key="activity.id" class="q-pa-md">
+        <q-item v-for="activity in formattedActivities" :key="activity.id" class="q-pa-md">
           <q-item-section avatar>
             <q-icon :name="activity.icon" :color="activity.color" />
           </q-item-section>
@@ -15,7 +15,7 @@
             <q-item-label caption>{{ activity.description }}</q-item-label>
           </q-item-section>
           <q-item-section side>
-            <q-item-label caption>{{ formatTime(activity.timestamp) }}</q-item-label>
+            <q-item-label caption>{{ activity.formattedTime }}</q-item-label>
           </q-item-section>
         </q-item>
         <q-item v-if="activities.length === 0" class="text-center q-pa-lg text-grey">
@@ -27,6 +27,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
+
 interface Activity {
   id: string;
   title: string;
@@ -36,19 +38,24 @@ interface Activity {
   color: string;
 }
 
-defineProps<{
+const props = defineProps<{
   activities: Activity[];
 }>();
 
-function formatTime(date: Date): string {
-  return new Date(date).toLocaleString('en-US', {
-    hour: 'numeric',
-    minute: 'numeric',
-    hour12: true,
-    month: 'short',
-    day: 'numeric'
-  });
-}
+const formatTimeOptions = {
+  hour: 'numeric',
+  minute: 'numeric',
+  hour12: true,
+  month: 'short',
+  day: 'numeric'
+} as const;
+
+const formattedActivities = computed(() => {
+  return props.activities.map(activity => ({
+    ...activity,
+    formattedTime: new Date(activity.timestamp).toLocaleString('en-US', formatTimeOptions)
+  }));
+});
 </script>
 
 <style scoped>

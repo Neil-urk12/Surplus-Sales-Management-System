@@ -83,13 +83,15 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
+import { useRouter } from 'vue-router';
 import MetricsCard from '../components/dashboard/MetricsCard.vue';
 import InventoryChart from '../components/dashboard/InventoryChart.vue';
 import SalesTrendChart from '../components/charts/SalesTrendChart.vue';
 import ActivityFeed from '../components/dashboard/ActivityFeed.vue';
-import AlertsPanel, { type Alert } from '../components/dashboard/AlertsPanel.vue';
+import AlertsPanel, { type Alert, type AlertSeverity } from '../components/dashboard/AlertsPanel.vue';
 
 const $q = useQuasar();
+const router = useRouter();
 
 // State
 const isLoading = ref(false);
@@ -149,22 +151,28 @@ const recentActivities = ref([
   }
 ]);
 
+/**
+ * System alerts configuration
+ * Each alert represents a different type of system notification that requires user attention
+ */
 const systemAlerts = ref<Alert[]>([
   {
     id: '1',
     title: 'Low Stock Warning',
     message: '5 items are running low on stock',
-    severity: 'warning' as const,
+    severity: 'warning' as AlertSeverity,
     icon: 'warning',
-    actionIcon: 'visibility'
+    actionIcon: 'visibility',
+    // This alert will navigate to the inventory page to show low stock items
   },
   {
     id: '2',
     title: 'Inventory Check Required',
     message: 'Monthly inventory check due in 2 days',
-    severity: 'info' as const,
+    severity: 'info' as AlertSeverity,
     icon: 'inventory',
-    actionIcon: 'event'
+    actionIcon: 'event',
+    // This alert will open the inventory check scheduling modal
   }
 ]);
 
@@ -199,16 +207,75 @@ async function refreshData() {
   }
 }
 
-function handleAlertAction(alertId: string) {
-  switch (alertId) {
-    case '1':
-      // Navigate to inventory page
-      break;
-    case '2':
-      // Show inventory check modal/page
-      break;
-    default:
-      console.log('Alert action clicked:', alertId);
+/**
+ * Handles actions triggered from the AlertsPanel component
+ * Each alert has a specific action associated with it
+ * 
+ * @param alertId - The unique identifier of the alert being acted upon
+ */
+async function handleAlertAction(alertId: string) {
+  try {
+    switch (alertId) {
+      case '1': {
+        // Navigate to inventory page with low stock filter
+        // TODO: Implement navigation with proper filter state
+        console.log('Navigating to inventory page for low stock items...');
+        await router.push({
+          path: '/inventory/cabs',
+          query: { filter: 'low-stock' }
+        });
+        break;
+      }
+      case '2': {
+        // Show inventory check scheduling modal
+        // TODO: Implement inventory check modal/page
+        console.log('Opening inventory check scheduling modal...');
+        $q.dialog({
+          title: 'Schedule Inventory Check',
+          message: 'Would you like to schedule the monthly inventory check?',
+          ok: {
+            label: 'Schedule Now',
+            color: 'primary'
+          },
+          cancel: {
+            label: 'Remind Me Later',
+            color: 'grey'
+          },
+          persistent: true
+        }).onOk(() => {
+          try {
+            // TODO: Implement actual async scheduling functionality
+            console.log('Scheduling inventory check...');
+            $q.notify({
+              type: 'positive',
+              message: 'Inventory check scheduled successfully'
+            });
+          } catch (scheduleError) {
+            console.error('Error scheduling inventory check:', scheduleError);
+            $q.notify({
+              type: 'negative',
+              message: 'Failed to schedule inventory check',
+              caption: 'Please try again later'
+            });
+          }
+        });
+        break;
+      }
+      default: {
+        console.warn(`Unhandled alert action for alert ID: ${alertId}`);
+        $q.notify({
+          type: 'warning',
+          message: 'This action is not yet implemented'
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error handling alert action:', error);
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to process alert action',
+      caption: 'Please try again or contact support if the issue persists'
+    });
   }
 }
 
