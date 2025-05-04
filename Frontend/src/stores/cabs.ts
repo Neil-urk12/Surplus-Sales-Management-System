@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
+<<<<<<< HEAD
 import type { 
   CabsRow, 
   NewCabInput, 
@@ -103,6 +104,94 @@ export const useCabsStore = defineStore('cabs', () => {
       isLoading.value = false
     }
   }
+=======
+
+export interface CabsRow {
+  name: string
+  id: number
+  make: string
+  quantity: number
+  price: number
+  status: string
+  unit_color: string
+  image: string
+}
+
+export const useCabsStore = defineStore('cabs', () => {
+  // State
+  const cabRows = ref<CabsRow[]>([
+    {
+      name: 'RX‑7',
+      id: 1,
+      make: 'Mazda',
+      quantity: 4,
+      price: 7_000_000,
+      status: 'In Stock',
+      unit_color: 'Black',
+      image: 'https://loremflickr.com/600/400/mazda',
+    },
+    {
+      name: '911 GT3',
+      id: 2,
+      make: 'Porsche',
+      quantity: 2,
+      price: 10_000_000,
+      status: 'In Stock',
+      unit_color: 'Black',
+      image: 'https://loremflickr.com/600/400/porsche',
+    },
+    {
+      name: '911 GT3',
+      id: 3,
+      make: 'Porsche',
+      quantity: 2,
+      price: 10_000_000,
+      status: 'Available',
+      unit_color: 'Black',
+      image: 'https://loremflickr.com/600/400/porsche',
+    },
+    {
+      name: 'Corolla',
+      id: 4,
+      make: 'Toyota',
+      quantity: 2,
+      price: 10_000_000,
+      status: 'In Stock',
+      unit_color: 'Black',
+      image: 'https://loremflickr.com/600/400/toyota',
+    },
+    {
+      name: 'Navara',
+      id: 5,
+      make: 'Nissan',
+      quantity: 2,
+      price: 10_000_000,
+      status: 'In Stock',
+      unit_color: 'Black',
+      image: 'src/assets/images/Cars/navara.avif',
+    },
+    {
+      name: 'Vios',
+      id: 6,
+      make: 'Toyota',
+      quantity: 2,
+      price: 10_000_000,
+      status: 'In Stock',
+      unit_color: 'Black',
+      image: 'https://loremflickr.com/600/400/toyota',
+    },
+    {
+      name: 'Ranger',
+      id: 7,
+      make: 'Ford',
+      quantity: 2,
+      price: 10_000_000,
+      status: 'In Stock',
+      unit_color: 'Black',
+      image: 'https://loremflickr.com/600/400/ford',
+    },
+  ])
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
 
   // Search with debounce
   const rawCabSearch = ref('')
@@ -125,6 +214,7 @@ export const useCabsStore = defineStore('cabs', () => {
     updateCabSearch(newValue)
   })
 
+<<<<<<< HEAD
   // Use input types that allow empty strings for filters
   const filterMake = ref<CabMakeInput>('')
   const filterColor = ref<CabColorInput>('')
@@ -134,6 +224,16 @@ export const useCabsStore = defineStore('cabs', () => {
   const makes: CabMake[] = ['Mazda', 'Porsche', 'Toyota', 'Nissan', 'Ford']
   const colors: CabColor[] = ['Black', 'White', 'Silver', 'Red', 'Blue']
   const statuses: CabStatus[] = ['In Stock', 'Low Stock', 'Out of Stock', 'Available']
+=======
+  const filterMake = ref('')
+  const filterColor = ref('')
+  const filterStatus = ref('')
+
+  // Available options
+  const makes = ['Mazda', 'Porsche', 'Toyota', 'Nissan', 'Ford']
+  const colors = ['Black', 'White', 'Silver', 'Red', 'Blue']
+  const statuses = ['In Stock', 'Low Stock', 'Out of Stock', 'Available']
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
 
   // Computed
   const filteredCabRows = computed(() => {
@@ -149,6 +249,7 @@ export const useCabsStore = defineStore('cabs', () => {
     })
   })
 
+<<<<<<< HEAD
   // Type guard functions
   function isValidCabMake(make: CabMakeInput): make is CabMake {
     return make !== '';
@@ -195,6 +296,20 @@ export const useCabsStore = defineStore('cabs', () => {
     } finally {
       isLoading.value = false
     }
+=======
+  // Actions
+  async function addCab(cab: Omit<CabsRow, 'id'>) {
+    // Simulate a brief network delay that would happen in a real API call
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const newId = Math.max(...cabRows.value.map(item => item.id)) + 1
+    cabRows.value.push({
+      ...cab,
+      id: newId
+    })
+
+    return { success: true, id: newId }
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
   }
 
   function updateCabStatus(id: number, quantity: number) {
@@ -220,6 +335,7 @@ export const useCabsStore = defineStore('cabs', () => {
     cabSearch.value = ''
   }
 
+<<<<<<< HEAD
   async function deleteCab(id: number): Promise<CabOperationResponse> {
     try {
       isLoading.value = true
@@ -302,12 +418,42 @@ export const useCabsStore = defineStore('cabs', () => {
     } finally {
       isLoading.value = false;
     }
+=======
+  async function deleteCab(id: number) {
+    // Simulate a brief network delay that would happen in a real API call
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const index = cabRows.value.findIndex(c => c.id === id);
+    if (index !== -1) {
+      cabRows.value.splice(index, 1);
+      return { success: true };
+    }
+    throw new Error('Cab not found');
+  }
+
+  async function updateCab(id: number, cab: Omit<CabsRow, 'id'>) {
+    // Simulate a brief network delay that would happen in a real API call
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const index = cabRows.value.findIndex(c => c.id === id);
+    if (index !== -1) {
+      cabRows.value[index] = {
+        ...cab,
+        id
+      };
+      return { success: true };
+    }
+    throw new Error('Cab not found');
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
   }
 
   return {
     // State
     cabRows,
+<<<<<<< HEAD
     isLoading,
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
     rawCabSearch,
     cabSearch,
     filterMake,
@@ -320,7 +466,10 @@ export const useCabsStore = defineStore('cabs', () => {
     // Computed
     filteredCabRows,
     // Actions
+<<<<<<< HEAD
     initializeCabs,
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
     addCab,
     updateCabStatus,
     resetFilters,

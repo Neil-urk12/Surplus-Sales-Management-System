@@ -1,13 +1,21 @@
 <script setup lang="ts">
+<<<<<<< HEAD
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
+=======
+import { ref, watch, computed } from 'vue';
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
 import type { QTableColumn, QTableProps } from 'quasar';
 import ProductCardModal from 'src/components/Global/ProductModal.vue'
 import { useQuasar } from 'quasar';
 import { useCabsStore } from 'src/stores/cabs';
+<<<<<<< HEAD
 import type { CabsRow, NewCabInput } from 'src/types/cabs';
 import { getFirstFallbackImage, getNextFallbackImage } from 'src/config/defaultImages';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
+=======
+import type { CabsRow } from 'src/stores/cabs';
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
 
 const $q = useQuasar();
 const store = useCabsStore();
@@ -16,6 +24,7 @@ const showAddDialog = ref(false);
 const showEditDialog = ref(false);
 const showDeleteDialog = ref(false);
 const cabToDelete = ref<CabsRow | null>(null);
+<<<<<<< HEAD
 const showProductCardModal = ref(false);
 const isDragging = ref(false);
 
@@ -55,6 +64,9 @@ function handleDrop(event: DragEvent) {
     void handleFile(file);
   }
 }
+=======
+const show = ref(false);
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
 
 const selected = ref<CabsRow>({
   name: '',
@@ -77,10 +89,27 @@ const newCab = ref<NewCabInput>({
   image: 'https://loremflickr.com/600/400/car',
 })
 
+<<<<<<< HEAD
 // Image validation
 const imageUrlValid = ref(true);
 const validatingImage = ref(false);
 const defaultImageUrl = getFirstFallbackImage('cab');
+=======
+const newCab = ref<Omit<CabsRow, 'id'>>({
+  name: '',
+  make: '',
+  quantity: 0,
+  price: 0,
+  unit_color: '',
+  status: 'Out of Stock',
+  image: 'https://loremflickr.com/600/400/car',
+})
+
+// Image validation
+const imageUrlValid = ref(true);
+const validatingImage = ref(false);
+const defaultImageUrl = 'https://loremflickr.com/600/400/car';
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
 
 // Available options from store
 const { makes, colors, statuses } = store;
@@ -120,8 +149,12 @@ const columns: QTableColumn[] = [
     name: 'actions',
     label: 'Actions',
     field: 'actions',
+<<<<<<< HEAD
     align: 'center',
     sortable: false
+=======
+    align: 'center'
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
   }
 ];
 
@@ -131,6 +164,7 @@ const onRowClick: QTableProps['onRowClick'] = (evt, row) => {
   if (target.closest('.action-button') || target.closest('.action-menu')) {
     return; // Do nothing if clicked on action button or its menu
   }
+<<<<<<< HEAD
   
   // Update selected with a proper copy of the row data
   selected.value = { ...row as CabsRow };
@@ -194,6 +228,46 @@ async function addNewCab() {
 
     // If no image is uploaded, use default
     if (!newCab.value.image || newCab.value.image === '') {
+=======
+  selected.value = row as CabsRow
+  show.value = true
+}
+
+function addToCart() {
+  console.log('added to cart for', selected.value.name)
+  show.value = false
+}
+
+function openAddDialog() {
+  newCab.value = {
+    name: '',
+    make: '',
+    quantity: 0,
+    price: 0,
+    unit_color: '',
+    status: 'Out of Stock',
+    image: defaultImageUrl
+  }
+  imageUrlValid.value = true;
+  showAddDialog.value = true
+}
+
+async function addNewCab() {
+  try {
+    // Validate image URL before proceeding
+    if (!imageUrlValid.value) {
+      $q.notify({
+        color: 'negative',
+        message: 'Please provide a valid image URL',
+        position: 'top',
+        timeout: 2000
+      });
+      return;
+    }
+
+    // If image URL is empty, use default
+    if (!newCab.value.image) {
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
       newCab.value.image = defaultImageUrl;
     }
 
@@ -203,18 +277,47 @@ async function addNewCab() {
     // Only close dialog and show notification after operation successfully completes
     if (result.success) {
       showAddDialog.value = false;
+<<<<<<< HEAD
       clearImageInput(); // Clear the image input state
       operationNotifications.add.success(`cab: ${newCab.value.name}`);
     }
   } catch (error) {
     console.error('Error adding cab:', error);
     operationNotifications.add.error('cab');
+=======
+
+      $q.notify({
+        color: 'positive',
+        message: `Added new cab: ${newCab.value.name}`,
+        position: 'top',
+        timeout: 2000
+      });
+    }
+  } catch (error) {
+    console.error('Error adding cab:', error);
+    $q.notify({
+      color: 'negative',
+      message: 'Failed to add cab',
+      position: 'top',
+      timeout: 2000
+    });
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
   }
 }
 
 function applyFilters() {
   showFilterDialog.value = false;
+<<<<<<< HEAD
   operationNotifications.filters.success();
+=======
+
+  $q.notify({
+    color: 'positive',
+    message: 'Filters applied successfully',
+    position: 'top',
+    timeout: 2000
+  });
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
 }
 
 // Add watch for quantity changes
@@ -231,8 +334,11 @@ watch(() => newCab.value.quantity, (newQuantity) => {
 });
 
 // Function to validate if URL is a valid image
+<<<<<<< HEAD
 let currentAbortController: AbortController | null = null;
 
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
 async function validateImageUrl(url: string): Promise<boolean> {
   if (!url) {
     imageUrlValid.value = false;
@@ -246,6 +352,7 @@ async function validateImageUrl(url: string): Promise<boolean> {
 
   validatingImage.value = true;
 
+<<<<<<< HEAD
   // Abort any existing validation
   if (currentAbortController) {
     currentAbortController.abort();
@@ -255,6 +362,8 @@ async function validateImageUrl(url: string): Promise<boolean> {
   currentAbortController = new AbortController();
   const signal = currentAbortController.signal;
 
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
   try {
     const result = await new Promise<boolean>((resolve) => {
       const img = new Image();
@@ -262,6 +371,7 @@ async function validateImageUrl(url: string): Promise<boolean> {
       const cleanup = () => {
         img.onload = null;
         img.onerror = null;
+<<<<<<< HEAD
         if (currentAbortController?.signal === signal) {
           currentAbortController = null;
         }
@@ -273,6 +383,10 @@ async function validateImageUrl(url: string): Promise<boolean> {
         resolve(false);
       });
 
+=======
+      };
+
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
       img.onload = () => {
         cleanup();
         imageUrlValid.value = true;
@@ -282,6 +396,7 @@ async function validateImageUrl(url: string): Promise<boolean> {
 
       img.onerror = () => {
         cleanup();
+<<<<<<< HEAD
         // Try next fallback image if current one fails
         if (url === newCab.value.image) {
           const nextFallback = getNextFallbackImage(url, 'cab');
@@ -292,12 +407,15 @@ async function validateImageUrl(url: string): Promise<boolean> {
             imageUrlValid.value = false;
           });
         }
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
         imageUrlValid.value = false;
         validatingImage.value = false;
         resolve(false);
       };
 
       // Set a timeout to avoid hanging
+<<<<<<< HEAD
       const timeoutId = setTimeout(() => {
         if (!signal.aborted) {
           currentAbortController?.abort();
@@ -322,12 +440,22 @@ async function validateImageUrl(url: string): Promise<boolean> {
         clearTimeout(timeoutId);
       });
 
+=======
+      setTimeout(() => {
+        cleanup();
+        imageUrlValid.value = false;
+        validatingImage.value = false;
+        resolve(false);
+      }, 5000);
+
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
       img.src = url;
     });
 
     return result;
   } catch (error) {
     console.error('Error validating image URL:', error);
+<<<<<<< HEAD
     // Try next fallback image if current one errors
     if (url === newCab.value.image) {
       const nextFallback = getNextFallbackImage(url, 'cab');
@@ -338,6 +466,8 @@ async function validateImageUrl(url: string): Promise<boolean> {
         return false;
       });
     }
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
     imageUrlValid.value = false;
     validatingImage.value = false;
     return false;
@@ -349,11 +479,16 @@ async function validateImageUrl(url: string): Promise<boolean> {
 }
 
 // Modify the watch for image URL changes to handle the default image case
+<<<<<<< HEAD
 watch(() => newCab.value.image, (newUrl: string) => {
+=======
+watch(() => newCab.value.image, async (newUrl: string) => {
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
   if (!newUrl || newUrl === defaultImageUrl) {
     imageUrlValid.value = true; // Default image or empty should be valid
     return;
   }
+<<<<<<< HEAD
   if (newUrl.startsWith('data:image/')) {
     const validationResult = validateAndSanitizeBase64Image(newUrl);
     if (validationResult.isValid) {
@@ -375,10 +510,23 @@ watch(() => newCab.value.image, (newUrl: string) => {
     console.error('Error in image URL watcher:', error);
     imageUrlValid.value = false;
   });
+=======
+  try {
+    if (newUrl.startsWith('data:image/')) {
+      imageUrlValid.value = true; // Base64 image data is valid
+    } else {
+      await validateImageUrl(newUrl);
+    }
+  } catch (error) {
+    console.error('Error in image URL watcher:', error);
+    imageUrlValid.value = false;
+  }
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
 });
 
 // Add new refs for file handling
 const fileInput = ref<HTMLInputElement | null>(null);
+<<<<<<< HEAD
 const previewUrl = ref('');
 
 // Add these constants and types at the top of the script
@@ -662,6 +810,75 @@ function clearImageInput() {
     fileInput.value.value = '';
   }
   isUploadingImage.value = false;
+=======
+const isDragging = ref(false);
+const previewUrl = ref('');
+
+// Function to handle file selection
+function handleFileSelect(event: Event) {
+  const input = event.target as HTMLInputElement;
+  if (input.files && input.files[0]) {
+    const file = input.files[0];
+    handleFile(file);
+  }
+}
+
+// Function to handle drag and drop
+function handleDrop(event: DragEvent) {
+  event.preventDefault();
+  isDragging.value = false;
+
+  if (event.dataTransfer?.files && event.dataTransfer.files[0]) {
+    const file = event.dataTransfer.files[0];
+    handleFile(file);
+  }
+}
+
+// Function to handle the file
+function handleFile(file: File) {
+  if (!file.type.startsWith('image/')) {
+    $q.notify({
+      color: 'negative',
+      message: 'Please upload an image file',
+      position: 'top',
+    });
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    if (e.target?.result) {
+      previewUrl.value = e.target.result as string;
+      newCab.value.image = e.target.result as string;
+      imageUrlValid.value = true;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+// Function to remove image
+function removeImage(event: Event) {
+  event.stopPropagation(); // Prevent triggering file input click
+  previewUrl.value = '';
+  newCab.value.image = defaultImageUrl;
+  if (fileInput.value) {
+    fileInput.value.value = ''; // Clear the file input
+  }
+}
+
+// Function to trigger file input
+function triggerFileInput() {
+  fileInput.value?.click();
+}
+
+// Function to clear image input and preview
+function clearImageInput() {
+  previewUrl.value = '';
+  newCab.value.image = defaultImageUrl;
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
 }
 
 // Function to handle edit cab
@@ -676,6 +893,7 @@ function editCab(cab: CabsRow) {
     status: cab.status,
     image: cab.image
   };
+<<<<<<< HEAD
 
   // Handle the image preview for base64 images
   if (cab.image.startsWith('data:image/')) {
@@ -696,12 +914,16 @@ function editCab(cab: CabsRow) {
     newCab.value.image = defaultImageUrl;
     imageUrlValid.value = true;
   }
+=======
+  previewUrl.value = cab.image; // Set the preview URL for the existing image
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
   showEditDialog.value = true;
 }
 
 // Function to handle update cab
 async function updateCab() {
   try {
+<<<<<<< HEAD
     // Validate required fields
     if (!newCab.value.make || !newCab.value.unit_color) {
       operationNotifications.validation.error('Please fill in all required fields');
@@ -723,18 +945,56 @@ async function updateCab() {
       throw new Error('No cab selected for update');
     }
 
+=======
+    // Validate image URL before proceeding
+    if (!imageUrlValid.value) {
+      $q.notify({
+        color: 'negative',
+        message: 'Please provide a valid image URL',
+        position: 'top',
+        timeout: 2000
+      });
+      return;
+    }
+
+    // If image URL is empty, use default
+    if (!newCab.value.image) {
+      newCab.value.image = defaultImageUrl;
+    }
+
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
     // Execute the store action and await its completion
     const result = await store.updateCab(selected.value.id, newCab.value);
 
     // Only close dialog and show notification after operation successfully completes
     if (result.success) {
       showEditDialog.value = false;
+<<<<<<< HEAD
       clearImageInput(); // Clear the image input state
       operationNotifications.update.success(`cab: ${newCab.value.name}`);
     }
   } catch (error) {
     console.error('Error updating cab:', error);
     operationNotifications.update.error('cab');
+=======
+      clearImageInput();
+
+      $q.notify({
+        color: 'positive',
+        message: `Updated cab: ${newCab.value.name}`,
+        position: 'top',
+        timeout: 2000
+      });
+    }
+  } catch (error) {
+    console.error('Error updating cab:', error);
+    $q.notify({
+      color: 'negative',
+      message: 'Failed to update cab',
+      position: 'top',
+      timeout: 2000
+    });
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
   }
 }
 
@@ -752,6 +1012,7 @@ async function confirmDelete() {
     await store.deleteCab(cabToDelete.value.id);
     showDeleteDialog.value = false;
     cabToDelete.value = null;
+<<<<<<< HEAD
     operationNotifications.delete.success('cab');
   } catch (error) {
     console.error('Error deleting cab:', error);
@@ -817,6 +1078,26 @@ onMounted(async () => {
   await store.initializeCabs();
 });
 
+=======
+
+    $q.notify({
+      color: 'positive',
+      message: `Successfully deleted cab`,
+      position: 'top',
+      timeout: 2000
+    });
+  } catch (error) {
+    console.error('Error deleting cab:', error);
+    $q.notify({
+      color: 'negative',
+      message: 'Failed to delete cab',
+      position: 'top',
+      timeout: 2000
+    });
+  }
+}
+
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
 </script>
 
 <template>
@@ -861,7 +1142,11 @@ onMounted(async () => {
         </div>
       </div>
 
+<<<<<<< HEAD
       <!--CABS TABLE-->
+=======
+      <!--INVENTORY TABLE-->
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
       <q-table
         class="my-sticky-column-table"
         flat
@@ -873,6 +1158,7 @@ onMounted(async () => {
         :filter="store.cabSearch"
         @row-click="onRowClick"
         :pagination="{ rowsPerPage: 5 }"
+<<<<<<< HEAD
         :loading="store.isLoading"
       >
         <template v-slot:loading>
@@ -903,10 +1189,23 @@ onMounted(async () => {
                     <q-item-section>
                       <q-item-label>
                         <q-icon name="edit" size="xs" class="q-mr-sm" aria-hidden="true" />
+=======
+      >
+        <template v-slot:body-cell-actions="props">
+          <q-td :props="props" auto-width>
+            <q-btn flat round dense color="grey" icon="more_vert" class="action-button">
+              <q-menu class="action-menu">
+                <q-list style="min-width: 100px">
+                  <q-item clickable v-close-popup @click.stop="editCab(props.row)">
+                    <q-item-section>
+                      <q-item-label>
+                        <q-icon name="edit" size="xs" class="q-mr-sm" />
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                         Edit
                       </q-item-label>
                     </q-item-section>
                   </q-item>
+<<<<<<< HEAD
                   <q-item
                     clickable
                     v-close-popup
@@ -918,6 +1217,12 @@ onMounted(async () => {
                     <q-item-section>
                       <q-item-label class="text-negative">
                         <q-icon name="delete" size="xs" class="q-mr-sm" aria-hidden="true" />
+=======
+                  <q-item clickable v-close-popup @click.stop="deleteCab(props.row)">
+                    <q-item-section>
+                      <q-item-label class="text-negative">
+                        <q-icon name="delete" size="xs" class="q-mr-sm" />
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                         Delete
                       </q-item-label>
                     </q-item-section>
@@ -979,14 +1284,18 @@ onMounted(async () => {
                     dense
                     outlined
                     required
+<<<<<<< HEAD
                     emit-value
                     map-options
                     placeholder="Select a make"
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                     :rules="[val => !!val || 'Make is required']"
                   >
                     <template v-slot:prepend>
                       <q-icon name="business" />
                     </template>
+<<<<<<< HEAD
                     <template v-slot:no-option>
                       <q-item>
                         <q-item-section class="text-grey">
@@ -994,6 +1303,8 @@ onMounted(async () => {
                         </q-item-section>
                       </q-item>
                     </template>
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                   </q-select>
                 </div>
 
@@ -1005,14 +1316,18 @@ onMounted(async () => {
                     dense
                     outlined
                     required
+<<<<<<< HEAD
                     emit-value
                     map-options
                     placeholder="Select a color"
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                     :rules="[val => !!val || 'Color is required']"
                   >
                     <template v-slot:prepend>
                       <q-icon name="palette" />
                     </template>
+<<<<<<< HEAD
                     <template v-slot:no-option>
                       <q-item>
                         <q-item-section class="text-grey">
@@ -1020,6 +1335,8 @@ onMounted(async () => {
                         </q-item-section>
                       </q-item>
                     </template>
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                   </q-select>
                 </div>
               </div>
@@ -1029,7 +1346,10 @@ onMounted(async () => {
                   <q-input
                     v-model.number="newCab.quantity"
                     type="number"
+<<<<<<< HEAD
                     min="0"
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                     label="Quantity"
                     dense
                     outlined
@@ -1067,6 +1387,10 @@ onMounted(async () => {
                     dense
                     outlined
                     readonly
+<<<<<<< HEAD
+=======
+                    disable
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                   >
                     <template v-slot:prepend>
                       <q-icon name="info" />
@@ -1082,14 +1406,20 @@ onMounted(async () => {
                     :class="{ 'dragging': isDragging }"
                     @dragenter.prevent="isDragging = true"
                     @dragover.prevent="isDragging = true"
+<<<<<<< HEAD
                     @dragleave.prevent="handleDragLeave"
                     @drop.prevent="handleDrop"
                     @dragend.prevent="isDragging = false"
+=======
+                    @dragleave.prevent="isDragging = false"
+                    @drop.prevent="handleDrop"
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                     @click="triggerFileInput"
                   >
                     <input
                       type="file"
                       ref="fileInput"
+<<<<<<< HEAD
                       accept="image/jpeg,image/png,image/gif"
                       class="hidden"
                       @change="handleFileSelect"
@@ -1101,10 +1431,18 @@ onMounted(async () => {
                       </div>
                     </div>
                     <div v-else-if="!previewUrl" class="text-center">
+=======
+                      accept="image/*"
+                      class="hidden"
+                      @change="handleFileSelect"
+                    >
+                    <div class="text-center" v-if="!previewUrl">
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                       <q-icon name="cloud_upload" size="48px" color="primary" />
                       <div class="text-body1 q-mt-sm">
                         Drag and drop an image here or click to select
                       </div>
+<<<<<<< HEAD
                       <div class="text-caption text-grey q-mt-sm">
                         Supported formats: JPG, PNG, GIF
                         <br>
@@ -1120,6 +1458,15 @@ onMounted(async () => {
                           class="preview-image"
                           :alt="newCab.name || 'Preview image'"
                         />
+=======
+                      <div class="text-caption text-grey">
+                        Supported formats: JPG, PNG, GIF
+                      </div>
+                    </div>
+                    <div v-else class="row items-center">
+                      <div class="col-8">
+                        <img :src="previewUrl" class="preview-image" />
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                       </div>
                       <div class="col-4 text-center">
                         <q-btn
@@ -1127,7 +1474,11 @@ onMounted(async () => {
                           round
                           color="negative"
                           icon="close"
+<<<<<<< HEAD
                           @click.stop="removeImage"
+=======
+                          @click.stop="removeImage($event)"
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                         >
                           <q-tooltip>Remove Image</q-tooltip>
                         </q-btn>
@@ -1234,14 +1585,18 @@ onMounted(async () => {
                     dense
                     outlined
                     required
+<<<<<<< HEAD
                     emit-value
                     map-options
                     placeholder="Select a make"
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                     :rules="[val => !!val || 'Make is required']"
                   >
                     <template v-slot:prepend>
                       <q-icon name="business" />
                     </template>
+<<<<<<< HEAD
                     <template v-slot:no-option>
                       <q-item>
                         <q-item-section class="text-grey">
@@ -1249,6 +1604,8 @@ onMounted(async () => {
                         </q-item-section>
                       </q-item>
                     </template>
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                   </q-select>
                 </div>
 
@@ -1260,14 +1617,18 @@ onMounted(async () => {
                     dense
                     outlined
                     required
+<<<<<<< HEAD
                     emit-value
                     map-options
                     placeholder="Select a color"
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                     :rules="[val => !!val || 'Color is required']"
                   >
                     <template v-slot:prepend>
                       <q-icon name="palette" />
                     </template>
+<<<<<<< HEAD
                     <template v-slot:no-option>
                       <q-item>
                         <q-item-section class="text-grey">
@@ -1275,6 +1636,8 @@ onMounted(async () => {
                         </q-item-section>
                       </q-item>
                     </template>
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                   </q-select>
                 </div>
               </div>
@@ -1284,7 +1647,10 @@ onMounted(async () => {
                   <q-input
                     v-model.number="newCab.quantity"
                     type="number"
+<<<<<<< HEAD
                     min="0"
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                     label="Quantity"
                     dense
                     outlined
@@ -1322,6 +1688,10 @@ onMounted(async () => {
                     dense
                     outlined
                     readonly
+<<<<<<< HEAD
+=======
+                    disable
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                   >
                     <template v-slot:prepend>
                       <q-icon name="info" />
@@ -1337,14 +1707,20 @@ onMounted(async () => {
                     :class="{ 'dragging': isDragging }"
                     @dragenter.prevent="isDragging = true"
                     @dragover.prevent="isDragging = true"
+<<<<<<< HEAD
                     @dragleave.prevent="handleDragLeave"
                     @drop.prevent="handleDrop"
                     @dragend.prevent="isDragging = false"
+=======
+                    @dragleave.prevent="isDragging = false"
+                    @drop.prevent="handleDrop"
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                     @click="triggerFileInput"
                   >
                     <input
                       type="file"
                       ref="fileInput"
+<<<<<<< HEAD
                       accept="image/jpeg,image/png,image/gif"
                       class="hidden"
                       @change="handleFileSelect"
@@ -1356,10 +1732,18 @@ onMounted(async () => {
                       </div>
                     </div>
                     <div v-else-if="!previewUrl" class="text-center">
+=======
+                      accept="image/*"
+                      class="hidden"
+                      @change="handleFileSelect"
+                    >
+                    <div v-if="!previewUrl && !newCab.image" class="text-center">
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                       <q-icon name="cloud_upload" size="48px" color="primary" />
                       <div class="text-body1 q-mt-sm">
                         Drag and drop an image here or click to select
                       </div>
+<<<<<<< HEAD
                       <div class="text-caption text-grey q-mt-sm">
                         Supported formats: JPG, PNG, GIF
                         <br>
@@ -1375,6 +1759,15 @@ onMounted(async () => {
                           class="preview-image"
                           :alt="newCab.name || 'Preview image'"
                         />
+=======
+                      <div class="text-caption text-grey">
+                        Supported formats: JPG, PNG, GIF
+                      </div>
+                    </div>
+                    <div v-else class="row items-center">
+                      <div class="col-8">
+                        <img :src="previewUrl || newCab.image" class="preview-image" />
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                       </div>
                       <div class="col-4 text-center">
                         <q-btn
@@ -1382,7 +1775,11 @@ onMounted(async () => {
                           round
                           color="negative"
                           icon="close"
+<<<<<<< HEAD
                           @click.stop="removeImage"
+=======
+                          @click.stop="removeImage($event)"
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
                         >
                           <q-tooltip>Remove Image</q-tooltip>
                         </q-btn>
@@ -1449,11 +1846,18 @@ onMounted(async () => {
     .body--dark &
       color: black
 
+<<<<<<< HEAD
 .cab-page-z-top
   z-index: 1000
 
 .upload-container
   position: relative
+=======
+.z-top
+  z-index: 1000
+
+.upload-container
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
   border: 2px dashed #ccc
   border-radius: 8px
   cursor: pointer
@@ -1462,6 +1866,7 @@ onMounted(async () => {
   display: flex
   align-items: center
   justify-content: center
+<<<<<<< HEAD
   background-color: transparent
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05)
 
@@ -1479,17 +1884,30 @@ onMounted(async () => {
 
   .q-spinner-dots
     margin: 0 auto
+=======
+
+  &:hover
+    border-color: #00b4ff
+    background: rgba(0, 180, 255, 0.05)
+
+  &.dragging
+    border-color: #00b4ff
+    background: rgba(0, 180, 255, 0.1)
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
 
 .preview-image
   width: 100%
   max-height: 180px
   object-fit: contain
   border-radius: 4px
+<<<<<<< HEAD
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1)
   transition: all 0.3s ease
 
   &:hover
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15)
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
 
 .hidden
   display: none
@@ -1500,5 +1918,8 @@ onMounted(async () => {
 
 .action-menu
   z-index: 1001 !important
+<<<<<<< HEAD
 
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
 </style>

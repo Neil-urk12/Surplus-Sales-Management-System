@@ -786,7 +786,10 @@ onMounted(async () => {
           :filter="store.materialSearch"
           @row-click="onMaterialRowClick"
           :pagination="{ rowsPerPage: 5 }"
+<<<<<<< HEAD
           :loading="store.isLoading"
+=======
+>>>>>>> dc75c8f (feat(CabsPage) Enhance CabsPage functionality and UI)
         >
           <template v-slot:loading>
             <q-inner-loading showing color="primary">
