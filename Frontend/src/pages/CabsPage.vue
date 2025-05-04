@@ -4,8 +4,6 @@ import type { QTableColumn, QTableProps } from 'quasar';
 import ProductCardModal from 'src/components/Global/ProductModal.vue'
 import { useQuasar } from 'quasar';
 import { useCabsStore } from 'src/stores/cabs';
-import { useAccessoriesStore } from 'src/stores/accessories';
-import { useCustomerStore } from 'src/stores/customerStore';
 import type { CabsRow, NewCabInput } from 'src/types/cabs';
 import { getDefaultImage, getNextFallbackImage } from 'src/config/defaultImages';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
@@ -13,35 +11,13 @@ import { operationNotifications } from '../utils/notifications';
 
 const $q = useQuasar();
 const store = useCabsStore();
-const accessoriesStore = useAccessoriesStore();
-const customerStore = useCustomerStore();
 const showFilterDialog = ref(false);
 const showAddDialog = ref(false);
 const showEditDialog = ref(false);
 const showDeleteDialog = ref(false);
-const showSellDialog = ref(false);
 const cabToDelete = ref<CabsRow | null>(null);
-const cabToSell = ref<CabsRow | null>(null);
-const sellQuantity = ref(1);
 const showProductCardModal = ref(false);
 const isDragging = ref(false);
-const customerId = ref<string>('');
-const selectedAccessoryId = ref<number | null>(null);
-const selectedAccessories = ref<Array<{
-  id: number;
-  name: string;
-  price: number;
-  quantity: number;
-  availableQuantity: number;
-}>>([]);
-const accessoryQuantity = ref(1);
-const totalAccessoriesPrice = computed(() => {
-  return selectedAccessories.value.reduce((total, acc) => total + (acc.price * acc.quantity), 0);
-});
-const totalPrice = computed(() => {
-  const cabPrice = (cabToSell.value?.price || 0) * sellQuantity.value;
-  return cabPrice + totalAccessoriesPrice.value;
-});
 
 // Add global drag event handlers
 onMounted(() => {
@@ -836,171 +812,10 @@ function triggerFileInput() {
   fileInput.value?.click();
 }
 
-// Function to handle sell cab
-function sellCab(cab: CabsRow) {
-  cabToSell.value = cab;
-  sellQuantity.value = 1; // Reset quantity to 1
-  customerId.value = ''; // Reset customer ID
-  selectedAccessories.value = []; // Reset selected accessories
-  showSellDialog.value = true;
-}
-
-// Function to confirm and execute sell
-async function confirmSell() {
-  try {
-    if (!cabToSell.value || !customerId.value) return;
-
-    // Validate customer ID
-    const validation = customerStore.validateCustomerId(String(customerId.value || ''));
-    if (!validation.isValid) {
-      operationNotifications.validation.error('Invalid customer ID');
-      return;
-    }
-
-    // Validate sell quantity
-    if (sellQuantity.value <= 0) {
-      operationNotifications.validation.error('Quantity must be greater than 0');
-      return;
-    }
-
-    if (sellQuantity.value > cabToSell.value.quantity) {
-      operationNotifications.validation.error('Not enough units in stock');
-      return;
-    }
-
-    // Validate accessories quantities
-    for (const acc of selectedAccessories.value) {
-      const availableQuantity = accessoriesStore.accessoryRows.find(a => a.id === acc.id)?.quantity || 0;
-      if (acc.quantity > availableQuantity) {
-        operationNotifications.validation.error(`Not enough ${acc.name} in stock`);
-        return;
-      }
-    }
-
-    // Create updated cab data
-    const updatedCab: NewCabInput = {
-      name: cabToSell.value.name,
-      make: cabToSell.value.make,
-      quantity: cabToSell.value.quantity - sellQuantity.value,
-      price: cabToSell.value.price,
-      unit_color: cabToSell.value.unit_color,
-      status: cabToSell.value.status,
-      image: cabToSell.value.image
-    };
-
-    // Record the purchase in customer history
-    const purchaseResult = await customerStore.recordCabPurchase(customerId.value, {
-      cabId: cabToSell.value.id,
-      cabName: cabToSell.value.name,
-      quantity: sellQuantity.value,
-      unitPrice: cabToSell.value.price,
-      accessories: selectedAccessories.value.map(acc => ({
-        id: acc.id,
-        name: acc.name,
-        quantity: acc.quantity,
-        unitPrice: acc.price
-      }))
-    });
-
-    if (!purchaseResult.success) {
-      throw new Error('Failed to record purchase');
-    }
-
-    // Execute the store action and await its completion
-    const result = await store.updateCab(cabToSell.value.id, updatedCab);
-
-    // Only close dialog and show notification after operation successfully completes
-    if (result.success) {
-      // Update accessories quantities
-      for (const acc of selectedAccessories.value) {
-        const accessory = accessoriesStore.accessoryRows.find(a => a.id === acc.id);
-        if (accessory) {
-          await accessoriesStore.updateAccessory(acc.id, {
-            ...accessory,
-            quantity: accessory.quantity - acc.quantity
-          });
-        }
-      }
-
-      showSellDialog.value = false;
-      cabToSell.value = null;
-      selectedAccessories.value = [];
-      customerId.value = '';
-      sellQuantity.value = 1;
-      
-      operationNotifications.update.success(
-        `Sold ${sellQuantity.value} unit(s) of ${updatedCab.name} with ${selectedAccessories.value.length} accessories to customer ${customerId.value}`
-      );
-    }
-  } catch (error) {
-    console.error('Error selling cab:', error);
-    operationNotifications.update.error('cab');
-  }
-}
-
-// Add function to handle adding accessories
-function addAccessory() {
-  if (!selectedAccessoryId.value || accessoryQuantity.value <= 0) return;
-  
-  const accessory = accessoriesStore.accessoryRows.find(a => a.id === selectedAccessoryId.value);
-  if (!accessory) return;
-
-  // Check if accessory is already added
-  const existing = selectedAccessories.value.find(a => a.id === accessory.id);
-  if (existing) {
-    operationNotifications.validation.error(`${accessory.name} is already added`);
-    return;
-  }
-
-  // Validate quantity
-  if (accessoryQuantity.value > accessory.quantity) {
-    operationNotifications.validation.error(`Not enough ${accessory.name} in stock`);
-    return;
-  }
-
-  selectedAccessories.value.push({
-    id: accessory.id,
-    name: accessory.name,
-    price: accessory.price,
-    quantity: accessoryQuantity.value,
-    availableQuantity: accessory.quantity
-  });
-
-  // Reset selection
-  selectedAccessoryId.value = null;
-  accessoryQuantity.value = 1;
-}
-
-// Add function to remove accessory
-function removeAccessory(id: number) {
-  selectedAccessories.value = selectedAccessories.value.filter(acc => acc.id !== id);
-}
-
 // Initialize data on component mount
 onMounted(async () => {
-  try {
-    await Promise.all([
-      store.initializeCabs(),
-      accessoriesStore.initializeAccessories()
-    ]);
-  } catch (error) {
-    console.error('Error initializing data:', error);
-  }
+  await store.initializeCabs();
 });
-
-// Function to validate customer ID
-function validateCustomerInput(id: string | number | null): void {
-  const validation = customerStore.validateCustomerId(String(id || ''));
-  if (validation.isValid) {
-    const customer = validation.customer;
-    $q.notify({
-      type: 'positive',
-      message: `Customer found: ${customer?.fullName}`,
-      position: 'top',
-      timeout: 2000
-    });
-  }
-}
 
 </script>
 
@@ -1078,21 +893,6 @@ function validateCustomerInput(id: string | number | null): void {
             >
               <q-menu class="action-menu" :aria-label="'Available actions for ' + props.row.name">
                 <q-list style="min-width: 100px">
-                  <q-item
-                    clickable
-                    v-close-popup
-                    @click.stop="sellCab(props.row)"
-                    role="button"
-                    :aria-label="'Sell ' + props.row.name"
-                    v-if="props.row.quantity > 0"
-                  >
-                    <q-item-section>
-                      <q-item-label>
-                        <q-icon name="sell" size="xs" class="q-mr-sm" aria-hidden="true" />
-                        Sell
-                      </q-item-label>
-                    </q-item-section>
-                  </q-item>
                   <q-item
                     clickable
                     v-close-popup
@@ -1622,171 +1422,6 @@ function validateCustomerInput(id: string | number | null): void {
           <q-card-actions align="right">
             <q-btn flat label="Cancel" v-close-popup />
             <q-btn flat label="Delete" color="negative" @click="confirmDelete" />
-          </q-card-actions>
-        </q-card>
-      </q-dialog>
-
-      <!-- Sell Dialog -->
-      <q-dialog v-model="showSellDialog" persistent>
-        <q-card style="min-width: 400px">
-          <q-card-section class="row items-center">
-            <q-avatar icon="sell" color="primary" text-color="white" />
-            <span class="q-ml-sm text-h6">Sell Cab</span>
-          </q-card-section>
-
-          <q-card-section>
-            <div class="text-body1 q-mb-md">
-              Selling {{ cabToSell?.name }}
-            </div>
-            
-            <q-input
-              v-model="customerId"
-              label="Customer ID *"
-              dense
-              outlined
-              class="q-mb-md"
-              :rules="[
-                val => !!val || 'Customer ID is required',
-                val => customerStore.validateCustomerId(String(val || '')).isValid || 'Invalid Customer ID'
-              ]"
-              @update:model-value="validateCustomerInput"
-            >
-              <template v-slot:prepend>
-                <q-icon name="person" />
-              </template>
-              <template v-slot:append>
-                <q-icon
-                  :name="customerStore.validateCustomerId(customerId).isValid ? 'check_circle' : 'error'"
-                  :color="customerStore.validateCustomerId(customerId).isValid ? 'positive' : 'negative'"
-                  v-if="customerId"
-                />
-              </template>
-            </q-input>
-
-            <div class="text-body2 q-mb-sm">
-              Available quantity: {{ cabToSell?.quantity }}
-            </div>
-            <q-input
-              v-model.number="sellQuantity"
-              type="number"
-              label="Quantity to sell"
-              dense
-              outlined
-              class="q-mb-md"
-              :rules="[
-                val => val > 0 || 'Quantity must be greater than 0',
-                val => val <= (cabToSell?.quantity || 0) || 'Not enough units in stock'
-              ]"
-            >
-              <template v-slot:prepend>
-                <q-icon name="numbers" />
-              </template>
-            </q-input>
-
-            <q-separator class="q-my-md" />
-
-            <div class="text-subtitle2 q-mb-sm">Additional Accessories</div>
-            <div class="row q-col-gutter-sm">
-              <div class="col-8">
-                <q-select
-                  v-model="selectedAccessoryId"
-                  :options="accessoriesStore.accessoryRows"
-                  option-value="id"
-                  option-label="name"
-                  label="Select Accessory"
-                  dense
-                  outlined
-                  emit-value
-                  map-options
-                >
-                  <template v-slot:option="scope">
-                    <q-item v-bind="scope.itemProps">
-                      <q-item-section>
-                        <q-item-label>{{ scope.opt.name }}</q-item-label>
-                        <q-item-label caption>
-                          ₱ {{ scope.opt.price.toLocaleString('en-PH') }} | Available: {{ scope.opt.quantity }}
-                        </q-item-label>
-                      </q-item-section>
-                    </q-item>
-                  </template>
-                </q-select>
-              </div>
-              <div class="col-4">
-                <q-input
-                  v-model.number="accessoryQuantity"
-                  type="number"
-                  min="1"
-                  label="Quantity"
-                  dense
-                  outlined
-                  :disable="selectedAccessoryId === null"
-                />
-              </div>
-              <div class="col-12">
-                <q-btn
-                  color="primary"
-                  icon="add"
-                  label="Add Accessory"
-                  class="full-width"
-                  :disable="selectedAccessoryId === null || accessoryQuantity <= 0"
-                  @click="addAccessory"
-                />
-              </div>
-            </div>
-
-            <div v-if="selectedAccessories.length > 0" class="q-mt-md">
-              <q-list bordered separator>
-                <q-item v-for="acc in selectedAccessories" :key="acc.id">
-                  <q-item-section>
-                    <q-item-label>{{ acc.name }}</q-item-label>
-                    <q-item-label caption>
-                      Quantity: {{ acc.quantity }} | Price: ₱ {{ acc.price.toLocaleString('en-PH') }}
-                    </q-item-label>
-                  </q-item-section>
-                  <q-item-section side>
-                    <div class="text-subtitle2">
-                      ₱ {{ (acc.price * acc.quantity).toLocaleString('en-PH') }}
-                    </div>
-                  </q-item-section>
-                  <q-item-section side>
-                    <q-btn
-                      flat
-                      round
-                      dense
-                      color="negative"
-                      icon="close"
-                      @click="removeAccessory(acc.id)"
-                    />
-                  </q-item-section>
-                </q-item>
-              </q-list>
-            </div>
-
-            <q-separator class="q-my-md" />
-
-            <div class="row justify-between q-mt-md">
-              <div class="text-subtitle2">Cab Total:</div>
-              <div>₱ {{ ((cabToSell?.price || 0) * sellQuantity).toLocaleString('en-PH') }}</div>
-            </div>
-            <div class="row justify-between q-mt-sm">
-              <div class="text-subtitle2">Accessories Total:</div>
-              <div>₱ {{ totalAccessoriesPrice.toLocaleString('en-PH') }}</div>
-            </div>
-            <div class="row justify-between q-mt-sm text-bold">
-              <div class="text-subtitle2">Grand Total:</div>
-              <div>₱ {{ totalPrice.toLocaleString('en-PH') }}</div>
-            </div>
-          </q-card-section>
-
-          <q-card-actions align="right">
-            <q-btn flat label="Cancel" v-close-popup />
-            <q-btn
-              flat
-              label="Sell"
-              color="primary"
-              @click="confirmSell"
-              :disable="!customerId || sellQuantity <= 0 || sellQuantity > (cabToSell?.quantity || 0)"
-            />
           </q-card-actions>
         </q-card>
       </q-dialog>

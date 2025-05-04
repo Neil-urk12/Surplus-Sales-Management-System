@@ -42,7 +42,6 @@ export interface SaleItem {
   subtotal: number;
   createdAt: string;
   updatedAt: string;
-  name: string;
 }
 
 export interface StockTransaction {

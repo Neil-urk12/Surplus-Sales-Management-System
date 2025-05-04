@@ -150,7 +150,6 @@ const viewPurchaseHistory = (customerId: string) => {
             <q-card-section>
               <div class="row items-center no-wrap">
                 <div class="col">
-                  <div class="text-caption text-grey q-mb-xs">ID: {{ customer.id }}</div>
                   <div class="text-h6">{{ customer.fullName }}</div>
                 </div>
                 <div class="col-auto">
