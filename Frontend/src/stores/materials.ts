@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
-import type { 
-  MaterialRow, 
-  NewMaterialInput, 
-  UpdateMaterialInput, 
+import type {
+  MaterialRow,
+  NewMaterialInput,
+  UpdateMaterialInput,
   MaterialOperationResponse,
   MaterialCategory,
   MaterialSupplier,
@@ -11,62 +11,81 @@ import type {
   MaterialCategoryInput,
   MaterialSupplierInput
 } from 'src/types/materials'
+import { api } from 'boot/axios'
+import { useAuthStore } from 'src/stores/auth'
+import { AxiosError } from 'axios';
 
 export type { MaterialRow, NewMaterialInput } from 'src/types/materials'
 
+/**
+ * Pinia store for managing material data.
+ * Provides state, computed properties, and actions for materials,
+ * including fetching, adding, updating, deleting, and filtering.
+ */
 export const useMaterialsStore = defineStore('materials', () => {
-  // State
+  /**
+   * Reactive state holding the array of material rows.
+   * @type {MaterialRow[]}
+   */
   const materialRows = ref<MaterialRow[]>([])
+  /**
+   * Reactive state indicating if an asynchronous operation is in progress.
+   * @type {boolean}
+   */
   const isLoading = ref(false)
+  /**
+   * Instance of the authentication store.
+   */
+  const authStore = useAuthStore()
 
-  // Initialize data
+  /**
+   * Initializes the material data by fetching it from the API.
+   * Requires an authentication token.
+   * Handles loading state and error logging.
+   */
   async function initializeMaterials() {
+    if (!authStore.token) {
+      console.error('No auth token found for initializing materials.')
+      return
+    }
     try {
       isLoading.value = true
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500))
-      materialRows.value = [
-        {
-          name: 'Steel Beams',
-          id: 101,
-          category: 'Building',
-          supplier: 'Steel Co.',
-          quantity: 25,
-          status: 'In Stock',
-          image: 'https://loremflickr.com/600/400/steel',
-        },
-        {
-          name: 'Concrete Mix',
-          id: 102,
-          category: 'Building',
-          supplier: 'Construction Supplies Inc.',
-          quantity: 50,
-          status: 'Low Stock',
-          image: 'https://loremflickr.com/600/400/concrete',
-        },
-        {
-          name: 'Lumber',
-          id: 103,
-          category: 'Lumber',
-          supplier: 'Wood Works',
-          quantity: 100,
-          status: 'Available',
-          image: 'https://loremflickr.com/600/400/lumber',
-        },
-      ]
+      const response = await api.get<MaterialRow[]>('/api/materials', {
+        headers: {
+          Authorization: `Bearer ${authStore.token}`
+        }
+      })
+      materialRows.value = response.data
     } catch (error) {
       console.error('Error initializing materials:', error)
+      materialRows.value = []
     } finally {
       isLoading.value = false
     }
   }
 
-  // Search with debounce
+  /**
+   * Reactive state for the raw material search input value.
+   * @type {string}
+   */
   const rawMaterialSearch = ref('')
+  /**
+   * Reactive state for the debounced material search value.
+   * This value is updated after a short delay from rawMaterialSearch.
+   * @type {string}
+   */
   const materialSearch = ref('')
+  /**
+   * Timeout ID for the debounce function.
+   * @type {ReturnType<typeof setTimeout> | null}
+   */
   let debounceTimeout: ReturnType<typeof setTimeout> | null = null
 
-  // Debounce function to update materialSearch after typing stops
+  /**
+   * Updates the debounced material search value after a delay.
+   * Clears any existing debounce timeout before setting a new one.
+   * @param {string} value - The new search value.
+   */
   function updateMaterialSearch(value: string) {
     if (debounceTimeout) {
       clearTimeout(debounceTimeout)
@@ -74,25 +93,53 @@ export const useMaterialsStore = defineStore('materials', () => {
 
     debounceTimeout = setTimeout(() => {
       materialSearch.value = value
-    }, 300) // 300ms debounce delay
+    }, 300)
   }
 
-  // Watch for changes in rawMaterialSearch
+  /**
+   * Watches for changes in rawMaterialSearch and updates materialSearch using debounce.
+   */
   watch(rawMaterialSearch, (newValue) => {
     updateMaterialSearch(newValue)
   })
 
-  // Use input types that allow empty strings for filters
+  /**
+   * Reactive state for filtering materials by category.
+   * @type {MaterialCategoryInput}
+   */
   const filterCategory = ref<MaterialCategoryInput>('')
+  /**
+   * Reactive state for filtering materials by supplier.
+   * @type {MaterialSupplierInput}
+   */
   const filterSupplier = ref<MaterialSupplierInput>('')
+  /**
+   * Reactive state for filtering materials by status.
+   * @type {MaterialStatus | ''}
+   */
   const filterStatus = ref<MaterialStatus | ''>('')
 
-  // Available options
+  /**
+   * Array of available material categories.
+   * @type {MaterialCategory[]}
+   */
   const categories: MaterialCategory[] = ['Lumber', 'Building', 'Electrical', 'Plumbing', 'Hardware']
+  /**
+   * Array of available material suppliers.
+   * @type {MaterialSupplier[]}
+   */
   const suppliers: MaterialSupplier[] = ['Steel Co.', 'Construction Supplies Inc.', 'Wood Works']
+  /**
+   * Array of available material statuses.
+   * @type {MaterialStatus[]}
+   */
   const statuses: MaterialStatus[] = ['In Stock', 'Low Stock', 'Out of Stock', 'Available']
 
-  // Computed
+  /**
+   * Computed property that returns the material rows filtered based on
+   * category, supplier, status, and search term.
+   * @returns {MaterialRow[]} The filtered array of material rows.
+   */
   const filteredMaterialRows = computed(() => {
     return materialRows.value.filter(row => {
       const matchesCategory = !filterCategory.value || row.category === filterCategory.value
@@ -107,53 +154,57 @@ export const useMaterialsStore = defineStore('materials', () => {
     })
   })
 
-  // Type guard functions
-  function isValidMaterialCategory(category: MaterialCategoryInput): category is MaterialCategory {
-    return category !== '';
-  }
-
-  function isValidMaterialSupplier(supplier: MaterialSupplierInput): supplier is MaterialSupplier {
-    return supplier !== '';
-  }
-
-  // Actions
+  /**
+   * Adds a new material by making an API call.
+   * Requires an authentication token.
+   * Adds the newly created material to the local store upon success.
+   * Handles loading state and error handling.
+   * @param {NewMaterialInput} material - The material data to add.
+   * @returns {Promise<MaterialOperationResponse>} A promise resolving to the operation response.
+   */
   async function addMaterial(material: NewMaterialInput): Promise<MaterialOperationResponse> {
+    if (!authStore.token) {
+      console.error('No auth token found for adding material.')
+      return { success: false, error: 'Authentication required.' }
+    }
+    if (!material.name || !material.category || !material.supplier || material.quantity == null || !material.status) {
+        return { success: false, error: 'Missing required material fields.' };
+    }
+
     try {
       isLoading.value = true
-      // Validate required fields
-      if (!material.category || !material.supplier) {
-        throw new Error('Category and supplier are required');
+      const response = await api.post<MaterialRow>('/api/materials', material, {
+        headers: {
+          Authorization: `Bearer ${authStore.token}`
+        }
+      })
+
+      materialRows.value.push(response.data)
+
+      return { success: true, id: response.data.id }
+    } catch (error: unknown) {
+      console.error('Error adding material:', error)
+      let errorMessage = 'Unknown error occurred';
+      if (error instanceof AxiosError) {
+        errorMessage = error.response?.data?.error || error.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
       }
-
-      // Simulate a brief network delay that would happen in a real API call
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      const newId = Math.max(...materialRows.value.map(item => item.id)) + 1;
-      
-      // Create a new material with validated types
-      const newMaterial: MaterialRow = {
-        id: newId,
-        name: material.name,
-        category: material.category,
-        supplier: material.supplier,
-        quantity: material.quantity,
-        status: material.status,
-        image: material.image
-      };
-
-      materialRows.value.push(newMaterial);
-
-      return { success: true, id: newId }
-    } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      return {
+        success: false,
+        error: errorMessage
       }
     } finally {
       isLoading.value = false
     }
   }
 
+  /**
+   * Updates the status of a material based on its quantity.
+   * Finds the material by ID and updates its status in the local store.
+   * @param {number} id - The ID of the material to update.
+   * @param {number} quantity - The new quantity of the material.
+   */
   function updateMaterialStatus(id: number, quantity: number) {
     const material = materialRows.value.find(m => m.id === id)
     if (material) {
@@ -169,6 +220,9 @@ export const useMaterialsStore = defineStore('materials', () => {
     }
   }
 
+  /**
+   * Resets all material filters and search terms to their default empty states.
+   */
   function resetFilters() {
     filterCategory.value = ''
     filterSupplier.value = ''
@@ -177,83 +231,106 @@ export const useMaterialsStore = defineStore('materials', () => {
     materialSearch.value = ''
   }
 
+  /**
+   * Deletes a material by making an API call.
+   * Requires an authentication token.
+   * Removes the material from the local store upon success.
+   * Handles loading state and error handling.
+   * @param {number} id - The ID of the material to delete.
+   * @returns {Promise<MaterialOperationResponse>} A promise resolving to the operation response.
+   */
   async function deleteMaterial(id: number): Promise<MaterialOperationResponse> {
-    try {
-      isLoading.value = true
-      // Simulate a brief network delay that would happen in a real API call
-      await new Promise(resolve => setTimeout(resolve, 200));
+    if (!authStore.token) {
+      console.error('No auth token found for deleting material.')
+      return { success: false, error: 'Authentication required.' }
+    }
 
-      const index = materialRows.value.findIndex(m => m.id === id);
-      if (index !== -1) {
-        materialRows.value.splice(index, 1);
-        return { success: true };
+    const existingMaterial = materialRows.value.find(m => m.id === id);
+    if (!existingMaterial) {
+      console.warn(`Material with ID ${id} not found locally for deletion.`);
+      return { success: false, error: 'Material not found locally.' };
+    }
+
+    try {
+      isLoading.value = true;
+      await api.delete(`/api/materials/${id}`, {
+        headers: {
+          Authorization: `Bearer ${authStore.token}`
+        }
+      });
+
+      const index = materialRows.value.indexOf(existingMaterial);
+      materialRows.value.splice(index, 1);
+
+      return { success: true };
+    } catch (error: unknown) {
+      console.error('Error deleting material:', error);
+      let errorMessage = 'Unknown error occurred while deleting material';
+      if (error instanceof AxiosError) {
+        errorMessage = error.response?.data?.error || error.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
       }
-      throw new Error('Material not found');
-    } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
-      }
+
+      return {
+        success: false,
+        error: errorMessage
+      };
     } finally {
-      isLoading.value = false
+      isLoading.value = false;
     }
   }
 
-  async function updateMaterial(id: number, material: UpdateMaterialInput): Promise<MaterialOperationResponse> {
+  /**
+   * Updates an existing material by making an API call.
+   * Requires an authentication token.
+   * Updates the material in the local store upon success.
+   * Implements a rollback mechanism for the local state if the API call fails.
+   * Handles loading state and error handling.
+   * @param {number} id - The ID of the material to update.
+   * @param {UpdateMaterialInput} materialUpdate - The updated material data.
+   * @returns {Promise<MaterialOperationResponse>} A promise resolving to the operation response.
+   */
+  async function updateMaterial(id: number, materialUpdate: UpdateMaterialInput): Promise<MaterialOperationResponse> {
+    if (!authStore.token) {
+      console.error('No auth token found for updating material.')
+      return { success: false, error: 'Authentication required.' }
+    }
+
     const existingMaterial = materialRows.value.find(m => m.id === id);
     if (!existingMaterial) {
-      return {
-        success: false,
-        error: 'Material not found'
-      };
+      console.warn(`Material with ID ${id} not found locally for update.`);
+      return { success: false, error: 'Material not found locally.' };
     }
-    
-    // Create a deep copy of the existing material
-    const originalMaterial: MaterialRow = { ...existingMaterial };
-    
+
+    const index = materialRows.value.indexOf(existingMaterial);
+    const originalMaterial = JSON.parse(JSON.stringify(existingMaterial));
+
     try {
       isLoading.value = true;
-      // Simulate a brief network delay that would happen in a real API call
-      await new Promise(resolve => setTimeout(resolve, 200));
+      const response = await api.put<MaterialRow>(`/api/materials/${id}`, materialUpdate, {
+        headers: {
+          Authorization: `Bearer ${authStore.token}`
+        }
+      });
 
-      const index = materialRows.value.findIndex(m => m.id === id);
-      
-      // Use type guards to validate category and supplier
-      const updatedCategory = material.category && isValidMaterialCategory(material.category) ? material.category : originalMaterial.category;
-      const updatedSupplier = material.supplier && isValidMaterialSupplier(material.supplier) ? material.supplier : originalMaterial.supplier;
-
-      // Create updated material with all required properties
-      const updatedMaterial: MaterialRow = {
-        id,
-        name: material.name ?? originalMaterial.name,
-        category: updatedCategory,
-        supplier: updatedSupplier,
-        quantity: material.quantity ?? originalMaterial.quantity,
-        status: material.status ?? originalMaterial.status,
-        image: material.image ?? originalMaterial.image
-      };
-
-      try {
-        // Attempt to update the material in the store
-        materialRows.value[index] = updatedMaterial;
-      } catch (updateError) {
-        // If the update fails, restore the original material
-        console.error('Error updating material in store:', updateError);
-        materialRows.value[index] = originalMaterial;
-        throw new Error('Failed to update material data');
-      }
+      materialRows.value[index] = response.data;
 
       return { success: true };
-    } catch (error) {
-      console.error('Error in updateMaterial:', error);
-      // Ensure the original state is restored in case of any error
-      const index = materialRows.value.findIndex(m => m.id === id);
-      if (index !== -1) {
-        materialRows.value[index] = originalMaterial;
+    } catch (error: unknown) {
+      console.error('Error updating material:', error);
+      materialRows.value[index] = originalMaterial;
+
+      let errorMessage = 'Unknown error occurred while updating material';
+      if (error instanceof AxiosError) {
+        errorMessage = error.response?.data?.error || error.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
       }
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error occurred while updating material'
+
+      return {
+        success: false,
+        error: errorMessage
       };
     } finally {
       isLoading.value = false;
@@ -261,7 +338,6 @@ export const useMaterialsStore = defineStore('materials', () => {
   }
 
   return {
-    // State
     materialRows,
     isLoading,
     rawMaterialSearch,
@@ -269,13 +345,10 @@ export const useMaterialsStore = defineStore('materials', () => {
     filterCategory,
     filterSupplier,
     filterStatus,
-    // Constants
     categories,
     suppliers,
     statuses,
-    // Computed
     filteredMaterialRows,
-    // Actions
     initializeMaterials,
     addMaterial,
     updateMaterialStatus,

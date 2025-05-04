@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted } from 'vue';
+import { ref, watch, computed, onMounted, defineAsyncComponent } from 'vue';
 import type { QTableColumn, QTableProps } from 'quasar';
 import ProductCardModal from 'src/components/Global/ProductModal.vue'
 import { useQuasar } from 'quasar';
 import { useMaterialsStore } from 'src/stores/materials';
-import type { MaterialRow, NewMaterialInput } from 'src/stores/materials';
+import type { MaterialRow, NewMaterialInput } from 'src/stores/materials'; 
+import type { UpdateMaterialInput } from 'src/types/materials'; 
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
-import AddMaterialDialog from 'src/components/AddMaterialDialog.vue';
-import EditMaterialDialog from 'src/components/EditMaterialDialog.vue';
-import FilterMaterialDialog from 'src/components/FilterMaterialDialog.vue';
-import ConfirmDialog from 'src/components/ConfirmDialog.vue';
+const AddMaterialDialog = defineAsyncComponent(() => import('../components/AddMaterialDialog.vue'))
+const EditMaterialDialog = defineAsyncComponent(() => import('../components/EditMaterialDialog.vue'))
+const FilterMaterialDialog = defineAsyncComponent(() => import('../components/FilterMaterialDialog.vue'))
+const ConfirmDialog = defineAsyncComponent(() => import('../components/ConfirmDialog.vue'))
 
 const $q = useQuasar();
 const store = useMaterialsStore();
@@ -33,6 +34,16 @@ const newMaterial = ref<NewMaterialInput>({
   status: 'Out of Stock',
   image: 'https://loremflickr.com/600/400/material'
 })
+
+const materialToEdit = ref<MaterialRow>({
+  id: 0,
+  name: '',
+  category: 'Building',
+  supplier: 'Steel Co.',
+  quantity: 0,
+  status: 'Out of Stock',
+  image: ''
+});
 
 // Image validation
 const imageUrlValid = ref(true);
@@ -115,7 +126,7 @@ async function addNewMaterial() {
       return;
     }
 
-    // If image URL is empty, use default
+    // If image URL is empty, use default (only relevant if image is part of update)
     if (!newMaterial.value.image) {
       newMaterial.value.image = defaultImageUrl;
     }
@@ -354,7 +365,11 @@ async function handleFile(file: File) {
         }
 
         console.log('Base64 validation passed, updating image');
-        newMaterial.value.image = base64ValidationResult.sanitizedData!;
+        if (showEditDialog.value) {
+          materialToEdit.value.image = base64ValidationResult.sanitizedData!;
+        } else {
+          newMaterial.value.image = base64ValidationResult.sanitizedData!;
+        }
         imageUrlValid.value = true;
 
         $q.notify({
@@ -571,7 +586,11 @@ function clearImageInput() {
     URL.revokeObjectURL(previewUrl.value);
   }
   previewUrl.value = defaultImageUrl;
-  newMaterial.value.image = defaultImageUrl;
+  if (showEditDialog.value) {
+    materialToEdit.value.image = defaultImageUrl;
+  } else {
+    newMaterial.value.image = defaultImageUrl;
+  }
   imageUrlValid.value = true;
   if (fileInput.value) {
     fileInput.value.value = '';
@@ -633,52 +652,11 @@ function triggerFileInput() {
 }
 
 // Function to handle edit material
-async function editMaterial(material: MaterialRow) {
-  selectedMaterial.value = { ...material };
-  newMaterial.value = {
-    name: material.name,
-    category: material.category,
-    supplier: material.supplier,
-    quantity: material.quantity,
-    status: material.status,
-    image: material.image
-  };
-
-  // Validate the image URL before setting preview
-  if (material.image.startsWith('data:image/')) {
-    const validationResult = validateAndSanitizeBase64Image(material.image);
-    if (validationResult.isValid) {
-      previewUrl.value = validationResult.sanitizedData!;
-      newMaterial.value.image = validationResult.sanitizedData!;
-      imageUrlValid.value = true;
-    } else {
-      // If invalid, use default image
-      previewUrl.value = defaultImageUrl;
-      newMaterial.value.image = defaultImageUrl;
-      imageUrlValid.value = true;
-      operationNotifications.validation.warning('Invalid image data, using default image');
-    }
-  } else {
-    try {
-      const isValid = await validateImageUrl(material.image);
-      if (isValid) {
-        previewUrl.value = material.image;
-        imageUrlValid.value = true;
-      } else {
-        // If invalid, use default image
-        previewUrl.value = defaultImageUrl;
-        newMaterial.value.image = defaultImageUrl;
-        imageUrlValid.value = true;
-        operationNotifications.validation.warning('Invalid image URL, using default image');
-      }
-    } catch (error) {
-      console.error('Error validating image URL:', error);
-      previewUrl.value = defaultImageUrl;
-      newMaterial.value.image = defaultImageUrl;
-      imageUrlValid.value = true;
-      operationNotifications.validation.warning('Error validating image, using default image');
-    }
-  }
+function editMaterial(material: MaterialRow) {
+  // Deep copy selected material to the dedicated edit ref
+  materialToEdit.value = JSON.parse(JSON.stringify(material));
+  imageUrlValid.value = true; // Reset validation state for the dialog
+  validatingImage.value = false; // Reset validation state
   showEditDialog.value = true;
 }
 
@@ -691,19 +669,28 @@ async function updateMaterial() {
       return;
     }
 
-    // If image URL is empty, use default
-    if (!newMaterial.value.image) {
-      newMaterial.value.image = defaultImageUrl;
+    // If image URL is empty, use default (only relevant if image is part of update)
+    if (!materialToEdit.value.image) {
+      materialToEdit.value.image = defaultImageUrl;
     }
 
+    // Prepare the update payload from materialToEdit
+    const updatePayload: UpdateMaterialInput = {
+      name: materialToEdit.value.name,
+      category: materialToEdit.value.category,
+      supplier: materialToEdit.value.supplier,
+      quantity: materialToEdit.value.quantity,
+      status: materialToEdit.value.status,
+      image: materialToEdit.value.image
+    };
+
     // Execute the store action and await its completion
-    const result = await store.updateMaterial(selectedMaterial.value.id, newMaterial.value);
+    const result = await store.updateMaterial(materialToEdit.value.id, updatePayload);
 
     // Only close dialog and show notification after operation successfully completes
     if (result.success) {
       showEditDialog.value = false;
-      clearImageInput();
-      operationNotifications.update.success(`material: ${newMaterial.value.name}`);
+      operationNotifications.update.success(`material: ${materialToEdit.value.name}`);
     }
   } catch (error) {
     console.error('Error updating material:', error);
@@ -1016,14 +1003,14 @@ onMounted(async () => {
         <!-- Edit Material Dialog -->
         <EditMaterialDialog v-model="showEditDialog" @update="updateMaterial" :disable="!imageUrlValid || validatingImage">
           <q-input
-            v-model="capitalizedName"
+            v-model="materialToEdit.name"
             label="Material Name"
             dense
             outlined
             :rules="[val => !!val || 'Field is required']"
           />
           <q-select
-            v-model="selectedMaterial.category"
+            v-model="materialToEdit.category"
             label="Category"
             :options="categories"
             dense
@@ -1031,7 +1018,7 @@ onMounted(async () => {
             :rules="[val => !!val || 'Field is required']"
           />
           <q-select
-            v-model="selectedMaterial.supplier"
+            v-model="materialToEdit.supplier"
             label="Supplier"
             :options="suppliers"
             dense
@@ -1039,7 +1026,7 @@ onMounted(async () => {
             :rules="[val => !!val || 'Field is required']"
           />
           <q-input
-            v-model.number="selectedMaterial.quantity"
+            v-model.number="materialToEdit.quantity"
             label="Quantity"
             type="number"
             dense
@@ -1047,7 +1034,7 @@ onMounted(async () => {
             :rules="[val => val >= 0 || 'Quantity cannot be negative']"
           />
           <q-select
-            v-model="selectedMaterial.status"
+            v-model="materialToEdit.status"
             label="Status"
             :options="statuses"
             dense
@@ -1058,14 +1045,14 @@ onMounted(async () => {
           <div class="column q-gutter-y-sm">
             <div class="row items-center q-gutter-x-sm">
               <q-input
-                v-model="selectedMaterial.image"
-                label="Image URL"
+                v-model="materialToEdit.image"
+                label="Image URL (Optional)"
                 dense
                 outlined
                 class="col"
                 :rules="[val => imageUrlValid || 'Invalid image URL']"
                 :loading="validatingImage"
-                @blur="validateImageUrl(selectedMaterial.image)"
+                @blur="validateImageUrl(materialToEdit.image)"
                 clearable
                 @clear="removeImage"
               >
@@ -1073,7 +1060,7 @@ onMounted(async () => {
                   <q-icon name="link" />
                 </template>
                 <template v-slot:append>
-                  <q-icon v-if="imageUrlValid && selectedMaterial.image && selectedMaterial.image !== defaultImageUrl" name="check_circle" color="positive" />
+                  <q-icon v-if="imageUrlValid && materialToEdit.image && materialToEdit.image !== defaultImageUrl" name="check_circle" color="positive" />
                   <q-icon v-else-if="!imageUrlValid" name="error" color="negative" />
                 </template>
               </q-input>
@@ -1107,9 +1094,9 @@ onMounted(async () => {
               />
             </div>
             <!-- Image Preview and Remove Button -->
-            <div v-if="selectedMaterial.image && imageUrlValid" class="row items-center justify-center q-mt-sm relative-position">
+            <div v-if="materialToEdit.image && imageUrlValid" class="row items-center justify-center q-mt-sm relative-position">
               <q-img
-                :src="selectedMaterial.image"
+                :src="materialToEdit.image"
                 spinner-color="primary"
                 style="max-height: 150px; max-width: 100%; border-radius: 4px;"
                 alt="Image Preview"
