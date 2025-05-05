@@ -23,10 +23,14 @@ export interface UserCreateData {
  * Interface for the data required to update an existing user.
  */
 export interface UserUpdateData {
+  /** The updated full name of the user. */
+  fullName?: string;
+  /** The updated email address of the user. */
+  email?: string;
   /** The updated role for the user ('admin' or 'staff'). */
-  role: 'admin' | 'staff';
+  role?: 'admin' | 'staff';
   /** The updated active status of the user. */
-  isActive: boolean;
+  isActive?: boolean;
 }
 
 /**

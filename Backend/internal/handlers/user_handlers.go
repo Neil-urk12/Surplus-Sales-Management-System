@@ -307,6 +307,8 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 
 	// Parse request body
 	var input struct {
+		FullName string `json:"fullName"`
+		Email    string `json:"email"`
 		Role     string `json:"role"`
 		IsActive bool   `json:"isActive"`
 	}
@@ -316,8 +318,16 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 			"error": "Invalid request body",
 		})
 	}
+	log.Printf("UpdateUser received input: %+v", input) // Add logging here
 
-	// Update only role and isActive fields
+	// Update fields if provided in the request body
+	// Update fields if provided in the request body
+	if input.FullName != "" {
+		existingUser.FullName = input.FullName
+	}
+	if input.Email != "" {
+		existingUser.Email = input.Email
+	}
 	if input.Role != "" {
 		existingUser.Role = input.Role
 	}

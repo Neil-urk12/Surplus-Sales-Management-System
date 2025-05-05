@@ -45,6 +45,12 @@ export default defineRouter(function (/* { store, ssrContext } */) {
     const isAuthenticated = authStore.isAuthenticated; // Use store getter
     const userRole = authStore.user?.role;
 
+    // Explicitly handle case where no routes are matched
+    if (!to.matched || to.matched.length === 0) {
+      next();
+      return;
+    }
+
     if (requiresAuth && !isAuthenticated) {
       // Needs auth, but user is not logged in -> redirect to login
       next('/login');
@@ -52,6 +58,15 @@ export default defineRouter(function (/* { store, ssrContext } */) {
       // Already logged in, trying to access login -> redirect to dashboard
       next('/');
     } else if (routeRoles && isAuthenticated) {
+      // Explicitly check for undefined userRole when route requires roles
+      if (!userRole) {
+        console.warn(`User role is undefined. Redirecting unauthorized.`);
+        showErrorNotification({
+          message: `Your user role is not defined. Access denied to ${to.path}.`,
+        });
+        next('/unauthorized');
+        return;
+      }
       // Route requires specific roles AND user is logged in
       if (userRole && routeRoles.includes(userRole)) {
         // User has the required role -> allow access

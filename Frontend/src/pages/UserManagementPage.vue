@@ -94,6 +94,8 @@ function openCreateDialog() {
 function openEditDialog(user: User) {
   selectedUser.value = user
   editedUser.value = {
+    fullName: user.fullName,
+    email: user.email,
     role: user.role,
     isActive: user.isActive
   }
@@ -129,9 +131,11 @@ async function submitEditUser() {
 
   try {
     const success = await usersStore.updateUser(selectedUser.value.id, {
+      fullName: editedUser.value.fullName,
+      email: editedUser.value.email,
       role: editedUser.value.role,
       isActive: editedUser.value.isActive
-    })
+    } as UserUpdateData) // Explicitly cast to UserUpdateData
     if (!success) {
       throw new Error('User update failed')
     }
@@ -163,11 +167,11 @@ function formatStatus(status: boolean) {
       <!-- Page Header -->
       <div class="row items-center justify-between q-mb-md">
         <h1 class="text-h4 text-soft-light q-my-none">User Management</h1>
-        <q-btn 
-          v-if="isAdminOrStaff" 
-          color="primary" 
-          icon="add" 
-          label="Create User" 
+        <q-btn
+          v-if="isAdminOrStaff"
+          color="primary"
+          icon="add"
+          label="Create User"
           class="text-soft-light"
           @click="openCreateDialog"
         />
@@ -190,11 +194,11 @@ function formatStatus(status: boolean) {
             <!-- Table Top -->
             <template v-slot:top>
               <div class="row full-width items-center q-pb-sm">
-                <q-input 
-                  dense 
-                  outlined 
-                  v-model="filter" 
-                  placeholder="Search" 
+                <q-input
+                  dense
+                  outlined
+                  v-model="filter"
+                  placeholder="Search"
                   class="col-grow"
                 >
                   <template v-slot:append>
@@ -321,8 +325,20 @@ function formatStatus(status: boolean) {
 
           <q-card-section>
             <q-form @submit="submitEditUser">
-              <div class="text-subtitle1 q-mb-sm">{{ selectedUser?.fullName }}</div>
-              <div class="text-caption q-mb-md">{{ selectedUser?.email }}</div>
+              <q-input
+                v-model="editedUser.fullName"
+                label="Full Name"
+                filled
+                class="q-mb-md"
+              />
+
+              <q-input
+                v-model="editedUser.email"
+                label="Email"
+                filled
+                type="email"
+                class="q-mb-md"
+              />
 
               <q-select
                 v-model="editedUser.role"
