@@ -12,6 +12,11 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	RoleAdmin = "admin"
+	RoleStaff = "staff"
+)
+
 // UserRepository defines the interface for user repository operations
 type UserRepository interface {
 	Create(user *models.User) error
@@ -287,7 +292,7 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 		// Return forbidden, as the role couldn't be determined or is invalid
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied: Unable to verify user role"})
 	}
-	if requestUserRole != "admin" && requestUserRole != "staff" { // Now check the validated role
+	if requestUserRole != RoleAdmin && requestUserRole != RoleStaff { // Now check the validated role
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied"})
 	}
 
@@ -382,7 +387,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 		log.Printf("CreateUser: 'role' not found or not a string in context locals. Value: %v", roleValue)
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied: Unable to verify user role"})
 	}
-	if requestUserRole != "admin" && requestUserRole != "staff" {
+	if requestUserRole != RoleAdmin && requestUserRole != RoleStaff {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied"})
 	}
 
