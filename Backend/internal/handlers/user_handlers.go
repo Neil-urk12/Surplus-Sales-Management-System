@@ -279,8 +279,15 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	// Check if the current user is admin or staff
-	requestUserRole := c.Locals("role").(string)
-	if requestUserRole != "admin" && requestUserRole != "staff" {
+	roleValue := c.Locals("role")
+	requestUserRole, ok := roleValue.(string)
+	if !ok || requestUserRole == "" {
+		// Log the issue for debugging
+		log.Printf("UpdateUser: 'role' not found or not a string in context locals for user ID %s. Value: %v", id, roleValue)
+		// Return forbidden, as the role couldn't be determined or is invalid
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied: Unable to verify user role"})
+	}
+	if requestUserRole != "admin" && requestUserRole != "staff" { // Now check the validated role
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied"})
 	}
 
@@ -309,7 +316,7 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	if input.Role != "" {
 		existingUser.Role = input.Role
 	}
-	
+
 	// Update isActive status
 	existingUser.IsActive = input.IsActive
 
@@ -353,7 +360,6 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 // ActivateUser activates a user account
 func (h *UserHandler) ActivateUser(c *fiber.Ctx) error {
 	id := c.Params("id")
-	// Optional: Check permissions
 
 	if err := h.userRepo.ActivateUser(id); err != nil {
 		log.Printf("Error activating user: %v", err)
@@ -369,8 +375,13 @@ func (h *UserHandler) ActivateUser(c *fiber.Ctx) error {
 
 // CreateUser creates a new user (admin/staff only)
 func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
-	// Check if the current user is admin or staff
-	requestUserRole := c.Locals("role").(string)
+	roleValue := c.Locals("role")
+	requestUserRole, ok := roleValue.(string)
+
+	if !ok || requestUserRole == "" {
+		log.Printf("CreateUser: 'role' not found or not a string in context locals. Value: %v", roleValue)
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied: Unable to verify user role"})
+	}
 	if requestUserRole != "admin" && requestUserRole != "staff" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied"})
 	}

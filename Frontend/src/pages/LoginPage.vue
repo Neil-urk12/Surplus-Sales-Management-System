@@ -100,7 +100,7 @@ const handleSubmit = async () => {
     const success = await authStore.login(form)
 
     if (success) {
-      await router.push('/app')
+      await router.push('/')
     } else {
       loginError.value = 'Invalid email or password. Please try again.'
       showShake.value = true

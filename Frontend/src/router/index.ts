@@ -7,6 +7,7 @@ import {
 } from 'vue-router';
 import routes from './routes';
 import { useAuthStore } from 'stores/auth';
+import { showErrorNotification } from 'src/utils/notifications';
 
 /*
  * If not building with SSR mode, you can
@@ -58,6 +59,9 @@ export default defineRouter(function (/* { store, ssrContext } */) {
       } else {
         // User does not have the required role -> redirect to dashboard
         console.warn(`Unauthorized access attempt to ${to.path} by user with role ${userRole}`);
+        showErrorNotification({
+          message: `You do not have the necessary permissions to access ${to.path}.`,
+        });
         next('/'); // Redirect to dashboard as they don't have permission
       }
     } else {
