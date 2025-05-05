@@ -62,7 +62,7 @@ export default defineRouter(function (/* { store, ssrContext } */) {
         showErrorNotification({
           message: `You do not have the necessary permissions to access ${to.path}.`,
         });
-        next('/'); // Redirect to dashboard as they don't have permission
+        next('/unauthorized'); // Redirect to unauthorized page as they don't have permission
       }
     } else {
       // Route either doesn't require auth, or doesn't require specific roles,

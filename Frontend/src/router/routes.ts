@@ -24,6 +24,11 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/unauthorized',
+    name: 'Unauthorized',
+    component: () => import('pages/UnauthorizedPage.vue'),
+  },
+  {
     path: '/:catchAll(.*)*',
     component: () => import('pages/ErrorNotFound.vue'),
   },
