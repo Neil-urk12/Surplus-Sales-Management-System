@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, PropType } from 'vue';
+import { ref, computed, watch, PropType, onBeforeUnmount } from 'vue';
 import { useQuasar } from 'quasar';
 import type { NewCabInput } from 'src/types/cabs';
 import { validateAndSanitizeBase64Image } from '../../utils/imageValidation'; // Adjusted path
@@ -124,6 +124,16 @@ watch(() => newCab.value.image, (newUrl: string) => {
 watch(() => props.modelValue, (newValue) => {
     if (newValue) {
         resetForm();
+    }
+});
+
+// --- Lifecycle Hooks ---
+onBeforeUnmount(() => {
+    // Abort any ongoing image URL validation when the component is unmounted
+    if (currentAbortController) {
+        console.log('Aborting ongoing image validation on unmount');
+        currentAbortController.abort();
+        currentAbortController = null;
     }
 });
 
@@ -279,16 +289,14 @@ async function validateFile(file: File): Promise<{ isValid: boolean; error?: str
 }
 
 function validateImageDimensions(file: File): Promise<{ isValid: boolean; error?: string }> {
-    // ... (Keep the existing validateImageDimensions implementation)
-    // Ensure it uses MAX_DIMENSION
     return new Promise((resolve) => {
         const img = new Image();
         const objectUrl = URL.createObjectURL(file);
         const cleanup = () => URL.revokeObjectURL(objectUrl);
-        let timeout: NodeJS.Timeout | null = null;
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
         const resolveClean = (result: { isValid: boolean; error?: string }) => {
-            if (timeout) clearTimeout(timeout);
+            if (timeoutId) clearTimeout(timeoutId);
             cleanup();
             resolve(result);
         };
@@ -304,7 +312,12 @@ function validateImageDimensions(file: File): Promise<{ isValid: boolean; error?
         };
         img.onerror = () => resolveClean({ isValid: false, error: 'Error loading image file.' });
 
-        timeout = setTimeout(() => resolveClean({ isValid: false, error: 'Image validation timed out.' }), 10000);
+        // Add timeout
+        timeoutId = setTimeout(() => {
+            console.error('Dimension validation timed out');
+            resolveClean({ isValid: false, error: 'Image validation timed out. Please try again.' });
+        }, 10000); // 10 second timeout
+
         img.src = objectUrl;
     });
 }
@@ -375,17 +388,10 @@ async function handleFileSelect(event: Event) {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
         const file = input.files[0];
-        if (!ALLOWED_TYPES.includes(file.type as AllowedMimeType)) {
-            $q.notify({ type: 'negative', message: `Invalid file type: ${file.type}.`, position: 'top' });
-            clearImageInput();
-            return;
-        }
-        if (file.size > MAX_FILE_SIZE) {
-            $q.notify({ type: 'negative', message: `File size exceeds 5MB.`, position: 'top' });
-            clearImageInput();
-            return;
-        }
         await handleFile(file);
+    }
+    if (input) {
+        input.value = '';
     }
 }
 

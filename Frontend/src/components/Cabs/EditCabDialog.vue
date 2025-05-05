@@ -2,8 +2,8 @@
 import { ref, computed, watch, PropType, nextTick } from 'vue';
 import { useQuasar } from 'quasar';
 import type { CabsRow, NewCabInput, CabStatus } from 'src/types/cabs';
-import { validateAndSanitizeBase64Image } from '../../utils/imageValidation'; // Adjusted path
-import { operationNotifications } from '../../utils/notifications'; // Adjusted path
+import { validateAndSanitizeBase64Image } from '../../utils/imageValidation';
+import { operationNotifications } from '../../utils/notifications';
 
 const props = defineProps({
     modelValue: {
@@ -93,11 +93,11 @@ watch(() => localCabData.value.image, (newUrl: string) => {
         return;
     }
     if (newUrl.startsWith('data:image/')) {
-        const validationResult = validateAndSanitizeBase64Image(newUrl);
+        // Only do basic validation here, not full sanitization
+        const validationResult = validateAndSanitizeBase64Image(newUrl, true);
         if (validationResult.isValid) {
-            // Don't necessarily update localCabData.image here, only preview
-            // Let the final save handle the data update
-            previewUrl.value = validationResult.sanitizedData!;
+            // Don't update the data yet, just show the preview
+            previewUrl.value = newUrl;
             imageUrlValid.value = true;
         } else {
             $q.notify({ color: 'negative', message: validationResult.error || 'Invalid image data', position: 'top' });
@@ -178,18 +178,16 @@ function handleUpdateCab() {
         localCabData.value.image = props.defaultImageUrl;
     }
 
-    // Before emitting, ensure the image is the sanitized base64 if applicable
-    if (previewUrl.value.startsWith('data:image/') && imageUrlValid.value) {
-        localCabData.value.image = previewUrl.value;
-    } else if (!imageUrlValid.value || previewUrl.value === props.defaultImageUrl) {
-        // If image is invalid or reset, ensure the data reflects the default
-        localCabData.value.image = props.defaultImageUrl;
-    } else {
-        // Assume it's a valid URL
-        localCabData.value.image = previewUrl.value;
+    // Full sanitization right before sending to backend
+    if (localCabData.value.image.startsWith('data:image/')) {
+        const sanitizationResult = validateAndSanitizeBase64Image(localCabData.value.image, false);
+        if (!sanitizationResult.isValid) {
+            operationNotifications.validation.error(sanitizationResult.error || 'Invalid image data');
+            return;
+        }
+        localCabData.value.image = sanitizationResult.sanitizedData!;
     }
 
-    // Emit the updated data (no need to include ID, parent knows it)
     emit('update-cab', { ...localCabData.value });
 }
 
@@ -197,10 +195,8 @@ function closeDialog() {
     emit('update:modelValue', false);
 }
 
-// --- Image Handling (Copied from AddCabDialog, could be abstracted later) --- 
 
 async function validateImageUrl(url: string): Promise<boolean> {
-    // ... (Implementation is identical to AddCabDialog)
     if (!url || !url.startsWith('http')) {
         imageUrlValid.value = false;
         return false;
@@ -230,7 +226,6 @@ async function validateImageUrl(url: string): Promise<boolean> {
 }
 
 async function validateFile(file: File): Promise<{ isValid: boolean; error?: string }> {
-    // ... (Implementation is identical to AddCabDialog)
     try {
         if (!file) return { isValid: false, error: 'No file provided.' };
         if (file.size > MAX_FILE_SIZE) return { isValid: false, error: `File size exceeds 5MB.` };
@@ -248,14 +243,29 @@ async function validateFile(file: File): Promise<{ isValid: boolean; error?: str
 }
 
 function validateImageDimensions(file: File): Promise<{ isValid: boolean; error?: string }> {
-    // ... (Implementation is identical to AddCabDialog)
     return new Promise((resolve) => {
         const img = new Image();
         const objectUrl = URL.createObjectURL(file);
         const cleanup = () => URL.revokeObjectURL(objectUrl);
         let timeout: NodeJS.Timeout | null = null;
-        const resolveClean = (result: { isValid: boolean; error?: string }) => { /* ... */ };
-        img.onload = () => { /* check MAX_DIMENSION */ };
+
+        const resolveClean = (result: { isValid: boolean; error?: string }) => {
+            if (timeout) clearTimeout(timeout);
+            cleanup();
+            resolve(result);
+        };
+
+        img.onload = () => {
+            if (img.width > MAX_DIMENSION || img.height > MAX_DIMENSION) {
+                resolveClean({
+                    isValid: false,
+                    error: `Image dimensions exceed maximum of ${MAX_DIMENSION}px`
+                });
+            } else {
+                resolveClean({ isValid: true });
+            }
+        };
+
         img.onerror = () => resolveClean({ isValid: false, error: 'Error loading image.' });
         timeout = setTimeout(() => resolveClean({ isValid: false, error: 'Validation timed out.' }), 10000);
         img.src = objectUrl;
@@ -263,48 +273,69 @@ function validateImageDimensions(file: File): Promise<{ isValid: boolean; error?
 }
 
 async function handleFile(file: File) {
-    // ... (Implementation is identical to AddCabDialog, but updates localCabData.image)
+    isUploadingImage.value = true;
+    previewUrl.value = ''; // Clear preview during processing
     try {
-        isUploadingImage.value = true;
-        previewUrl.value = '';
         const validation = await validateFile(file);
         if (!validation.isValid) {
             $q.notify({ type: 'negative', message: validation.error || 'Invalid file', position: 'top' });
-            clearImageInput(); return;
+            clearImageInput();
+            isUploadingImage.value = false;
+            return;
         }
         const reader = new FileReader();
+
         reader.onload = (e) => {
-            if (e.target?.result) {
-                const base64String = e.target.result as string;
-                const base64ValidationResult = validateAndSanitizeBase64Image(base64String);
-                if (!base64ValidationResult.isValid) {
-                    $q.notify({ type: 'negative', message: base64ValidationResult.error || 'Invalid image data', position: 'top' });
-                    clearImageInput();
+            try {
+                if (e.target?.result) {
+                    const base64String = e.target.result as string;
+                    // Only do basic validation during upload
+                    const base64ValidationResult = validateAndSanitizeBase64Image(base64String, true);
+                    if (!base64ValidationResult.isValid) {
+                        $q.notify({ type: 'negative', message: base64ValidationResult.error || 'Invalid image data', position: 'top' });
+                        clearImageInput();
+                    } else {
+                        // Store the original base64 string for later sanitization
+                        localCabData.value.image = base64String;
+                        previewUrl.value = base64String;
+                        imageUrlValid.value = true;
+                        $q.notify({ type: 'positive', message: 'Image uploaded successfully', position: 'top', timeout: 2000 });
+                    }
                 } else {
-                    localCabData.value.image = base64ValidationResult.sanitizedData!; // Update local data
-                    imageUrlValid.value = true; // Watcher updates preview
-                    $q.notify({ type: 'positive', message: 'Image uploaded successfully', position: 'top', timeout: 2000 });
+                    clearImageInput();
                 }
-            } else { clearImageInput(); }
+            } catch (onloadError) {
+                console.error('Error inside FileReader onload:', onloadError);
+                $q.notify({ type: 'negative', message: 'Error processing image data.', position: 'top' });
+                clearImageInput();
+            } finally {
+                isUploadingImage.value = false;
+            }
+        }
+
+        reader.onerror = (error) => {
+            console.error('FileReader error:', error);
+            $q.notify({ type: 'negative', message: 'Error reading file.', position: 'top' });
+            clearImageInput();
             isUploadingImage.value = false;
         };
-        reader.onerror = () => { /* ... */ clearImageInput(); isUploadingImage.value = false; };
+
         reader.readAsDataURL(file);
+
     } catch (error) {
         console.error('Error in handleFile:', error);
-        $q.notify({ type: 'negative', message: 'An unexpected error occurred.', position: 'top' });
-        clearImageInput(); isUploadingImage.value = false;
+        $q.notify({ type: 'negative', message: 'An unexpected error occurred handling the file.', position: 'top' });
+        clearImageInput();
+        isUploadingImage.value = false;
     }
 }
 
 function removeImage(event?: Event) {
-    // ... (Implementation is identical to AddCabDialog)
     if (event) event.stopPropagation();
     clearImageInput();
 }
 
 function clearImageInput() {
-    // ... (Implementation is identical to AddCabDialog, resets localCabData.image)
     if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
         URL.revokeObjectURL(previewUrl.value);
     }
@@ -316,28 +347,24 @@ function clearImageInput() {
     if (fileInput.value) {
         fileInput.value.value = '';
     }
-    isUploadingImage.value = false;
 }
 
 async function handleFileSelect(event: Event) {
-    // ... (Implementation is identical to AddCabDialog)
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
         const file = input.files[0];
-        if (!ALLOWED_TYPES.includes(file.type as AllowedMimeType)) { /* notify */ clearImageInput(); return; }
-        if (file.size > MAX_FILE_SIZE) { /* notify */ clearImageInput(); return; }
+        if (!ALLOWED_TYPES.includes(file.type as AllowedMimeType)) { clearImageInput(); return; }
+        if (file.size > MAX_FILE_SIZE) { clearImageInput(); return; }
         await handleFile(file);
     }
 }
 
 function triggerFileInput() {
-    // ... (Implementation is identical to AddCabDialog)
     fileInput.value?.click();
 }
 
 // --- Drag & Drop --- 
 function handleDragLeave(event: DragEvent) {
-    // ... (Implementation is identical to AddCabDialog)
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const x = event.clientX; const y = event.clientY;
     if (x <= rect.left || x >= rect.right || y <= rect.top || y >= rect.bottom) {
@@ -346,7 +373,6 @@ function handleDragLeave(event: DragEvent) {
 }
 
 function handleDrop(event: DragEvent) {
-    // ... (Implementation is identical to AddCabDialog)
     event.preventDefault();
     isDragging.value = false;
     if (event.dataTransfer?.files && event.dataTransfer.files[0]) {
