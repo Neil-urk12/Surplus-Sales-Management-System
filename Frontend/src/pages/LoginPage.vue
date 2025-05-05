@@ -119,12 +119,7 @@ const handleSubmit = async () => {
   <div class="login-page">
     <div class="login-container" :class="{ 'shake-animation': showShake }">
       <div class="logo">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-          <circle cx="8.5" cy="7" r="4"></circle>
-          <line x1="20" y1="8" x2="20" y2="14"></line>
-          <line x1="23" y1="11" x2="17" y2="11"></line>
-        </svg>
+        <q-icon name="account_circle" size="48px" />
       </div>
 
       <h1>Welcome back</h1>
@@ -135,7 +130,6 @@ const handleSubmit = async () => {
         </div>
 
         <div class="input-group">
-          <label for="email">Email</label>
           <input
             v-model="form.email"
             id="email"
@@ -147,7 +141,6 @@ const handleSubmit = async () => {
         </div>
 
         <div class="input-group">
-          <label for="password">Password</label>
           <input
             v-model="form.password"
             type="password"
@@ -161,7 +154,7 @@ const handleSubmit = async () => {
         </div>
 
         <button type="submit" :disabled="isSubmitting">
-          <span v-if="!isSubmitting">Sign In</span>
+          <span v-if="!isSubmitting" class="text-weight-medium">Sign In</span>
           <span v-else class="spinner"></span>
         </button>
 
@@ -255,7 +248,7 @@ const handleSubmit = async () => {
 
           <div class="text-center text-caption q-mt-md">
             Remember your password?
-            <a href="#" class="text-primary" @click.prevent="showModal = false">Sign in</a>
+            <a href="#" @click.prevent="showModal = false">Sign in</a>
           </div>
         </q-card-section>
 
@@ -275,31 +268,12 @@ const handleSubmit = async () => {
   </div>
 </template>
 
-<style scoped>
-.login-page {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  color: var(--text);
-  line-height: 1.6;
-  padding: 20px;
-}
+<style>
+@import '../assets/styles/LoginPage.base.css';
+@import '../assets/styles/LoginPage.light.css';
+@import '../assets/styles/LoginPage.dark.css';
 
-.login-container {
-  background: rgba(255, 255, 255, 0.76);
-  padding: 2.5rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  width: 100%;
-  max-width: 500px;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.login-container:hover {
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
-}
-
+/* Keep only animation-related styles here */
 .shake-animation {
   animation: shake 0.5s;
 }
@@ -310,196 +284,13 @@ const handleSubmit = async () => {
   40%, 80% { transform: translateX(5px); }
 }
 
-.logo {
-  text-align: center;
-  margin-bottom: 1.5rem;
-}
-
-.logo svg {
-  width: 48px;
-  height: 48px;
-  margin-bottom: 1rem;
-  color: var(--primary);
-}
-
-h1 {
-  text-align: center;
-  margin-bottom: 2rem;
-  font-size: 1.75rem;
-  font-weight: 600;
-}
-
-.input-group {
-  margin-bottom: 1.5rem;
-  position: relative;
-}
-
-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text);
-}
-
-input {
-  width: 100%;
-  padding: 0.9rem;
-  border: 1px solid var(--gray);
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border 0.3s ease;
-}
-
-input:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
-}
-
-input.error {
-  border-color: var(--error);
-}
-
-.error-message {
-  display: block;
-  margin-top: 0.5rem;
-  font-size: 0.8rem;
-  color: var(--error);
-}
-
-.forgot-password {
-  display: block;
-  text-align: right;
-  margin-top: 0.5rem;
-  font-size: 0.85rem;
-  color: var(--primary);
-  text-decoration: none;
-}
-
-button {
-  width: 100%;
-  padding: 1rem;
-  background-color: var(--primary);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-button:hover {
-  background-color: var(--primary-dark);
-}
-
-button:disabled {
-  background-color: var(--dark-gray);
-  cursor: not-allowed;
-}
-
 .spinner {
   width: 20px;
   height: 20px;
-  border: 3px solid rgba(255, 255, 255, 0.3);
+  border: 3px solid var(--q-separator-dark);
   border-radius: 50%;
-  border-top-color: white;
+  border-top-color: var(--q-primary);
   animation: spin 1s ease-in-out infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.social-login {
-  background: white;
-  color: var(--text);
-  border: 1px solid var(--gray);
-}
-
-.social-login:hover {
-  background: var(--light-gray);
-}
-
-.divider {
-  display: flex;
-  align-items: center;
-  margin: 1.5rem 0;
-  color: var(--dark-gray);
-  font-size: 0.9rem;
-}
-
-.divider::before, .divider::after {
-  content: "";
-  flex: 1;
-  border-bottom: 1px solid var(--gray);
-}
-
-.divider::before {
-  margin-right: 1rem;
-}
-
-.divider::after {
-  margin-left: 1rem;
-}
-
-.signup-link {
-  text-align: center;
-  margin-top: 1.5rem;
-  font-size: 0.95rem;
-}
-
-.signup-link a {
-  color: var(--primary);
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.recovery-card {
-  min-width: 400px;
-  max-width: 90vw;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.header-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.close-icon {
-  cursor: pointer;
-  font-size: 1.5rem;
-  color: #6c757d;
-}
-
-.close-icon:hover {
-  color: #495057;
-}
-
-.content-section {
-  padding: 24px;
-}
-
-.illustration-container {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 20px;
-}
-
-.success-message {
-  background-color: #f8f9fa;
-  text-align: center;
-  padding: 24px;
-  border-top: 1px solid #e9ecef;
 }
 
 .fade-enter-active,
@@ -510,29 +301,5 @@ button:disabled {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-}
-
-.error-message.general-error {
-  background-color: #ffebee;
-  color: #c62828;
-  padding: 10px;
-  border-radius: 4px;
-  margin-bottom: 15px;
-  text-align: center;
-  border: 1px solid #ef9a9a;
-}
-
-@media (max-width: 600px) {
-  .recovery-card {
-    min-width: 90vw;
-  }
-
-  .content-section {
-    padding: 16px;
-  }
-
-  .login-container {
-    padding: 1.5rem;
-  }
 }
 </style>
