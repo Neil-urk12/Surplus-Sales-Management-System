@@ -1,4 +1,5 @@
 import type { RouteRecordRaw } from 'vue-router';
+import { defineAsyncComponent } from 'vue';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -17,7 +18,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'contacts', component: () => import('pages/ContactsPage.vue') },
       {
         path: 'user-management',
-        component: () => import('pages/UserManagementPage.vue'),
+        component: defineAsyncComponent(() => import('pages/UserManagementPage.vue')),
         meta: { roles: ['admin', 'staff'] } 
       },
     ],
