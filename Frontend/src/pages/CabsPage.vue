@@ -11,10 +11,11 @@ import { useQuasar } from 'quasar';
 import { useCabsStore } from 'src/stores/cabs';
 import { useAccessoriesStore } from 'src/stores/accessories';
 import { useCustomerStore } from 'src/stores/customerStore';
-import type { CabsRow, NewCabInput, CabStatus } from 'src/types/cabs';
+import type { CabsRow, NewCabInput, CabStatus, CabMake, CabColor } from 'src/types/cabs';
 import { getDefaultImage } from 'src/config/defaultImages';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
+import { exportToCsv } from '../utils/exportUtils';
 
 const $q = useQuasar();
 const store = useCabsStore();
@@ -34,6 +35,19 @@ const selected = ref<CabsRow | null>(null);
 const defaultImageUrl = getDefaultImage('cab');
 
 const { makes, colors, statuses } = store;
+
+function getValidatedImage(image: string | null | undefined): string {
+  if (image && image.startsWith('data:image/')) {
+    const validationResult = validateAndSanitizeBase64Image(image);
+    if (validationResult.isValid && validationResult.sanitizedData) {
+      return validationResult.sanitizedData;
+    }
+    
+    console.warn('Invalid Base64 image detected, using default.');
+    return defaultImageUrl;
+  }
+  return image || defaultImageUrl;
+}
 
 const columns: QTableColumn[] = [
   { name: 'id', align: 'center', label: 'ID', field: 'id', sortable: true },
@@ -71,16 +85,8 @@ const onRowClick: QTableProps['onRowClick'] = (evt, row) => {
     return;
   }
   selected.value = { ...row as CabsRow };
-  if (selected.value.image) {
-    if (selected.value.image.startsWith('data:image/')) {
-      const validationResult = validateAndSanitizeBase64Image(selected.value.image);
-      if (validationResult.isValid && validationResult.sanitizedData) {
-        selected.value.image = validationResult.sanitizedData;
-      }
-    }
-  } else {
-    selected.value.image = defaultImageUrl;
-  }
+  
+  selected.value.image = getValidatedImage(selected.value.image);
   showProductCardModal.value = true;
 }
 
@@ -109,15 +115,15 @@ async function handleAddCab(cabData: NewCabInput) {
 }
 
 function handleApplyFilters(filters: { make: string | null; color: string | null; status: CabStatus | null }) {
-  store.filterMake = filters.make;
-  store.filterColor = filters.color;
-  store.filterStatus = filters.status;
+  store.filterMake = filters.make === null ? '' : filters.make as CabMake;
+  store.filterColor = filters.color === null ? '' : filters.color as CabColor;
+  store.filterStatus = filters.status === null ? '' : filters.status;
   operationNotifications.filters.success();
   showFilterDialog.value = false;
 }
 
-function handleResetFilters() {
-  store.resetFilters();
+async function handleResetFilters() {
+  await store.resetFilters();
 }
 
 function editCab(cab: CabsRow) {
@@ -169,79 +175,139 @@ function sellCab(cab: CabsRow) {
   showSellDialog.value = true;
 }
 
+function calculateNewCabState(currentQuantity: number, soldQuantity: number): { newQuantity: number; newStatus: CabStatus } {
+  const newQuantity = currentQuantity - soldQuantity;
+  let newStatus: CabStatus = 'Available'; 
+
+  if (newQuantity === 0) newStatus = 'Out of Stock';
+  else if (newQuantity <= 2) newStatus = 'Low Stock';
+  else if (newQuantity <= 5) newStatus = 'In Stock';
+  
+
+  return { newQuantity, newStatus };
+}
+
+async function updateAccessoryStock(accessories: Array<{ id: number; quantity: number }>) {
+  const updatePromises = accessories.map(async (acc) => {
+    const accessory = accessoriesStore.accessoryRows.find(a => a.id === acc.id);
+    if (accessory && accessory.quantity >= acc.quantity) {
+      await accessoriesStore.updateAccessory(acc.id, {
+        ...accessory,
+        quantity: accessory.quantity - acc.quantity
+      });
+    } else if (accessory) {
+      console.warn(`Not enough stock or accessory not found for ID: ${acc.id}. Skipping update.`);
+      
+      $q.notify({ type: 'warning', message: `Insufficient stock for accessory ID ${acc.id}.` });
+      throw new Error(`Insufficient stock for accessory ID ${acc.id}`); 
+    } else {
+      console.error(`Accessory with ID ${acc.id} not found during stock update.`);
+      throw new Error(`Accessory with ID ${acc.id} not found.`); 
+    }
+  });
+
+  
+  await Promise.all(updatePromises);
+}
+
 async function handleConfirmSell(payload: {
   customerId: string;
   quantity: number;
   accessories: Array<{ id: number; name: string; price: number; quantity: number; unitPrice: number }>
 }) {
+  if (!cabToSell.value) {
+    console.error('Cab to sell is not defined');
+    operationNotifications.update.error('cab sale processing - internal error');
+    return;
+  }
+
+  const cabBeingSold = cabToSell.value;
+  const soldQuantity = payload.quantity;
+  const cabName = cabBeingSold.name;
+
+  if (soldQuantity <= 0 || soldQuantity > cabBeingSold.quantity) {
+    operationNotifications.validation.error('Invalid quantity or not enough stock');
+    return;
+  }
+
   try {
-    if (!cabToSell.value) throw new Error('Cab to sell is not defined');
-
-    const soldQuantity = payload.quantity;
-    const cabName = cabToSell.value.name;
-
-    if (soldQuantity <= 0 || soldQuantity > cabToSell.value.quantity) {
-      operationNotifications.validation.error('Invalid quantity or not enough stock');
-      return;
-    }
-
-    const newQuantity = cabToSell.value.quantity - soldQuantity;
-    let newStatus: CabStatus = 'Available';
-    if (newQuantity === 0) newStatus = 'Out of Stock';
-    else if (newQuantity <= 2) newStatus = 'Low Stock';
-    else if (newQuantity <= 5) newStatus = 'In Stock';
-
-    const updatedCab: NewCabInput = {
-      name: cabToSell.value.name,
-      make: cabToSell.value.make,
+    
+    const { newQuantity, newStatus } = calculateNewCabState(cabBeingSold.quantity, soldQuantity);
+    const updatedCabData: NewCabInput = {
+      name: cabBeingSold.name,
+      make: cabBeingSold.make,
       quantity: newQuantity,
-      price: cabToSell.value.price,
-      unit_color: cabToSell.value.unit_color,
+      price: cabBeingSold.price,
+      unit_color: cabBeingSold.unit_color,
       status: newStatus,
-      image: cabToSell.value.image
+      image: cabBeingSold.image 
     };
 
+    
     const purchaseResult = await customerStore.recordCabPurchase(payload.customerId, {
-      cabId: cabToSell.value.id,
-      cabName: cabToSell.value.name,
+      cabId: cabBeingSold.id,
+      cabName: cabBeingSold.name,
       quantity: soldQuantity,
-      unitPrice: cabToSell.value.price,
+      unitPrice: cabBeingSold.price,
       accessories: payload.accessories
     });
+
     if (!purchaseResult.success) {
+      
       operationNotifications.update.error('Failed purchase record');
-      return;
+      return; 
     }
 
-    const result = await store.updateCab(cabToSell.value.id, updatedCab);
+    
+    
+    
+    
+    await updateAccessoryStock(payload.accessories);
+
+    
+    
+    const result = await store.updateCab(cabBeingSold.id, updatedCabData);
     if (!result.success) {
+      
+      
+      console.error('Failed to update cab inventory after purchase recorded.');
       operationNotifications.update.error('Failed to update cab inventory');
+      
+      
       return;
     }
 
-    try {
-      await Promise.all(payload.accessories.map(async (acc) => {
-        const accessory = accessoriesStore.accessoryRows.find(a => a.id === acc.id);
-        if (accessory) {
-          await accessoriesStore.updateAccessory(acc.id, {
-            ...accessory,
-            quantity: accessory.quantity - acc.quantity
-          });
-        }
-      }));
-    } catch (accError) {
-      console.error('Failed to update accessory stock:', accError);
-      $q.notify({ type: 'warning', message: `Failed to update stock for one or more accessories.` });
-    }
-
+    
     showSellDialog.value = false;
     operationNotifications.update.success(`Sold ${soldQuantity} ${cabName}`);
     cabToSell.value = null;
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error processing sell confirmation:', error);
-    operationNotifications.update.error('cab sale processing');
+    
+    let message = 'cab sale processing';
+    if (error instanceof Error) {
+      message = error.message;
+    }
+    operationNotifications.update.error(message);
+    
   }
+}
+
+function handleDownloadCsv() {
+  
+  const csvColumns = [
+    { header: 'ID', field: 'id' as const },
+    { header: 'Name', field: 'name' as const },
+    { header: 'Make', field: 'make' as const },
+    { header: 'Quantity', field: 'quantity' as const },
+    { header: 'Price (PHP)', field: 'price' as const },
+    { header: 'Status', field: 'status' as const },
+    { header: 'Color', field: 'unit_color' as const }
+  ];
+  
+  
+  exportToCsv(store.filteredCabRows, 'cabs-inventory', csvColumns);
 }
 
 onMounted(async () => {
@@ -249,7 +315,7 @@ onMounted(async () => {
     await Promise.all([
       store.initializeCabs(),
       accessoriesStore.initializeAccessories(),
-      customerStore.initializeCustomers()
+      customerStore.fetchCustomers()
     ]);
   } catch (error) {
     console.error('Error initializing data:', error);
@@ -281,7 +347,7 @@ onMounted(async () => {
             Add
           </q-btn>
           <div class="flex row">
-            <q-btn dense flat class="bg-primary text-white q-pa-sm">
+            <q-btn dense flat class="bg-primary text-white q-pa-sm" @click="handleDownloadCsv">
               <q-icon name="download" color="white" />
               Download CSV
             </q-btn>
@@ -289,53 +355,58 @@ onMounted(async () => {
         </div>
       </div>
 
-      <q-table class="my-sticky-column-table" flat bordered title="Cabs" :rows="store.filteredCabRows"
-        :columns="columns" row-key="id" :filter="store.cabSearch" @row-click="onRowClick"
-        :pagination="{ rowsPerPage: 5 }" :loading="store.isLoading">
-        <template v-slot:loading>
-          <q-inner-loading showing color="primary">
-            <q-spinner-gears size="50px" color="primary" />
-          </q-inner-loading>
-        </template>
-        <template v-slot:body-cell-actions="props">
-          <q-td :props="props" auto-width :key="props.row.id">
-            <q-btn flat round dense color="grey" icon="more_vert" class="action-button"
-              :aria-label="'Actions for ' + props.row.name">
-              <q-menu class="action-menu" :aria-label="'Available actions for ' + props.row.name">
-                <q-list style="min-width: 100px">
-                  <q-item clickable v-close-popup @click.stop="sellCab(props.row)" role="button"
-                    :aria-label="'Sell ' + props.row.name" v-if="props.row.quantity > 0">
-                    <q-item-section>
-                      <q-item-label>
-                        <q-icon name="sell" size="xs" class="q-mr-sm" aria-hidden="true" />
-                        Sell
-                      </q-item-label>
-                    </q-item-section>
-                  </q-item>
-                  <q-item clickable v-close-popup @click.stop="editCab(props.row)" role="button"
-                    :aria-label="'Edit ' + props.row.name">
-                    <q-item-section>
-                      <q-item-label>
-                        <q-icon name="edit" size="xs" class="q-mr-sm" aria-hidden="true" />
-                        Edit
-                      </q-item-label>
-                    </q-item-section>
-                  </q-item>
-                  <q-item clickable v-close-popup @click.stop="deleteCab(props.row)" role="button"
-                    :aria-label="'Delete ' + props.row.name" class="text-negative">
-                    <q-item-section>
-                      <q-item-label class="text-negative">
-                        <q-icon name="delete" size="xs" class="q-mr-sm" aria-hidden="true" />
-                        Delete
-                      </q-item-label>
-                    </q-item-section>
-                  </q-item>
-                </q-list>
-              </q-menu>
-            </q-btn>
-          </q-td>
-        </template>
-      </q-table>
+      
+      <template v-if="store.isLoading">
+        <q-inner-loading showing color="primary">
+          <q-spinner-gears size="50px" color="primary" />
+        </q-inner-loading>
+      </template>
+
+      
+      <template v-else>
+        <q-table class="my-sticky-column-table" flat bordered title="Cabs" :rows="store.filteredCabRows || []"
+          :columns="columns" row-key="id" :filter="store.cabSearch" @row-click="onRowClick"
+          :pagination="{ rowsPerPage: 5 }" >
+          <template v-slot:body-cell-actions="props">
+            <q-td :props="props" auto-width :key="props.row.id">
+              <q-btn flat round dense color="grey" icon="more_vert" class="action-button"
+                :aria-label="'Actions for ' + props.row.name">
+                <q-menu class="action-menu" :aria-label="'Available actions for ' + props.row.name">
+                  <q-list style="min-width: 100px">
+                    <q-item clickable v-close-popup @click.stop="sellCab(props.row)" role="button"
+                      :aria-label="'Sell ' + props.row.name" v-if="props.row.quantity > 0">
+                      <q-item-section>
+                        <q-item-label>
+                          <q-icon name="sell" size="xs" class="q-mr-sm" aria-hidden="true" />
+                          Sell
+                        </q-item-label>
+                      </q-item-section>
+                    </q-item>
+                    <q-item clickable v-close-popup @click.stop="editCab(props.row)" role="button"
+                      :aria-label="'Edit ' + props.row.name">
+                      <q-item-section>
+                        <q-item-label>
+                          <q-icon name="edit" size="xs" class="q-mr-sm" aria-hidden="true" />
+                          Edit
+                        </q-item-label>
+                      </q-item-section>
+                    </q-item>
+                    <q-item clickable v-close-popup @click.stop="deleteCab(props.row)" role="button"
+                      :aria-label="'Delete ' + props.row.name" class="text-negative">
+                      <q-item-section>
+                        <q-item-label class="text-negative">
+                          <q-icon name="delete" size="xs" class="q-mr-sm" aria-hidden="true" />
+                          Delete
+                        </q-item-label>
+                      </q-item-section>
+                    </q-item>
+                  </q-list>
+                </q-menu>
+              </q-btn>
+            </q-td>
+          </template>
+        </q-table>
+      </template>
 
       <ProductCardModal v-model="showProductCardModal" :image="selected?.image || ''" :title="selected?.name || ''"
         :unit_color="selected?.unit_color || ''" :price="selected?.price || 0" :quantity="selected?.quantity || 0"
@@ -345,17 +416,19 @@ onMounted(async () => {
         @add-cab="handleAddCab" />
 
       <FilterDialog v-model="showFilterDialog" :makes="makes" :colors="colors" :statuses="statuses"
-        :initial-filter-make="store.filterMake" :initial-filter-color="store.filterColor"
-        :initial-filter-status="store.filterStatus" @apply-filters="handleApplyFilters"
+        :initial-filter-make="store.filterMake === '' ? null : store.filterMake" :initial-filter-color="store.filterColor === '' ? null : store.filterColor"
+        :initial-filter-status="store.filterStatus === '' ? null : store.filterStatus" @apply-filters="handleApplyFilters"
         @reset-filters="handleResetFilters" />
 
-      <EditCabDialog v-model="showEditDialog" :cab-data="cabToEdit" :makes="makes" :colors="colors"
+      
+      <EditCabDialog v-if="cabToEdit" v-model="showEditDialog" :cab-data="cabToEdit" :makes="makes" :colors="colors"
         :default-image-url="defaultImageUrl" @update-cab="handleUpdateCab" />
 
       <DeleteDialog v-model="showDeleteDialog" item-type="cab" :item-name="cabToDelete?.name || 'this cab'"
         @confirm-delete="handleConfirmDelete" />
 
-      <SellCabDialog v-model="showSellDialog" :cab-to-sell="cabToSell" :accessories="accessoriesStore.accessoryRows"
+      
+      <SellCabDialog v-if="cabToSell" v-model="showSellDialog" :cab-to-sell="cabToSell" :accessories="accessoriesStore.accessoryRows"
         :customer-store="customerStore" @confirm-sell="handleConfirmSell" />
     </div>
   </q-page>

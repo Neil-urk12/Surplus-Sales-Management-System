@@ -101,17 +101,16 @@ type MultiCabMaterial struct {
 	UpdatedAt    string
 }
 
+// MultiCab defines the structure for cab data, aligning with frontend needs.
 type MultiCab struct {
-	ID           string
-	Make         string
-	Model        string
-	Year         int
-	Color        string
-	Condition    string
-	Price        float64
-	Status       string
-	DateAdded    string
-	SerialNumber string
-	CreatedAt    string
-	UpdatedAt    string
+	ID        int       `json:"id"`         // Unique identifier
+	Name      string    `json:"name"`       // Name of the cab model (e.g., RX-7)
+	Make      string    `json:"make"`       // Manufacturer (e.g., Mazda)
+	Quantity  int       `json:"quantity"`   // Number of units available
+	Price     float64   `json:"price"`      // Price in PHP
+	Status    string    `json:"status"`     // Inventory status (e.g., In Stock, Low Stock)
+	UnitColor string    `json:"unit_color"` // Color of the cab unit
+	Image     string    `json:"image"`      // URL or base64 string of the image
+	CreatedAt time.Time `json:"createdAt"`  // Timestamp of creation
+	UpdatedAt time.Time `json:"updatedAt"`  // Timestamp of last update
 }

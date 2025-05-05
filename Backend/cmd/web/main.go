@@ -149,9 +149,14 @@ func main() {
 	userRepo := repositories.NewUserRepository(dbClient)
 	materialRepo := repositories.NewMaterialRepository(dbClient.DB)
 
+	// Initialize cabs repository directly with DB
+	cabsRepo := repositories.NewCabsRepository(dbClient.DB)
+
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userRepo, jwtSecret)
 	materialHandler := handlers.NewMaterialHandlers(materialRepo, jwtSecret)
+	// Initialize cabs handler
+	cabsHandler := handlers.NewCabsHandlers(cabsRepo)
 
 	// --- Route Registration ---
 	api := app.Group("/api") // Base group for API routes
@@ -159,6 +164,13 @@ func main() {
 	// Public User Routes (register, login)
 	userHandler.RegisterRoutes(api) // This will now only register public routes
 	materialHandler.RegisterMaterialRoutes(api)
+
+	// Register Cabs routes
+	api.Get("/cabs", cabsHandler.GetCabs)          // GET /api/cabs
+	api.Get("/cabs/:id", cabsHandler.GetCabByID)   // GET /api/cabs/:id
+	api.Post("/cabs", cabsHandler.AddCab)          // POST /api/cabs
+	api.Put("/cabs/:id", cabsHandler.UpdateCab)    // PUT /api/cabs/:id
+	api.Delete("/cabs/:id", cabsHandler.DeleteCab) // DELETE /api/cabs/:id
 
 	// Protected User Routes (require JWT)
 	authMiddleware := middleware.JWTMiddleware(jwtSecret)
