@@ -12,53 +12,112 @@
       </div>
 
       <!-- Key Metrics -->
-      <div class="row q-col-gutter-md q-mb-md">
+      <div class="row q-col-gutter-lg q-mb-xl">
+        <!-- Total Inventory Value -->
         <div class="col-12 col-sm-6 col-md-3">
           <metrics-card
-            title="Total Inventory"
+            class="full-height"
+            title="Total Inventory Value"
+            icon="attach_money"
+            :value="formatCurrency(totalInventoryValue)"
+            :trend-percentage="16.2"
+            ytd-value="$24.5M"
+            :trend-data="[65, 68, 70, 72, 75, 78, 80]"
+          />
+        </div>
+
+        <!-- Total Sales -->
+        <div class="col-12 col-sm-6 col-md-3">
+          <metrics-card
+            class="full-height"
+            title="Total Sales"
+            icon="shopping_cart"
+            :value="formatCurrency(totalSales)"
+            :trend-percentage="12.5"
+            ytd-value="$7.2M"
+            :trend-data="[40, 42, 45, 48, 50, 52, 55]"
+          />
+        </div>
+
+        <!-- Inventory Items -->
+        <div class="col-12 col-sm-6 col-md-3">
+          <metrics-card
+            class="full-height"
+            title="Inventory Items"
             icon="inventory_2"
-            :value="totalInventory"
-            :subtitle="`${lowStockItems} items low in stock`"
+            :value="inventoryItems"
+            :trend-percentage="7.2"
+            additional-info="85 new this week"
+            :trend-data="[3200, 3300, 3400, 3500, 3600, 3700, 3845]"
           />
         </div>
+
+        <!-- Low Stock Items -->
         <div class="col-12 col-sm-6 col-md-3">
           <metrics-card
-            title="Monthly Sales"
-            icon="trending_up"
-            :value="formatCurrency(monthlySales)"
-            subtitle="This month"
-          />
-        </div>
-        <div class="col-12 col-sm-6 col-md-3">
-          <metrics-card
-            title="Sold Cars"
-            icon="directions_car"
-            :value="recentOrders"
-            subtitle="Last 7 days"
-          />
-        </div>
-        <div class="col-12 col-sm-6 col-md-3">
-          <metrics-card
-            title="Total Revenue"
-            icon="payments"
-            :value="formatCurrency(totalRevenue)"
-            subtitle="This month"
+            class="full-height"
+            title="Low Stock Items"
+            icon="warning"
+            :value="lowStockItems"
+            :trend-percentage="-4"
+            additional-info="5 critical"
+            :trend-data="[28, 26, 25, 24, 25, 24, 24]"
           />
         </div>
       </div>
 
       <!-- Charts Section -->
-      <div class="row q-col-gutter-md q-mb-md">
+      <div class="row q-col-gutter-lg q-mb-xl">
         <div class="col-12 col-md-8">
-          <q-card bordered>
+          <q-card bordered class="chart-card">
             <q-card-section>
-              <div class="text-h6">Sales Trend</div>
-              <sales-trend-chart :chart-data="salesTrendData" :isDark="$q.dark.isActive" />
+              <div class="row items-center justify-between q-mb-md">
+                <div class="text-h6">Sales Trend</div>
+                <div class="row items-center q-gutter-md">
+                  <!-- Time Period Dropdown -->
+                  <q-select
+                    v-model="timePeriod"
+                    :options="[
+                      { label: 'Weekly', value: 'weekly' },
+                      { label: 'Monthly', value: 'monthly' },
+                      { label: 'Yearly', value: 'yearly' }
+                    ]"
+                    dense
+                    outlined
+                    style="width: 150px"
+                    emit-value
+                    map-options
+                  />
+
+                  <!-- Chart Type Button Group -->
+                  <q-btn-group flat>
+                    <q-btn 
+                      label="Line Chart" 
+                      :color="chartType === 'line' ? 'primary' : 'grey-4'" 
+                      :text-color="chartType === 'line' ? 'white' : 'black'"
+                      @click="chartType = 'line'" 
+                    />
+                    <q-btn 
+                      label="Bar Chart" 
+                      :color="chartType === 'bar' ? 'primary' : 'grey-4'" 
+                      :text-color="chartType === 'bar' ? 'white' : 'black'"
+                      @click="chartType = 'bar'" 
+                    />
+                    <q-btn 
+                      label="Area Chart" 
+                      :color="chartType === 'area' ? 'primary' : 'grey-4'" 
+                      :text-color="chartType === 'area' ? 'white' : 'black'"
+                      @click="chartType = 'area'" 
+                    />
+                  </q-btn-group>
+                </div>
+              </div>
+              <sales-trend-chart :chart-data="currentSalesTrendData" :chart-type="chartType" :isDark="$q.dark.isActive" />
             </q-card-section>
           </q-card>
         </div>
         <div class="col-12 col-md-4">
-          <q-card bordered>
+          <q-card bordered class="chart-card">
             <q-card-section>
               <div class="text-h6">Inventory Distribution</div>
               <inventory-chart :chart-data="inventoryData" :isDark="$q.dark.isActive" />
@@ -67,13 +126,10 @@
         </div>
       </div>
 
-      <!-- Activity and Alerts Section -->
-      <div class="row q-col-gutter-md">
-        <div class="col-12 col-md-8">
+      <!-- Activity Feed Section -->
+      <div class="row q-col-gutter-md q-mb-xl">
+        <div class="col-12">
           <activity-feed :activities="recentActivities" />
-        </div>
-        <div class="col-12 col-md-4">
-          <alerts-panel :alerts="systemAlerts" @alert-action="handleAlertAction" />
         </div>
       </div>
     </div>
@@ -81,34 +137,46 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useQuasar } from 'quasar';
-import { useRouter } from 'vue-router';
 import MetricsCard from '../components/dashboard/MetricsCard.vue';
 import InventoryChart from '../components/dashboard/InventoryChart.vue';
 import SalesTrendChart from '../components/charts/SalesTrendChart.vue';
 import ActivityFeed from '../components/dashboard/ActivityFeed.vue';
-import AlertsPanel, { type Alert, type AlertSeverity } from '../components/dashboard/AlertsPanel.vue';
 
 const $q = useQuasar();
-const router = useRouter();
 
 // State
 const isLoading = ref(false);
-const totalInventory = ref(0);
-const lowStockItems = ref(0);
-const monthlySales = ref(0);
-const recentOrders = ref(0);
-const totalRevenue = ref(0);
+const totalInventoryValue = ref(2748560);
+const totalSales = ref(845675);
+const inventoryItems = ref(3845);
+const lowStockItems = ref(24);
+const timePeriod = ref<'weekly' | 'monthly' | 'yearly'>('monthly');
+const chartType = ref<'line' | 'bar' | 'area'>('line');
 
 // Mock data for demonstration
 const salesTrendData = ref({
-  labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+  labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
   datasets: [
     {
-      label: 'Sales',
-      data: [30, 45, 35, 50, 40, 60],
-      borderColor: '#36A2EB',
+      label: 'Cars',
+      data: [14000, 13500, 14500, 15000, 14500, 15500, 16000, 15500, 16500, 17000, 17500, 18000],
+      borderColor: '#7B66FF',
+      tension: 0.4,
+      fill: false
+    },
+    {
+      label: 'Accessories',
+      data: [3000, 2800, 3000, 3000, 2900, 3000, 3100, 3000, 3100, 3200, 3200, 3300],
+      borderColor: '#FFB534',
+      tension: 0.4,
+      fill: false
+    },
+    {
+      label: 'Total',
+      data: [21000, 20000, 21500, 22000, 21000, 22500, 23000, 22500, 24000, 25000, 26000, 27000],
+      borderColor: '#FF6B6B',
       tension: 0.4,
       fill: false
     }
@@ -151,36 +219,101 @@ const recentActivities = ref([
   }
 ]);
 
-/**
- * System alerts configuration
- * Each alert represents a different type of system notification that requires user attention
- */
-const systemAlerts = ref<Alert[]>([
-  {
-    id: '1',
-    title: 'Low Stock Warning',
-    message: '5 items are running low on stock',
-    severity: 'warning' as AlertSeverity,
-    icon: 'warning',
-    actionIcon: 'visibility',
-    // This alert will navigate to the inventory page to show low stock items
-  },
-  {
-    id: '2',
-    title: 'Inventory Check Required',
-    message: 'Monthly inventory check due in 2 days',
-    severity: 'info' as AlertSeverity,
-    icon: 'inventory',
-    actionIcon: 'event',
-    // This alert will open the inventory check scheduling modal
+// Add these after the salesTrendData definition
+const weeklySalesTrendData = ref({
+  labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+  datasets: [
+    {
+      label: 'Cars',
+      data: [3500, 3800, 3600, 4000],
+      borderColor: '#7B66FF',
+      tension: 0.4,
+      fill: false
+    },
+    {
+      label: 'Accessories',
+      data: [800, 750, 900, 850],
+      borderColor: '#FFB534',
+      tension: 0.4,
+      fill: false
+    },
+    {
+      label: 'Total',
+      data: [4300, 4550, 4500, 4850],
+      borderColor: '#FF6B6B',
+      tension: 0.4,
+      fill: false
+    }
+  ]
+});
+
+const yearlySalesTrendData = ref({
+  labels: ['2020', '2021', '2022', '2023'],
+  datasets: [
+    {
+      label: 'Cars',
+      data: [160000, 180000, 200000, 220000],
+      borderColor: '#7B66FF',
+      tension: 0.4,
+      fill: false
+    },
+    {
+      label: 'Accessories',
+      data: [35000, 38000, 40000, 42000],
+      borderColor: '#FFB534',
+      tension: 0.4,
+      fill: false
+    },
+    {
+      label: 'Total',
+      data: [195000, 218000, 240000, 262000],
+      borderColor: '#FF6B6B',
+      tension: 0.4,
+      fill: false
+    }
+  ]
+});
+
+// Add this computed property
+const currentSalesTrendData = computed(() => {
+  console.log('Computing current sales trend data for period:', timePeriod.value);
+  let data;
+  switch (timePeriod.value) {
+    case 'weekly':
+      data = weeklySalesTrendData.value;
+      break;
+    case 'yearly':
+      data = yearlySalesTrendData.value;
+      break;
+    case 'monthly':
+    default:
+      data = salesTrendData.value;
+      break;
   }
-]);
+  console.log('Returning data:', data);
+  return data;
+});
+
+// Add this type definition at the top of the script section
+interface ChartDataset {
+  label: string;
+  data: number[];
+  borderColor: string;
+  tension: number;
+  fill: boolean;
+}
+
+interface ChartData {
+  labels: string[];
+  datasets: ChartDataset[];
+}
 
 // Methods
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'PHP'
+    currency: 'USD',
+    maximumFractionDigits: 0
   }).format(value);
 }
 
@@ -191,11 +324,10 @@ async function refreshData() {
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     // Mock data update
-    totalInventory.value = 550;
-    lowStockItems.value = 5;
-    monthlySales.value = 250000;
-    recentOrders.value = 12;
-    totalRevenue.value = 1250000;
+    totalInventoryValue.value = 2748560;
+    totalSales.value = 845675;
+    inventoryItems.value = 3845;
+    lowStockItems.value = 24;
   } catch (error) {
     console.error('Error refreshing dashboard data:', error);
     $q.notify({
@@ -207,86 +339,189 @@ async function refreshData() {
   }
 }
 
-/**
- * Handles actions triggered from the AlertsPanel component
- * Each alert has a specific action associated with it
- * 
- * @param alertId - The unique identifier of the alert being acted upon
- */
-async function handleAlertAction(alertId: string) {
+const fetchTimeData = () => {
+  isLoading.value = true;
   try {
-    switch (alertId) {
-      case '1': {
-        // Navigate to inventory page with low stock filter
-        // TODO: Implement navigation with proper filter state
-        console.log('Navigating to inventory page for low stock items...');
-        await router.push({
-          path: '/inventory/cabs',
-          query: { filter: 'low-stock' }
-        });
+    console.log('Fetching data for period:', timePeriod.value);
+    // Simulated data - replace with actual API calls in production
+    switch (timePeriod.value) {
+      case 'weekly': {
+        const weeklyData: ChartData = {
+          labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+          datasets: [
+            {
+              label: 'Cars',
+              data: generateRandomData(4, 3000, 4500),
+              borderColor: '#7B66FF',
+              tension: 0.4,
+              fill: false
+            },
+            {
+              label: 'Accessories',
+              data: generateRandomData(4, 700, 1000),
+              borderColor: '#FFB534',
+              tension: 0.4,
+              fill: false
+            }
+          ]
+        };
+        
+        if (weeklyData.datasets[0] && weeklyData.datasets[1]) {
+          const carsData = [...weeklyData.datasets[0].data];
+          const accessoriesData = [...weeklyData.datasets[1].data];
+          const totalData = carsData.map((val, idx) => val + (accessoriesData[idx] || 0));
+          
+          weeklyData.datasets.push({
+            label: 'Total',
+            data: totalData,
+            borderColor: '#FF6B6B',
+            tension: 0.4,
+            fill: false
+          });
+        }
+        
+        weeklySalesTrendData.value = weeklyData;
         break;
       }
-      case '2': {
-        // Show inventory check scheduling modal
-        // TODO: Implement inventory check modal/page
-        console.log('Opening inventory check scheduling modal...');
-        $q.dialog({
-          title: 'Schedule Inventory Check',
-          message: 'Would you like to schedule the monthly inventory check?',
-          ok: {
-            label: 'Schedule Now',
-            color: 'primary'
-          },
-          cancel: {
-            label: 'Remind Me Later',
-            color: 'grey'
-          },
-          persistent: true
-        }).onOk(() => {
-          try {
-            // TODO: Implement actual async scheduling functionality
-            console.log('Scheduling inventory check...');
-            $q.notify({
-              type: 'positive',
-              message: 'Inventory check scheduled successfully'
-            });
-          } catch (scheduleError) {
-            console.error('Error scheduling inventory check:', scheduleError);
-            $q.notify({
-              type: 'negative',
-              message: 'Failed to schedule inventory check',
-              caption: 'Please try again later'
-            });
-          }
-        });
+      
+      case 'monthly': {
+        const monthlyData: ChartData = {
+          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+          datasets: [
+            {
+              label: 'Cars',
+              data: generateRandomData(12, 14000, 18000),
+              borderColor: '#7B66FF',
+              tension: 0.4,
+              fill: false
+            },
+            {
+              label: 'Accessories',
+              data: generateRandomData(12, 2800, 3300),
+              borderColor: '#FFB534',
+              tension: 0.4,
+              fill: false
+            }
+          ]
+        };
+        
+        if (monthlyData.datasets[0] && monthlyData.datasets[1]) {
+          const carsData = [...monthlyData.datasets[0].data];
+          const accessoriesData = [...monthlyData.datasets[1].data];
+          const totalData = carsData.map((val, idx) => val + (accessoriesData[idx] || 0));
+          
+          monthlyData.datasets.push({
+            label: 'Total',
+            data: totalData,
+            borderColor: '#FF6B6B',
+            tension: 0.4,
+            fill: false
+          });
+        }
+        
+        salesTrendData.value = monthlyData;
         break;
       }
-      default: {
-        console.warn(`Unhandled alert action for alert ID: ${alertId}`);
-        $q.notify({
-          type: 'warning',
-          message: 'This action is not yet implemented'
-        });
+      
+      case 'yearly': {
+        const currentYear = new Date().getFullYear();
+        const yearlyData: ChartData = {
+          labels: [
+            (currentYear - 3).toString(),
+            (currentYear - 2).toString(),
+            (currentYear - 1).toString(),
+            currentYear.toString()
+          ],
+          datasets: [
+            {
+              label: 'Cars',
+              data: generateRandomData(4, 160000, 220000),
+              borderColor: '#7B66FF',
+              tension: 0.4,
+              fill: false
+            },
+            {
+              label: 'Accessories',
+              data: generateRandomData(4, 35000, 42000),
+              borderColor: '#FFB534',
+              tension: 0.4,
+              fill: false
+            }
+          ]
+        };
+        
+        if (yearlyData.datasets[0] && yearlyData.datasets[1]) {
+          const carsData = [...yearlyData.datasets[0].data];
+          const accessoriesData = [...yearlyData.datasets[1].data];
+          const totalData = carsData.map((val, idx) => val + (accessoriesData[idx] || 0));
+          
+          yearlyData.datasets.push({
+            label: 'Total',
+            data: totalData,
+            borderColor: '#FF6B6B',
+            tension: 0.4,
+            fill: false
+          });
+        }
+        
+        yearlySalesTrendData.value = yearlyData;
+        break;
       }
     }
   } catch (error) {
-    console.error('Error handling alert action:', error);
+    console.error('Error fetching time period data:', error);
     $q.notify({
       type: 'negative',
-      message: 'Failed to process alert action',
-      caption: 'Please try again or contact support if the issue persists'
+      message: 'Failed to fetch time period data'
     });
+  } finally {
+    isLoading.value = false;
   }
-}
+};
 
-onMounted(async () => {
-  await refreshData();
+const generateRandomData = (length: number, min: number, max: number): number[] => {
+  return Array.from({ length }, () => Math.floor(Math.random() * (max - min + 1)) + min);
+};
+
+onMounted(() => {
+  void Promise.all([
+    refreshData(),
+    fetchTimeData() // Initial data fetch
+  ]);
 });
+
+// Add watch for timePeriod changes
+watch(
+  () => timePeriod.value,
+  (newValue) => {
+    console.log('Time period changed to:', newValue);
+    fetchTimeData();
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>
 .text-h4 {
   font-weight: 600;
+}
+
+.full-height {
+  height: 100%;
+}
+
+.chart-card {
+  height: 100%;
+  min-height: 400px;
+}
+
+.q-page {
+  padding: 24px !important;
+}
+
+.q-px-lg {
+  padding-left: 32px !important;
+  padding-right: 32px !important;
 }
 </style>
 

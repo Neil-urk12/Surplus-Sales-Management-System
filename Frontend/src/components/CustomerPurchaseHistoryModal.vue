@@ -8,6 +8,15 @@ interface Props {
   customerId: string | null;
 }
 
+interface SaleItem {
+  id: string;
+  name: string;
+  itemType: 'Cab' | 'Accessory';
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+}
+
 const props = defineProps<Props>();
 const emit = defineEmits(['update:modelValue']);
 
@@ -169,7 +178,7 @@ const formatCurrency = (value: number) => {
                     </q-item>
                     <template v-else>
                       <!-- Display Cab first -->
-                      <q-item v-for="item in sale.items.filter(i => i.itemType === 'Cab')" :key="item.id">
+                      <q-item v-for="item in sale.items.filter((i: SaleItem) => i.itemType === 'Cab')" :key="item.id">
                         <q-item-section>
                           <q-item-label class="text-weight-bold">{{ item.name }}</q-item-label>
                           <q-item-label caption>
@@ -182,11 +191,11 @@ const formatCurrency = (value: number) => {
                       </q-item>
                       
                       <!-- Display Accessories if any -->
-                      <q-item v-if="sale.items.some(i => i.itemType === 'Accessory')">
+                      <q-item v-if="sale.items.some((i: SaleItem) => i.itemType === 'Accessory')">
                         <q-item-section>
                           <q-item-label class="text-weight-medium">Additional Accessories:</q-item-label>
                           <q-list dense class="q-ml-md">
-                            <q-item v-for="acc in sale.items.filter(i => i.itemType === 'Accessory')" :key="acc.id">
+                            <q-item v-for="acc in sale.items.filter((i: SaleItem) => i.itemType === 'Accessory')" :key="acc.id">
                               <q-item-section>
                                 <div class="row items-center">
                                   <q-icon name="fiber_manual_record" size="xs" class="q-mr-sm" />

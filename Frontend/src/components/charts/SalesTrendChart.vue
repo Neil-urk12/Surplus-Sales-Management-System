@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, onUnmounted } from 'vue';
 import { Chart, registerables } from 'chart.js';
 
 // Register all Chart.js components
@@ -17,6 +17,7 @@ const props = defineProps<{
     }[];
   };
   isDark: boolean;
+  chartType: 'line' | 'bar' | 'area';
 }>();
 
 const chartCanvas = ref<HTMLCanvasElement | null>(null);
@@ -33,16 +34,24 @@ const createChart = () => {
     chart.destroy();
   }
 
+  const isArea = props.chartType === 'area';
+  const isBar = props.chartType === 'bar';
+  
+  const datasets = props.chartData.datasets.map((dataset) => ({
+    ...dataset,
+    backgroundColor: isBar 
+      ? dataset.borderColor + '80'  // Add 50% transparency
+      : isArea
+        ? dataset.borderColor + '20' // Add 87.5% transparency
+        : undefined,
+    fill: isArea ? true : dataset.fill,
+  }));
+
   chart = new Chart(ctx, {
-    type: 'line',
+    type: isArea ? 'line' : props.chartType,
     data: {
       labels: props.chartData.labels,
-      datasets: props.chartData.datasets.map((dataset, index) => ({
-        ...dataset,
-        borderColor: index === 0
-          ? (props.isDark ? '#0ea5e9' : '#1a1a1a')
-          : (props.isDark ? '#4BC0C0' : '#065f46'),
-      })),
+      datasets
     },
     options: {
       responsive: true,
@@ -86,9 +95,16 @@ onMounted(() => {
   createChart();
 });
 
-watch(() => props.chartData, () => {
+// Watch for changes in chartData, chartType, and isDark
+watch([() => props.chartData, () => props.chartType, () => props.isDark], () => {
   createChart();
 }, { deep: true });
+
+onUnmounted(() => {
+  if (chart) {
+    chart.destroy();
+  }
+});
 </script>
 
 <template>
