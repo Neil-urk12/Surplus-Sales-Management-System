@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useQuasar } from 'quasar';
 import type { PropType } from 'vue';
 import type { CabsRow, NewCabInput } from 'src/types/cabs';
@@ -122,9 +122,10 @@ watch(() => localCabData.value.image, (newUrl: string) => {
 });
 
 // Watch the incoming prop to update local state when the dialog opens/changes cab
-watch(() => props.cabData, async (newCab) => {
+watch(() => props.cabData, (newCab) => {
     if (newCab) {
         // Reset local state based on the new cab data
+        const initialImage = newCab.image || props.defaultImageUrl;
         localCabData.value = {
             name: newCab.name,
             make: newCab.make,
@@ -132,19 +133,32 @@ watch(() => props.cabData, async (newCab) => {
             price: newCab.price,
             unit_color: newCab.unit_color,
             status: newCab.status,
-            image: newCab.image || props.defaultImageUrl // Use default if image is missing
+            image: initialImage
         };
-        // Reset image validation/preview state
-        clearImageInput(); // This sets previewUrl and imageUrlValid correctly based on localCabData.image
 
-        // Ensure the watcher for localCabData.image runs if the image is already set
-        await nextTick(() => {
-            const imageWatcher = watch(() => localCabData.value.image, () => { }, { immediate: true });
-            imageWatcher(); // Immediately unwatch after running once
-        });
-
+        // Directly validate the initial image
+        if (initialImage.startsWith('data:image/')) {
+            const validationResult = validateAndSanitizeBase64Image(initialImage);
+            if (validationResult.isValid) {
+                previewUrl.value = initialImage;
+                imageUrlValid.value = true;
+            } else {
+                previewUrl.value = props.defaultImageUrl;
+                imageUrlValid.value = false;
+                $q.notify({
+                    type: 'negative',
+                    message: validationResult.error || 'Invalid image data',
+                    position: 'top'
+                });
+            }
+        } else if (initialImage !== props.defaultImageUrl) {
+            void validateImageUrl(initialImage);
+        } else {
+            previewUrl.value = props.defaultImageUrl;
+            imageUrlValid.value = true;
+        }
     } else {
-        // Reset if cabData becomes null (though this might not happen with persistent dialog)
+        // Reset if cabData becomes null
         resetForm();
     }
 }, { immediate: true }); // Immediate run on component mount

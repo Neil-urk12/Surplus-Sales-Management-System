@@ -129,7 +129,7 @@
       <!-- Activity Feed Section -->
       <div class="row q-col-gutter-md q-mb-xl">
         <div class="col-12">
-          <activity-feed :activities="recentActivities" />
+          <recent-activities-section :activities="recentActivities" />
         </div>
       </div>
     </div>
@@ -142,7 +142,7 @@ import { useQuasar } from 'quasar';
 import MetricsCard from '../components/dashboard/MetricsCard.vue';
 import InventoryChart from '../components/dashboard/InventoryChart.vue';
 import SalesTrendChart from '../components/charts/SalesTrendChart.vue';
-import ActivityFeed from '../components/dashboard/ActivityFeed.vue';
+import RecentActivitiesSection from '../components/dashboard/RecentActivitiesSection.vue';
 
 const $q = useQuasar();
 
