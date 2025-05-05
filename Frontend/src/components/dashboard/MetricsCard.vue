@@ -142,7 +142,7 @@ watch(() => props.trendData, () => {
 .metrics-card {
   transition: all 0.3s;
   height: 100%;
-  min-height: 200px;
+  min-height: 160px;
 }
 
 .metrics-card:hover {
@@ -151,7 +151,7 @@ watch(() => props.trendData, () => {
 }
 
 .trend-graph {
-  height: 60px;
+  height: 40px;
   margin: 0 -16px -16px -16px;
   position: relative;
   bottom: -8px;
@@ -159,11 +159,23 @@ watch(() => props.trendData, () => {
 
 .text-h3 {
   font-weight: 600;
-  font-size: 1.85rem;
+  font-size: 1.5rem;
   line-height: 1.2;
 }
 
 .q-card__section {
-  padding-bottom: 8px;
+  padding: 12px !important;
+}
+
+.q-mb-md {
+  margin-bottom: 8px !important;
+}
+
+.q-mb-lg {
+  margin-bottom: 12px !important;
+}
+
+.q-icon {
+  font-size: 1.2em !important;
 }
 </style> 

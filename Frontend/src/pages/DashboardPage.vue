@@ -1,7 +1,7 @@
 <template>
   <q-page class="q-pa-md">
     <div class="q-px-lg">
-      <div class="row items-center q-mb-lg">
+      <div class="row items-center q-mb-md">
         <div class="col">
           <h1 class="text-h4 q-mb-none">Dashboard</h1>
           <p class="text-subtitle1 q-mt-xs">System Overview</p>
@@ -12,11 +12,11 @@
       </div>
 
       <!-- Key Metrics -->
-      <div class="row q-col-gutter-lg q-mb-xl">
+      <div class="row q-col-gutter-md q-mb-lg">
         <!-- Total Inventory Value -->
         <div class="col-12 col-sm-6 col-md-3">
           <metrics-card
-            class="full-height"
+            class="metrics-card"
             title="Total Inventory Value"
             icon="attach_money"
             :value="formatCurrency(totalInventoryValue)"
@@ -29,7 +29,7 @@
         <!-- Total Sales -->
         <div class="col-12 col-sm-6 col-md-3">
           <metrics-card
-            class="full-height"
+            class="metrics-card"
             title="Total Sales"
             icon="shopping_cart"
             :value="formatCurrency(totalSales)"
@@ -42,7 +42,7 @@
         <!-- Inventory Items -->
         <div class="col-12 col-sm-6 col-md-3">
           <metrics-card
-            class="full-height"
+            class="metrics-card"
             title="Inventory Items"
             icon="inventory_2"
             :value="inventoryItems"
@@ -55,7 +55,7 @@
         <!-- Low Stock Items -->
         <div class="col-12 col-sm-6 col-md-3">
           <metrics-card
-            class="full-height"
+            class="metrics-card"
             title="Low Stock Items"
             icon="warning"
             :value="lowStockItems"
@@ -192,11 +192,21 @@ const inventoryData = ref({
   }]
 });
 
-const recentActivities = ref([
+// Add this interface before the recentActivities definition
+interface Activity {
+  id: string;
+  title: string;
+  description: string;
+  timestamp: Date;
+  icon: string;
+  color: string;
+}
+
+const recentActivities = ref<Activity[]>([
   {
     id: '1',
     title: 'New Car Sold',
-    description: 'Multicab X1 sold to customer',
+    description: 'Multicab X1 sold to John Smith',
     timestamp: new Date(),
     icon: 'directions_car',
     color: 'positive'
@@ -205,7 +215,7 @@ const recentActivities = ref([
     id: '2',
     title: 'Low Stock Alert',
     description: 'Multicab X2 stock is below minimum threshold',
-    timestamp: new Date(Date.now() - 3600000),
+    timestamp: new Date(Date.now() - 1800000), // 30 minutes ago
     icon: 'warning',
     color: 'warning'
   },
@@ -213,9 +223,25 @@ const recentActivities = ref([
     id: '3',
     title: 'Inventory Updated',
     description: 'Added 5 units of Multicab X3',
-    timestamp: new Date(Date.now() - 7200000),
+    timestamp: new Date(Date.now() - 3600000), // 1 hour ago
     icon: 'inventory',
     color: 'info'
+  },
+  {
+    id: '4',
+    title: 'Payment Received',
+    description: 'Payment received for Invoice #1234',
+    timestamp: new Date(Date.now() - 7200000), // 2 hours ago
+    icon: 'payments',
+    color: 'positive'
+  },
+  {
+    id: '5',
+    title: 'Customer Inquiry',
+    description: 'New inquiry for Multicab X5 model',
+    timestamp: new Date(Date.now() - 10800000), // 3 hours ago
+    icon: 'contact_support',
+    color: 'primary'
   }
 ]);
 
@@ -317,6 +343,12 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
+// Update the function signature with the type
+function addNewActivity(activity: Activity) {
+  // Add new activity at the beginning and keep only 5 items
+  recentActivities.value = [activity, ...recentActivities.value.slice(0, 4)];
+}
+
 async function refreshData() {
   isLoading.value = true;
   try {
@@ -328,6 +360,17 @@ async function refreshData() {
     totalSales.value = 845675;
     inventoryItems.value = 3845;
     lowStockItems.value = 24;
+
+    // Example of adding a new activity
+    const newActivity = {
+      id: Date.now().toString(),
+      title: 'Data Refreshed',
+      description: 'Dashboard data has been updated',
+      timestamp: new Date(),
+      icon: 'refresh',
+      color: 'info'
+    };
+    addNewActivity(newActivity);
   } catch (error) {
     console.error('Error refreshing dashboard data:', error);
     $q.notify({
@@ -506,7 +549,7 @@ watch(
   font-weight: 600;
 }
 
-.full-height {
+.metrics-card {
   height: 100%;
 }
 
@@ -516,12 +559,28 @@ watch(
 }
 
 .q-page {
-  padding: 24px !important;
+  padding: 16px !important;
 }
 
 .q-px-lg {
-  padding-left: 32px !important;
-  padding-right: 32px !important;
+  padding-left: 24px !important;
+  padding-right: 24px !important;
+}
+
+/* Responsive adjustments for metrics cards */
+@media (max-width: 599px) {
+  .metrics-card {
+    min-height: 140px;
+  }
+  .q-page {
+    padding: 12px !important;
+  }
+  .q-px-lg {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
 }
 </style>
+
+
 

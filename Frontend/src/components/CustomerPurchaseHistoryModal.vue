@@ -2,7 +2,7 @@
 import { watch, computed, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useCustomerStore } from '../stores/customerStore';
-import type { PurchaseHistoryItem } from 'src/types/customers'; // Adjust path if needed
+// import type { PurchaseHistoryItem } from 'src/types/customers'; // Adjust path if needed
 
 interface Props {
   modelValue: boolean;

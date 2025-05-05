@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, watch, PropType, nextTick } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import { useQuasar } from 'quasar';
-import type { CabsRow, NewCabInput, CabStatus } from 'src/types/cabs';
+import type { PropType } from 'vue';
+import type { CabsRow, NewCabInput } from 'src/types/cabs';
 import { validateAndSanitizeBase64Image } from '../../utils/imageValidation';
 import { operationNotifications } from '../../utils/notifications';
 
@@ -94,7 +95,7 @@ watch(() => localCabData.value.image, (newUrl: string) => {
     }
     if (newUrl.startsWith('data:image/')) {
         // Only do basic validation here, not full sanitization
-        const validationResult = validateAndSanitizeBase64Image(newUrl, true);
+        const validationResult = validateAndSanitizeBase64Image(newUrl);
         if (validationResult.isValid) {
             // Don't update the data yet, just show the preview
             previewUrl.value = newUrl;
@@ -121,7 +122,7 @@ watch(() => localCabData.value.image, (newUrl: string) => {
 });
 
 // Watch the incoming prop to update local state when the dialog opens/changes cab
-watch(() => props.cabData, (newCab) => {
+watch(() => props.cabData, async (newCab) => {
     if (newCab) {
         // Reset local state based on the new cab data
         localCabData.value = {
@@ -137,7 +138,7 @@ watch(() => props.cabData, (newCab) => {
         clearImageInput(); // This sets previewUrl and imageUrlValid correctly based on localCabData.image
 
         // Ensure the watcher for localCabData.image runs if the image is already set
-        nextTick(() => {
+        await nextTick(() => {
             const imageWatcher = watch(() => localCabData.value.image, () => { }, { immediate: true });
             imageWatcher(); // Immediately unwatch after running once
         });
@@ -180,7 +181,7 @@ function handleUpdateCab() {
 
     // Full sanitization right before sending to backend
     if (localCabData.value.image.startsWith('data:image/')) {
-        const sanitizationResult = validateAndSanitizeBase64Image(localCabData.value.image, false);
+        const sanitizationResult = validateAndSanitizeBase64Image(localCabData.value.image);
         if (!sanitizationResult.isValid) {
             operationNotifications.validation.error(sanitizationResult.error || 'Invalid image data');
             return;
@@ -290,7 +291,7 @@ async function handleFile(file: File) {
                 if (e.target?.result) {
                     const base64String = e.target.result as string;
                     // Only do basic validation during upload
-                    const base64ValidationResult = validateAndSanitizeBase64Image(base64String, true);
+                    const base64ValidationResult = validateAndSanitizeBase64Image(base64String);
                     if (!base64ValidationResult.isValid) {
                         $q.notify({ type: 'negative', message: base64ValidationResult.error || 'Invalid image data', position: 'top' });
                         clearImageInput();
