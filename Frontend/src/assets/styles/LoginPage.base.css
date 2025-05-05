@@ -37,22 +37,24 @@ input {
   display: block;
   margin-top: 0.5rem;
   font-size: 0.8rem;
-  color: var(--q-negative);
+  color: var(--error-text);
 }
 
 input.error {
-  border-color: var(--q-negative) !important;
+  border-color: var(--error-border) !important;
   border-width: 2px;
+  background-color: var(--error-background);
 }
 
 .error-message.general-error {
-  background-color: var(--q-negative);
-  color: white;
+  background-color: var(--error-background);
+  color: var(--error-text);
   padding: 10px;
   border-radius: 4px;
   margin-bottom: 15px;
   text-align: center;
   opacity: 0.9;
+  border: 1px solid var(--error-border);
 }
 
 .recovery-card {
@@ -93,10 +95,16 @@ input.error {
 .spinner {
   width: 20px;
   height: 20px;
-  border: 3px solid var(--q-separator-dark);
+  border: 3px solid var(--spinner-border);
   border-radius: 50%;
-  border-top-color: var(--q-primary);
+  border-top-color: var(--spinner-border-active);
   animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 button:hover {

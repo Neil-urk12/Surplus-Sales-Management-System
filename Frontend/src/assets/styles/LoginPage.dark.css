@@ -5,6 +5,11 @@
   --input-background: #1d1d1d;
   --input-border: #2d2d2d;
   --text-color: #ffffff;
+  --error-border: #ff6b6b;
+  --error-text: #ff6b6b;
+  --error-background: rgba(255, 107, 107, 0.1);
+  --spinner-border: #2d2d2d;
+  --spinner-border-active: #ffffff;
 }
 
 .body--dark .login-page {
