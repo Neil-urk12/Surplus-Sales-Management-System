@@ -119,12 +119,7 @@ const handleSubmit = async () => {
   <div class="login-page">
     <div class="login-container" :class="{ 'shake-animation': showShake }">
       <div class="logo">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-          <circle cx="8.5" cy="7" r="4"></circle>
-          <line x1="20" y1="8" x2="20" y2="14"></line>
-          <line x1="23" y1="11" x2="17" y2="11"></line>
-        </svg>
+        <q-icon name="account_circle" size="48px" />
       </div>
 
       <h1>Welcome back</h1>
@@ -135,7 +130,6 @@ const handleSubmit = async () => {
         </div>
 
         <div class="input-group">
-          <label for="email">Email</label>
           <input
             v-model="form.email"
             id="email"
@@ -147,7 +141,6 @@ const handleSubmit = async () => {
         </div>
 
         <div class="input-group">
-          <label for="password">Password</label>
           <input
             v-model="form.password"
             type="password"
@@ -161,7 +154,7 @@ const handleSubmit = async () => {
         </div>
 
         <button type="submit" :disabled="isSubmitting">
-          <span v-if="!isSubmitting">Sign In</span>
+          <span v-if="!isSubmitting" class="text-weight-medium">Sign In</span>
           <span v-else class="spinner"></span>
         </button>
 
@@ -255,7 +248,7 @@ const handleSubmit = async () => {
 
           <div class="text-center text-caption q-mt-md">
             Remember your password?
-            <a href="#" class="text-primary" @click.prevent="showModal = false">Sign in</a>
+            <a href="#" @click.prevent="showModal = false">Sign in</a>
           </div>
         </q-card-section>
 
@@ -281,23 +274,288 @@ const handleSubmit = async () => {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  color: var(--text);
   line-height: 1.6;
   padding: 20px;
 }
 
 .login-container {
-  background: rgba(255, 255, 255, 0.76);
   padding: 2.5rem;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid;
   width: 100%;
   max-width: 500px;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: all 0.3s ease;
 }
 
-.login-container:hover {
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+.body--light .login-page {
+  background: #ffffff;
+}
+
+.body--light .login-container {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.body--light input {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  color: #000000;
+}
+
+.body--light input::placeholder {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.body--light input:focus {
+  border-color: #000000;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+.body--light h1 {
+  color: #000000;
+}
+
+.body--light button {
+  background-color: #18181b;
+  color: #ffffff;
+  border: none;
+  font-weight: 500;
+}
+
+.body--light button:hover {
+  background-color: #000000;
+}
+
+.body--light button:disabled {
+  background-color: rgba(0, 0, 0, 0.5);
+  cursor: not-allowed;
+}
+
+.body--light .forgot-password {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.body--light .forgot-password:hover {
+  color: #000000;
+}
+
+.body--dark .login-page {
+  background: #000000;
+}
+
+.body--dark .login-container {
+  background: #121212;
+  border: 1px solid #2d2d2d;
+}
+
+.body--dark input {
+  background: #1d1d1d;
+  border: 1px solid #2d2d2d;
+  color: #ffffff;
+}
+
+.body--dark input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.body--dark input:focus {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.body--dark h1 {
+  color: #ffffff;
+}
+
+.body--dark button {
+  background: #ffffff;
+  color: #000000;
+  border: none;
+  font-weight: 500;
+}
+
+.body--dark button:hover {
+  background: #f5f5f5;
+}
+
+.body--dark button:disabled {
+  background: rgba(255, 255, 255, 0.5);
+  cursor: not-allowed;
+}
+
+.body--dark .forgot-password {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.body--dark .forgot-password:hover {
+  color: #ffffff;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 2rem;
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: inherit;
+}
+
+input {
+  width: 100%;
+  padding: 0.9rem;
+  border: 1px solid;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.error-message {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--q-negative);
+}
+
+input.error {
+  border-color: var(--q-negative);
+}
+
+.error-message.general-error {
+  background-color: var(--q-negative);
+  color: white;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  text-align: center;
+  opacity: 0.9;
+}
+
+.recovery-card {
+  min-width: 300px;
+  max-width: 90vw;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+}
+
+.close-icon {
+  cursor: pointer;
+  font-size: 1.5rem;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.close-icon:hover {
+  opacity: 1;
+}
+
+.content-section {
+  padding: 24px;
+  text-align: center;
+}
+
+.success-message {
+  padding: 24px;
+  text-align: center;
+}
+
+/* Dark theme styles */
+.body--dark .recovery-card {
+  background: #121212 !important;
+  color: #ffffff !important;
+  border: 1px solid #2d2d2d;
+}
+
+.body--dark .header-section {
+  background: #1d1d1d !important;
+  border-bottom: 1px solid #2d2d2d;
+}
+
+.body--dark .text-h6,
+.body--dark .text-body1,
+.body--dark .text-caption {
+  color: #ffffff !important;
+}
+
+.body--dark .q-field__native,
+.body--dark .q-field__prefix,
+.body--dark .q-field__suffix {
+  color: #ffffff !important;
+}
+
+.body--dark .q-field__marginal {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.body--dark .success-message {
+  background: #1d1d1d;
+  border-top: 1px solid #2d2d2d;
+  color: #4CAF50;
+}
+
+.body--dark a {
+  color: #ffffff;
+}
+
+/* Light theme styles */
+.body--light .recovery-card {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border: 1px solid #e0e0e0;
+}
+
+.body--light .header-section {
+  background: #f5f5f5 !important;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.body--light .text-h6,
+.body--light .text-body1,
+.body--light .text-caption {
+  color: #000000 !important;
+}
+
+.body--light .q-field__native,
+.body--light .q-field__prefix,
+.body--light .q-field__suffix {
+  color: #000000 !important;
+}
+
+.body--light .q-field__marginal {
+  color: rgba(0, 0, 0, 0.7) !important;
+}
+
+.body--light .success-message {
+  background: #f5f5f5;
+  border-top: 1px solid #e0e0e0;
+  color: #4CAF50;
+}
+
+.body--light a {
+  color: #000000;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--q-separator-dark);
+  border-radius: 50%;
+  border-top-color: var(--q-primary);
+  animation: spin 1s ease-in-out infinite;
+}
+
+button:hover {
+  opacity: 0.9;
+}
+
+.forgot-password:hover {
+  opacity: 0.8;
 }
 
 .shake-animation {
@@ -322,13 +580,6 @@ const handleSubmit = async () => {
   color: var(--primary);
 }
 
-h1 {
-  text-align: center;
-  margin-bottom: 2rem;
-  font-size: 1.75rem;
-  font-weight: 600;
-}
-
 .input-group {
   margin-bottom: 1.5rem;
   position: relative;
@@ -342,101 +593,43 @@ label {
   color: var(--text);
 }
 
-input {
-  width: 100%;
-  padding: 0.9rem;
-  border: 1px solid var(--gray);
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border 0.3s ease;
-}
-
-input:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
-}
-
-input.error {
-  border-color: var(--error);
-}
-
-.error-message {
-  display: block;
-  margin-top: 0.5rem;
-  font-size: 0.8rem;
-  color: var(--error);
-}
-
 .forgot-password {
-  display: block;
-  text-align: right;
+  display: inline;
+  float: right;
   margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
   font-size: 0.85rem;
-  color: var(--primary);
+  color: #666;
   text-decoration: none;
 }
 
 button {
   width: 100%;
   padding: 1rem;
-  background-color: var(--primary);
-  color: white;
-  border: none;
   border-radius: 8px;
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-button:hover {
-  background-color: var(--primary-dark);
-}
-
-button:disabled {
-  background-color: var(--dark-gray);
-  cursor: not-allowed;
-}
-
-.spinner {
-  width: 20px;
-  height: 20px;
-  border: 3px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  border-top-color: white;
-  animation: spin 1s ease-in-out infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.social-login {
-  background: white;
-  color: var(--text);
-  border: 1px solid var(--gray);
-}
-
-.social-login:hover {
-  background: var(--light-gray);
 }
 
 .divider {
   display: flex;
   align-items: center;
   margin: 1.5rem 0;
-  color: var(--dark-gray);
+  color: var(--q-primary);
+  opacity: 0.7;
   font-size: 0.9rem;
 }
 
 .divider::before, .divider::after {
   content: "";
   flex: 1;
-  border-bottom: 1px solid var(--gray);
+  border-bottom: 1px solid var(--q-primary);
+  opacity: 0.3;
 }
 
 .divider::before {
@@ -459,47 +652,21 @@ button:disabled {
   font-weight: 500;
 }
 
-.recovery-card {
-  min-width: 400px;
-  max-width: 90vw;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.header-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.close-icon {
-  cursor: pointer;
-  font-size: 1.5rem;
-  color: #6c757d;
-}
-
-.close-icon:hover {
-  color: #495057;
-}
-
-.content-section {
-  padding: 24px;
-}
-
 .illustration-container {
   display: flex;
   justify-content: center;
-  margin-bottom: 20px;
+  margin: 20px 0;
 }
 
-.success-message {
-  background-color: #f8f9fa;
-  text-align: center;
-  padding: 24px;
-  border-top: 1px solid #e9ecef;
+.illustration-container img {
+  width: 120px;
+  height: 120px;
+}
+
+.text-body1 {
+  margin: 16px 0;
+  font-size: 1rem;
+  line-height: 1.5;
 }
 
 .fade-enter-active,
@@ -512,27 +679,45 @@ button:disabled {
   opacity: 0;
 }
 
-.error-message.general-error {
-  background-color: #ffebee;
-  color: #c62828;
-  padding: 10px;
-  border-radius: 4px;
-  margin-bottom: 15px;
-  text-align: center;
-  border: 1px solid #ef9a9a;
+.text-center .text-caption {
+  color: #666;
+}
+
+.text-center a {
+  color: #888 !important;
+  text-decoration: none;
+}
+
+.text-center a:hover {
+  color: #aaa !important;
 }
 
 @media (max-width: 600px) {
   .recovery-card {
-    min-width: 90vw;
+    min-width: unset;
+    width: 95vw;
+    margin: 10px;
   }
 
   .content-section {
     padding: 16px;
   }
 
-  .login-container {
-    padding: 1.5rem;
+  .text-body1 {
+    font-size: 0.95rem;
   }
+
+  .illustration-container img {
+    width: 100px;
+    height: 100px;
+  }
+}
+
+.body--dark .logo q-icon {
+  color: #ffffff !important;
+}
+
+.body--light .logo q-icon {
+  color: #000000 !important;
 }
 </style>
