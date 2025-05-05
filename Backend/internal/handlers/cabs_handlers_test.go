@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"oop/internal/models"
-	"oop/internal/repository"
+	"oop/internal/repositories"
 	"testing"
 	"time"
 
@@ -63,7 +63,7 @@ func (m *MockCabsRepository) DeleteCab(id int) error {
 }
 
 // Helper to setup Fiber app with handlers using a provided (mock) repository
-func setupAppWithMockRepo(repo repository.CabsRepository) *fiber.App {
+func setupAppWithMockRepo(repo repositories.CabsRepository) *fiber.App {
 	h := NewCabsHandlers(repo)
 	app := fiber.New()
 

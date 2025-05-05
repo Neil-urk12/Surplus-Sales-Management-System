@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"oop/internal/models"
-	"oop/internal/repository"
+	"oop/internal/repositories"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -13,11 +13,11 @@ import (
 
 // CabsHandlers struct holds dependencies specifically for cab-related handlers.
 type CabsHandlers struct {
-	Repo repository.CabsRepository
+	Repo repositories.CabsRepository
 }
 
 // NewCabsHandlers creates a new CabsHandlers struct.
-func NewCabsHandlers(repo repository.CabsRepository) *CabsHandlers {
+func NewCabsHandlers(repo repositories.CabsRepository) *CabsHandlers {
 	return &CabsHandlers{Repo: repo}
 }
 

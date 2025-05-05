@@ -9,7 +9,6 @@ import (
 	"oop/internal/handlers"
 	"oop/internal/middleware"
 	"oop/internal/repositories"
-	"oop/internal/repository"
 	"os"
 	"os/signal"
 	"strings"
@@ -151,7 +150,7 @@ func main() {
 	materialRepo := repositories.NewMaterialRepository(dbClient.DB)
 
 	// Initialize cabs repository directly with DB
-	cabsRepo := repository.NewCabsRepository(dbClient.DB)
+	cabsRepo := repositories.NewCabsRepository(dbClient.DB)
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userRepo, jwtSecret)

@@ -1,4 +1,4 @@
-package repository
+package repositories
 
 import (
 	"database/sql"
@@ -12,15 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// NewMockDB creates a new mock database connection for testing.
-func NewMockDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
-	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp)) // Use regexp matching
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	return db, mock
-}
 
 // --- Tests ---
 
