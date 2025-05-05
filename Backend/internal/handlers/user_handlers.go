@@ -12,6 +12,11 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	RoleAdmin = "admin"
+	RoleStaff = "staff"
+)
+
 // UserRepository defines the interface for user repository operations
 type UserRepository interface {
 	Create(user *models.User) error
@@ -278,12 +283,18 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 // UpdateUser updates a user's information
 func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	id := c.Params("id")
-	// Optional: Check permissions similar to GetUser
-	// requestedUserID := c.Locals("user_id")
-	// requestedUserRole := c.Locals("role")
-	// if requestedUserID != id && requestedUserRole != "admin" {
-	// 	return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied"})
-	// }
+	// Check if the current user is admin or staff
+	roleValue := c.Locals("role")
+	requestUserRole, ok := roleValue.(string)
+	if !ok || requestUserRole == "" {
+		// Log the issue for debugging
+		log.Printf("UpdateUser: 'role' not found or not a string in context locals for user ID %s. Value: %v", id, roleValue)
+		// Return forbidden, as the role couldn't be determined or is invalid
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied: Unable to verify user role"})
+	}
+	if requestUserRole != RoleAdmin && requestUserRole != RoleStaff { // Now check the validated role
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied"})
+	}
 
 	// Get existing user
 	existingUser, err := h.userRepo.GetByID(id)
@@ -294,19 +305,12 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 		})
 	}
 
-	// Check if user is active
-	if !existingUser.IsActive {
-		log.Printf("Update attempt for inactive user: %s", existingUser.Email)
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error": "Account is inactive",
-		})
-	}
-
 	// Parse request body
 	var input struct {
-		Name  string `json:"name"`
-		Email string `json:"email"`
-		Role  string `json:"role"`
+		FullName string `json:"fullName"`
+		Email    string `json:"email"`
+		Role     string `json:"role"`
+		IsActive bool   `json:"isActive"`
 	}
 
 	if err := c.BodyParser(&input); err != nil {
@@ -314,35 +318,25 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 			"error": "Invalid request body",
 		})
 	}
+	log.Printf("UpdateUser received input: %+v", input) // Add logging here
 
-	// Update user fields if provided
-	if input.Name != "" {
-		existingUser.FullName = input.Name // Update FullName
+	// Update fields if provided in the request body
+	// Update fields if provided in the request body
+	if input.FullName != "" {
+		existingUser.FullName = input.FullName
 	}
-	if input.Email != "" && input.Email != existingUser.Email {
-		// Check if new email already exists
-		exists, err := h.userRepo.EmailExists(input.Email)
-		if err != nil {
-			log.Printf("Error checking email existence: %v", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
-
-		if exists {
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-				"error": "Email already in use",
-			})
-		}
-
+	if input.Email != "" {
 		existingUser.Email = input.Email
 	}
 	if input.Role != "" {
 		existingUser.Role = input.Role
 	}
 
+	// Update isActive status
+	existingUser.IsActive = input.IsActive
+
 	// Update timestamp
-	existingUser.UpdatedAt = time.Now() // Use time.Time directly
+	existingUser.UpdatedAt = time.Now()
 
 	// Save changes
 	if err := h.userRepo.Update(existingUser); err != nil {
@@ -381,7 +375,6 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 // ActivateUser activates a user account
 func (h *UserHandler) ActivateUser(c *fiber.Ctx) error {
 	id := c.Params("id")
-	// Optional: Check permissions
 
 	if err := h.userRepo.ActivateUser(id); err != nil {
 		log.Printf("Error activating user: %v", err)
@@ -392,6 +385,81 @@ func (h *UserHandler) ActivateUser(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "User activated successfully",
+	})
+}
+
+// CreateUser creates a new user (admin/staff only)
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
+	roleValue := c.Locals("role")
+	requestUserRole, ok := roleValue.(string)
+
+	if !ok || requestUserRole == "" {
+		log.Printf("CreateUser: 'role' not found or not a string in context locals. Value: %v", roleValue)
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied: Unable to verify user role"})
+	}
+	if requestUserRole != RoleAdmin && requestUserRole != RoleStaff {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied"})
+	}
+
+	// Parse request body
+	var input struct {
+		FullName string `json:"fullName"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		Role     string `json:"role"`
+	}
+
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	// Validate input
+	if input.FullName == "" || input.Email == "" || input.Password == "" || input.Role == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Full name, email, password, and role are required",
+		})
+	}
+
+	// Check if email already exists
+	exists, err := h.userRepo.EmailExists(input.Email)
+	if err != nil {
+		log.Printf("Error checking email existence: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	if exists {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error": "Email already in use",
+		})
+	}
+
+	// Create user
+	user := &models.User{
+		Id:       uuid.New().String(),
+		FullName: input.FullName,
+		Email:    input.Email,
+		Password: input.Password, // Will be hashed in the repository
+		Role:     input.Role,
+		IsActive: true,
+	}
+
+	if err := h.userRepo.Create(user); err != nil {
+		log.Printf("Error creating user: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create user",
+		})
+	}
+
+	// Don't return the password hash
+	user.Password = ""
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "User created successfully",
+		"user":    user,
 	})
 }
 

@@ -1,4 +1,5 @@
 import type { RouteRecordRaw } from 'vue-router';
+import { defineAsyncComponent } from 'vue';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -15,8 +16,18 @@ const routes: RouteRecordRaw[] = [
       { path: 'inventory/accessories', component: () => import('pages/AccessoriesPage.vue') },
       { path: 'sales', component: () => import('pages/SalesPage.vue') },
       { path: 'contacts', component: () => import('pages/ContactsPage.vue') },
+      {
+        path: 'user-management',
+        component: defineAsyncComponent(() => import('pages/UserManagementPage.vue')),
+        meta: { roles: ['admin', 'staff'] } 
+      },
     ],
     meta: { requiresAuth: true },
+  },
+  {
+    path: '/unauthorized',
+    name: 'Unauthorized',
+    component: () => import('pages/UnauthorizedPage.vue'),
   },
   {
     path: '/:catchAll(.*)*',

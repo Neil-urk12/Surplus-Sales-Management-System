@@ -171,6 +171,7 @@ func main() {
 	userProtected.Put("/:id/activate", userHandler.ActivateUser)
 	userProtected.Put("/:id/deactivate", userHandler.DeactivateUser)
 	userProtected.Put("/:id/password", userHandler.UpdatePassword)
+	userProtected.Post("/", userHandler.CreateUser)
 
 	// Add a health check endpoint (public)
 	app.Get("/health", func(c *fiber.Ctx) error {
