@@ -9,6 +9,7 @@ import (
 	"oop/internal/handlers"
 	"oop/internal/middleware"
 	"oop/internal/repositories"
+
 	"os"
 	"os/signal"
 	"strings"
@@ -160,6 +161,37 @@ func main() {
 
 	// --- Route Registration ---
 	api := app.Group("/api") // Base group for API routes
+	app.Post("/submit", func(c *fiber.Ctx) error {
+		// 1) grab the Turnstile token from the client
+		token := c.FormValue("cf-turnstile-response")
+		if token == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "captcha token missing",
+			})
+		}
+
+		// 2) verify with Cloudflare
+		ok, err := handlers.VerifyTurnstile(token)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+		if !ok {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": "invalid captcha",
+			})
+		}
+
+		// 3) CAPTCHA passed — now invoke your normal form logic.
+		//    e.g., parse the rest of the body and save to DB:
+		//
+		//    var payload YourPayloadType
+		//    if err := c.BodyParser(&payload); err != nil { … }
+		//    // do your business logic here…
+		//
+		return c.JSON(fiber.Map{"status": "ok"})
+	})
 
 	// Public User Routes (register, login)
 	userHandler.RegisterRoutes(api) // This will now only register public routes

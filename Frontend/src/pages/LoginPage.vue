@@ -2,11 +2,36 @@
 import { computed, ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import * as TurnstileCaptchaComponent from '../components/Global/TurnstileCaptcha.vue'
+
+// Define Turnstile interface for TypeScript
+interface TurnstileOptions {
+  sitekey: string;
+  callback: (token: string) => void;
+  'error-callback': () => void;
+  'expired-callback': () => void;
+  theme?: 'light' | 'dark' | 'auto';
+}
+
+interface Turnstile {
+  render: (element: HTMLElement, options: TurnstileOptions) => string;
+}
+
+// Extend Window interface
+declare global {
+  interface Window {
+    turnstile?: Turnstile;
+  }
+}
 
 const tab = ref('email')
 const showModal = ref(false)
 const recoveryEmail = ref('')
 const recoveryPhone = ref('')
+const token = ref<string|null>(null)
+const error = ref(false)
+const isCaptchad = ref(false)
+const showCaptchaDialog = ref(false)
 
 const isSendingRecovery = ref(false)
 const recoverySent = ref(false)
@@ -60,6 +85,15 @@ const loginError = ref('')
 
 onMounted( async () => {
   if (authStore.isAuthenticated) await router.push('/')
+
+  // Load Turnstile script if not already loaded
+  if (!window.turnstile) {
+    const script = document.createElement('script')
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+    script.async = true
+    script.defer = true
+    document.head.appendChild(script)
+  }
 })
 
 const validateEmail = () => {
@@ -88,9 +122,17 @@ const handleSubmit = async () => {
   validatePassword()
   loginError.value = ''
 
+  // First check if fields are valid
   if (errors.email || errors.password) {
     showShake.value = true
     setTimeout(() => showShake.value = false, 500)
+    return
+  }
+
+  // Only after fields are valid, check for captcha
+  if (!token.value) {
+    showCaptchaDialog.value = true
+    isCaptchad.value = true
     return
   }
 
@@ -150,7 +192,19 @@ const handleSubmit = async () => {
             :class="{ 'error': errors.password }"
           >
           <span class="error-message" v-if="errors.password">{{ errors.password }}</span>
-          <a href="#" class="forgot-password" @click.prevent="showModal = true">Forgot password?</a>
+          <div class="row">
+            <div class="captcha-container col" v-if="form.email && form.password">
+          <TurnstileCaptchaComponent.default
+            @verify="token = $event"
+            @error="error = true"
+            @expired="token = null"
+          />
+          <div class="col flex content-center justify-end"><a href="#" class="forgot-password" @click.prevent="showModal = true">Forgot password?</a></div>
+        </div>
+            <div class="col" v-else>
+              <div class="flex content-center justify-end"><a href="#" class="forgot-password" @click.prevent="showModal = true">Forgot password?</a></div>
+            </div>
+          </div>
         </div>
 
         <button type="submit" :disabled="isSubmitting">
@@ -265,6 +319,14 @@ const handleSubmit = async () => {
         </transition>
       </q-card>
     </q-dialog>
+
+    <q-dialog v-model="showCaptchaDialog">
+      <q-card >
+        <q-card-section>
+          <div class="text-h6">CAPTCHA Verification required</div>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
   </div>
 </template>
 
@@ -301,5 +363,15 @@ const handleSubmit = async () => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+.captcha-container {
+  margin: 15px 0;
+  display: flex;
+  justify-content: center;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>
