@@ -18,6 +18,10 @@ const showEditDialog = ref(false);
 const showDeleteDialog = ref(false);
 const accessoryToDelete = ref<AccessoryRow | null>(null);
 const showProductCardModal = ref(false);
+const isAddLoading = ref(false);
+const isEditLoading = ref(false);
+const isDeleteLoading = ref(false);
+const pageLoading = ref(true);
 
 const selected = ref<AccessoryRow>({
   name: '',
@@ -106,16 +110,20 @@ function openAddDialog() {
 
 async function handleAddAccessory(newAccessoryData: NewAccessoryInput) {
   try {
+    isAddLoading.value = true;
     // Execute the store action and await its completion
     const result = await store.addAccessory(newAccessoryData);
 
     // Show notification after operation successfully completes
     if (result.success) {
       operationNotifications.add.success(`accessory: ${newAccessoryData.name}`);
+      showAddDialog.value = false;
     }
   } catch (error) {
     console.error('Error adding accessory:', error);
     operationNotifications.add.error('accessory');
+  } finally {
+    isAddLoading.value = false;
   }
 }
 
@@ -128,16 +136,20 @@ function editAccessory(accessory: AccessoryRow) {
 // Handler for the edit dialog submit event
 async function handleUpdateAccessory(id: number, updatedAccessory: NewAccessoryInput) {
   try {
+    isEditLoading.value = true;
     // Execute the store action and await its completion
     const result = await store.updateAccessory(id, updatedAccessory);
 
     // Show notification after operation successfully completes
     if (result.success) {
       operationNotifications.update.success(`accessory: ${updatedAccessory.name}`);
+      showEditDialog.value = false;
     }
   } catch (error) {
     console.error('Error updating accessory:', error);
     operationNotifications.update.error('accessory');
+  } finally {
+    isEditLoading.value = false;
   }
 }
 
@@ -151,14 +163,17 @@ function deleteAccessory(accessory: AccessoryRow) {
 async function confirmDelete() {
   try {
     if (!accessoryToDelete.value) return;
-
+    
+    isDeleteLoading.value = true;
     await store.deleteAccessory(accessoryToDelete.value.id);
-    showDeleteDialog.value = false;
-    accessoryToDelete.value = null;
     operationNotifications.delete.success('accessory');
+    accessoryToDelete.value = null;
   } catch (error) {
     console.error('Error deleting accessory:', error);
     operationNotifications.delete.error('accessory');
+  } finally {
+    showDeleteDialog.value = false;
+    isDeleteLoading.value = false;
   }
 }
 
@@ -166,8 +181,13 @@ function applyFilters() {
   showFilterDialog.value = false;
 }
 
-onMounted(() => {
-  void store.initializeAccessories();
+onMounted(async () => {
+  pageLoading.value = true;
+  try {
+    await store.initializeAccessories();
+  } finally {
+    pageLoading.value = false;
+  }
 });
 </script>
 
@@ -183,6 +203,7 @@ onMounted(() => {
               dense
               placeholder="Search"
               class="full-width"
+              :disable="pageLoading"
             >
               <template v-slot:prepend>
                 <q-icon name="search" />
@@ -195,17 +216,18 @@ onMounted(() => {
               icon="filter_list"
               label="Filters"
               @click="showFilterDialog = true"
+              :disable="pageLoading"
             />
           </div>
         </div>
 
         <div class="flex row q-gutter-x-sm">
-          <q-btn class="text-white bg-primary" unelevated @click="openAddDialog">
+          <q-btn class="text-white bg-primary" unelevated @click="openAddDialog" :disable="pageLoading">
             <q-icon name="add" color="white" />
             Add
           </q-btn>
           <div class="flex row">
-            <q-btn dense flat class="bg-primary text-white q-pa-sm">
+            <q-btn dense flat class="bg-primary text-white q-pa-sm" :disable="pageLoading">
               <q-icon name="download" color="white" />
               Download CSV
             </q-btn>
@@ -213,8 +235,49 @@ onMounted(() => {
         </div>
       </div>
 
-      <!--ACCESSORIES TABLE-->
+      <!-- Skeleton Loader -->
+      <div v-if="pageLoading" class="q-my-md">
+        <div class="row items-center q-mb-md">
+          <q-skeleton type="text" class="text-h6" width="180px" />
+          <q-space />
+          <q-skeleton type="QBtn" width="50px" />
+        </div>
+        
+        <!-- Skeleton Table Header -->
+        <div class="row q-py-sm bg-grey-2">
+          <div class="col-1"><q-skeleton type="text" /></div>
+          <div class="col-3"><q-skeleton type="text" /></div>
+          <div class="col-2"><q-skeleton type="text" /></div>
+          <div class="col-1"><q-skeleton type="text" /></div>
+          <div class="col-2"><q-skeleton type="text" /></div>
+          <div class="col-1"><q-skeleton type="text" /></div>
+          <div class="col-1"><q-skeleton type="text" /></div>
+          <div class="col-1"><q-skeleton type="text" /></div>
+        </div>
+        
+        <!-- Skeleton Table Rows -->
+        <div v-for="n in 5" :key="n" class="row q-py-md q-gutter-y-sm items-center" :class="n % 2 === 0 ? 'bg-grey-1' : ''">
+          <div class="col-1"><q-skeleton type="text" width="30px" /></div>
+          <div class="col-3"><q-skeleton type="text" width="90%" /></div>
+          <div class="col-2"><q-skeleton type="text" width="70%" /></div>
+          <div class="col-1"><q-skeleton type="text" width="40px" /></div>
+          <div class="col-2"><q-skeleton type="text" width="80px" /></div>
+          <div class="col-1"><q-skeleton type="text" width="80%" /></div>
+          <div class="col-1"><q-skeleton type="text" width="60%" /></div>
+          <div class="col-1"><q-skeleton type="QBtn" width="40px" /></div>
+        </div>
+        
+        <!-- Skeleton Pagination -->
+        <div class="row justify-end q-mt-md">
+          <q-skeleton type="QBtn" width="40px" class="q-mr-sm" />
+          <q-skeleton type="text" width="80px" class="q-mr-sm" />
+          <q-skeleton type="QBtn" width="40px" />
+        </div>
+      </div>
+
+      <!--ACCESSORIES TABLE - Only show when not loading -->
       <q-table
+        v-if="!pageLoading"
         class="my-sticky-column-table"
         flat
         bordered
@@ -230,6 +293,7 @@ onMounted(() => {
         <template v-slot:loading>
           <q-inner-loading showing color="primary">
             <q-spinner-gears size="50px" color="primary" />
+            <div class="q-mt-sm text-primary">Loading data...</div>
           </q-inner-loading>
         </template>
         <template v-slot:body-cell-actions="props">
@@ -242,6 +306,7 @@ onMounted(() => {
               icon="more_vert"
               class="action-button"
               :aria-label="'Actions for ' + props.row.name"
+              :disable="isDeleteLoading || isEditLoading"
             >
               <q-menu class="action-menu" :aria-label="'Available actions for ' + props.row.name">
                 <q-list style="min-width: 100px">
@@ -251,6 +316,7 @@ onMounted(() => {
                     @click.stop="editAccessory(props.row)"
                     role="button"
                     :aria-label="'Edit ' + props.row.name"
+                    :disable="isEditLoading"
                   >
                     <q-item-section>
                       <q-item-label>
@@ -266,6 +332,7 @@ onMounted(() => {
                     role="button"
                     :aria-label="'Delete ' + props.row.name"
                     class="text-negative"
+                    :disable="isDeleteLoading"
                   >
                     <q-item-section>
                       <q-item-label class="text-negative">
@@ -300,6 +367,7 @@ onMounted(() => {
         :makes="makes"
         :colors="colors"
         @submit="handleAddAccessory"
+        :loading="isAddLoading"
       />
 
       <!-- Edit Accessory Dialog -->
@@ -309,6 +377,7 @@ onMounted(() => {
         :colors="colors"
         :accessory="selected"
         @submit="handleUpdateAccessory"
+        :loading="isEditLoading"
       />
 
       <!-- Filter Dialog -->
@@ -362,6 +431,7 @@ onMounted(() => {
         itemType="accessory"
         :itemName="accessoryToDelete?.name || ''"
         @confirm-delete="confirmDelete"
+        :loading="isDeleteLoading"
       />
     </div>
   </div>

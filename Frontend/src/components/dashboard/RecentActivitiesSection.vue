@@ -6,7 +6,24 @@
     </q-card-section>
     <q-separator />
     <q-card-section class="q-pa-none">
-      <q-list separator class="activity-feed">
+      <!-- Skeleton loaders when loading -->
+      <q-list separator class="activity-feed" v-if="isLoading">
+        <q-item v-for="n in 5" :key="n" class="activity-item q-pa-md">
+          <q-item-section avatar>
+            <q-skeleton type="QAvatar" size="40px" />
+          </q-item-section>
+          <q-item-section>
+            <q-skeleton type="text" width="60%" class="q-mb-xs" />
+            <q-skeleton type="text" width="80%" />
+          </q-item-section>
+          <q-item-section side>
+            <q-skeleton type="text" width="100%" />
+          </q-item-section>
+        </q-item>
+      </q-list>
+      
+      <!-- Actual content when not loading -->
+      <q-list separator class="activity-feed" v-else>
         <q-item v-for="activity in formattedActivities" :key="activity.id" class="activity-item q-pa-md">
           <q-item-section avatar>
             <q-icon :name="activity.icon" :color="activity.color" />
@@ -39,9 +56,16 @@ interface Activity {
   color: string;
 }
 
-const props = defineProps<{
-  activities: Activity[];
-}>();
+const props = defineProps({
+  activities: {
+    type: Array as () => Activity[],
+    required: true
+  },
+  isLoading: {
+    type: Boolean,
+    default: false
+  }
+});
 
 function formatTimeAgo(date: Date): string {
   const now = new Date();

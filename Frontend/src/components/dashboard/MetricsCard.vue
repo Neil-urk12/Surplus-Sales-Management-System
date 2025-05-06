@@ -7,11 +7,18 @@
         <div class="text-caption text-grey-7">{{ title }}</div>
       </div>
 
-      <!-- Main Value -->
-      <div class="text-h3 q-mb-md">{{ value }}</div>
+      <!-- Main Value - with skeleton loader -->
+      <div v-if="isLoading" class="q-mb-md">
+        <q-skeleton type="text" class="text-h3" width="80%" />
+      </div>
+      <div v-else class="text-h3 q-mb-md">{{ value }}</div>
 
       <!-- Growth and YTD -->
-      <div class="row justify-between items-end q-mb-lg">
+      <div v-if="isLoading" class="q-mb-lg">
+        <q-skeleton type="text" width="60%" class="q-mb-xs" />
+        <q-skeleton type="text" width="40%" />
+      </div>
+      <div v-else class="row justify-between items-end q-mb-lg">
         <div class="column">
           <div class="row items-center q-mb-xs" v-if="trendPercentage !== undefined">
             <q-icon
@@ -36,8 +43,11 @@
         </div>
       </div>
 
-      <!-- Trend Graph -->
-      <div class="trend-graph" v-if="trendData && trendData.length > 0">
+      <!-- Trend Graph - with skeleton loader -->
+      <div v-if="isLoading" class="trend-graph">
+        <q-skeleton type="rect" height="40px" />
+      </div>
+      <div v-else-if="trendData && trendData.length > 0" class="trend-graph">
         <canvas ref="chartCanvas"></canvas>
       </div>
     </q-card-section>
@@ -50,21 +60,46 @@ import { Chart, registerables } from 'chart.js';
 
 Chart.register(...registerables);
 
-const props = defineProps<{
-  title: string;
-  icon: string;
-  value: string | number;
-  trendData?: number[];
-  trendPercentage?: number;
-  ytdValue?: string;
-  additionalInfo?: string;
-}>();
+const props = defineProps({
+  title: {
+    type: String,
+    required: true
+  },
+  icon: {
+    type: String,
+    required: true
+  },
+  value: {
+    type: [String, Number],
+    required: true
+  },
+  trendData: {
+    type: Array as () => number[],
+    default: () => []
+  },
+  trendPercentage: {
+    type: Number,
+    default: undefined
+  },
+  ytdValue: {
+    type: String,
+    default: undefined
+  },
+  additionalInfo: {
+    type: String,
+    default: undefined
+  },
+  isLoading: {
+    type: Boolean,
+    default: false
+  }
+});
 
 const chartCanvas = ref<HTMLCanvasElement | null>(null);
 let chart: Chart | null = null;
 
 const createChart = () => {
-  if (!chartCanvas.value || !props.trendData) return;
+  if (!chartCanvas.value || !props.trendData || props.isLoading) return;
 
   const ctx = chartCanvas.value.getContext('2d');
   if (!ctx) return;
@@ -126,13 +161,13 @@ const createChart = () => {
 };
 
 onMounted(() => {
-  if (props.trendData) {
+  if (props.trendData && !props.isLoading) {
     createChart();
   }
 });
 
-watch(() => props.trendData, () => {
-  if (props.trendData) {
+watch([() => props.trendData, () => props.isLoading], () => {
+  if (props.trendData && !props.isLoading) {
     createChart();
   }
 }, { deep: true });

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import GlobalDeleteDialog from 'src/components/Global/DeleteDialog.vue';
+import { defineAsyncComponent } from 'vue';
+const GlobalDeleteDialog = defineAsyncComponent(() => import('src/components/Global/DeleteDialog.vue'));
 
 defineProps({
     modelValue: {
