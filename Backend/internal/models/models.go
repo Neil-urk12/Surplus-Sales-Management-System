@@ -55,24 +55,29 @@ type StockTransaction struct {
 	Type           string
 	QuantityChange int
 	Remarks        string
-	AccessoryID    string
+	AccessoryID    int
 	MaterialID     string
 	CreatedAt      string
 	UpdatedAt      string
 }
 
 type Accessory struct {
-	ID        string
-	Name      string
-	Quantity  int
-	CreatedAt string
-	UpdatedAt string
+	ID        int       `json:"id"`         // Unique identifier
+	Name      string    `json:"name"`       // Name of the accessory
+	Make      string    `json:"make"`       // Manufacturer/brand of the accessory
+	Quantity  int       `json:"quantity"`   // Number of units available
+	Price     float64   `json:"price"`      // Price in PHP
+	Status    string    `json:"status"`     // Inventory status
+	UnitColor string    `json:"unit_color"` // Color of the accessory
+	Image     string    `json:"image"`      // URL or base64 string of the image
+	CreatedAt time.Time `json:"createdAt"`  // Timestamp of creation
+	UpdatedAt time.Time `json:"updatedAt"`  // Timestamp of last update
 }
 
 type MultiCabAccessory struct {
 	ID            string
 	MultiCabID    string
-	AccessoryID   string
+	AccessoryID   int // Changed from string to int to match the Accessory.ID type
 	QuantityAdded int
 	DateApplied   string
 	CreatedAt     string
