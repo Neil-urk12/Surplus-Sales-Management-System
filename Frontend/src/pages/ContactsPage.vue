@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, defineAsyncComponent } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
 import type { Customer } from '../types/models';
 import { useCustomerStore } from '../stores/customerStore';
-import CustomerPurchaseHistoryModal from '../components/CustomerPurchaseHistoryModal.vue';
-import ConfirmationDialog from '../components/ConfirmationDialog.vue';
+const CustomerPurchaseHistoryModal = defineAsyncComponent(() => import('../components/CustomerPurchaseHistoryModal.vue'));
+const DeleteDialog = defineAsyncComponent(() => import('src/components/Global/DeleteDialog.vue'));
 
 const customerStore = useCustomerStore();
 const { customers, isLoading, error } = storeToRefs(customerStore);
@@ -27,6 +27,7 @@ const selectedCustomerIdForHistory = ref<string | null>(null);
 
 const isConfirmDialogOpen = ref(false);
 const selectedCustomerId = ref<string | null>(null);
+const customerToDelete = ref<Customer | null>(null);
 
 onMounted(async () => {
   await fetchCustomers();
@@ -67,11 +68,13 @@ const executeDelete = () => {
       $q.notify({ type: 'negative', message: `Error deleting customer: ${error.value}` });
     }
     selectedCustomerId.value = null;
+    customerToDelete.value = null;
   }
 };
 
 const handleDeleteCustomer = (customerId: string) => {
   selectedCustomerId.value = customerId;
+  customerToDelete.value = customers.value.find(c => c.id === customerId) || null;
   isConfirmDialogOpen.value = true;
 };
 
@@ -290,11 +293,11 @@ const viewPurchaseHistory = (customerId: string) => {
         :customer-id="selectedCustomerIdForHistory"
       />
 
-      <confirmation-dialog
+      <DeleteDialog
         v-model="isConfirmDialogOpen"
-        title="Delete Customer"
-        message="Are you sure you want to delete this customer? This action cannot be undone."
-        @confirm="executeDelete"
+        itemType="customer"
+        :itemName="customerToDelete?.fullName || ''"
+        @confirm-delete="executeDelete"
       />
 
     </div> <!-- End wrapper div -->

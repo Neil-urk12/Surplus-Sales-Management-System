@@ -8,10 +8,10 @@ import type { MaterialRow, NewMaterialInput } from 'src/stores/materials';
 import type { UpdateMaterialInput } from 'src/types/materials'; 
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
+const DeleteDialog = defineAsyncComponent(() => import('src/components/Global/DeleteDialog.vue'));
 const AddMaterialDialog = defineAsyncComponent(() => import('../components/AddMaterialDialog.vue'))
 const EditMaterialDialog = defineAsyncComponent(() => import('../components/EditMaterialDialog.vue'))
 const FilterMaterialDialog = defineAsyncComponent(() => import('../components/FilterMaterialDialog.vue'))
-const ConfirmDialog = defineAsyncComponent(() => import('../components/ConfirmDialog.vue'))
 
 const $q = useQuasar();
 const store = useMaterialsStore();
@@ -1123,14 +1123,11 @@ onMounted(async () => {
           </div>
         </EditMaterialDialog>
 
-        <!-- Use the new Confirm Dialog Component -->
-        <ConfirmDialog
+        <DeleteDialog
           v-model="showDeleteDialog"
-          title="Delete Material"
-          :message="`Are you sure you want to delete ${materialToDelete?.name}? This action cannot be undone.`"
-          confirmButtonLabel="Delete"
-          confirmButtonColor="negative"
-          @confirm="confirmDelete"
+          itemType="material"
+          :itemName="materialToDelete?.name || ''"
+          @confirm-delete="confirmDelete"
         />
       </div>
     </div>

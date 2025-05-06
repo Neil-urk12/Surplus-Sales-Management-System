@@ -1,148 +1,9 @@
-<template>
-  <q-page class="q-pa-md">
-    <div class="q-px-lg">
-      <div class="row items-center q-mb-md">
-        <div class="col">
-          <h1 class="text-h4 q-mb-none">Dashboard</h1>
-          <p class="text-subtitle1 q-mt-xs">System Overview</p>
-        </div>
-        <div class="col-auto">
-          <q-btn color="primary" icon="refresh" label="Refresh" @click="refreshData" :loading="isLoading" />
-        </div>
-      </div>
-
-      <!-- Key Metrics -->
-      <div class="row q-col-gutter-md q-mb-lg">
-        <!-- Total Inventory Value -->
-        <div class="col-12 col-sm-6 col-md-3">
-          <metrics-card
-            class="metrics-card"
-            title="Total Inventory Value"
-            icon="attach_money"
-            :value="formatCurrency(totalInventoryValue)"
-            :trend-percentage="16.2"
-            ytd-value="$24.5M"
-            :trend-data="[65, 68, 70, 72, 75, 78, 80]"
-          />
-        </div>
-
-        <!-- Total Sales -->
-        <div class="col-12 col-sm-6 col-md-3">
-          <metrics-card
-            class="metrics-card"
-            title="Total Sales"
-            icon="shopping_cart"
-            :value="formatCurrency(totalSales)"
-            :trend-percentage="12.5"
-            ytd-value="$7.2M"
-            :trend-data="[40, 42, 45, 48, 50, 52, 55]"
-          />
-        </div>
-
-        <!-- Inventory Items -->
-        <div class="col-12 col-sm-6 col-md-3">
-          <metrics-card
-            class="metrics-card"
-            title="Inventory Items"
-            icon="inventory_2"
-            :value="inventoryItems"
-            :trend-percentage="7.2"
-            additional-info="85 new this week"
-            :trend-data="[3200, 3300, 3400, 3500, 3600, 3700, 3845]"
-          />
-        </div>
-
-        <!-- Low Stock Items -->
-        <div class="col-12 col-sm-6 col-md-3">
-          <metrics-card
-            class="metrics-card"
-            title="Low Stock Items"
-            icon="warning"
-            :value="lowStockItems"
-            :trend-percentage="-4"
-            additional-info="5 critical"
-            :trend-data="[28, 26, 25, 24, 25, 24, 24]"
-          />
-        </div>
-      </div>
-
-      <!-- Charts Section -->
-      <div class="row q-col-gutter-lg q-mb-xl">
-        <div class="col-12 col-md-8">
-          <q-card bordered class="chart-card">
-            <q-card-section>
-              <div class="row items-center justify-between q-mb-md">
-                <div class="text-h6">Sales Trend</div>
-                <div class="row items-center q-gutter-md">
-                  <!-- Time Period Dropdown -->
-                  <q-select
-                    v-model="timePeriod"
-                    :options="[
-                      { label: 'Weekly', value: 'weekly' },
-                      { label: 'Monthly', value: 'monthly' },
-                      { label: 'Yearly', value: 'yearly' }
-                    ]"
-                    dense
-                    outlined
-                    style="width: 150px"
-                    emit-value
-                    map-options
-                  />
-
-                  <!-- Chart Type Button Group -->
-                  <q-btn-group flat>
-                    <q-btn 
-                      label="Line Chart" 
-                      :color="chartType === 'line' ? 'primary' : 'grey-4'" 
-                      :text-color="chartType === 'line' ? 'white' : 'black'"
-                      @click="chartType = 'line'" 
-                    />
-                    <q-btn 
-                      label="Bar Chart" 
-                      :color="chartType === 'bar' ? 'primary' : 'grey-4'" 
-                      :text-color="chartType === 'bar' ? 'white' : 'black'"
-                      @click="chartType = 'bar'" 
-                    />
-                    <q-btn 
-                      label="Area Chart" 
-                      :color="chartType === 'area' ? 'primary' : 'grey-4'" 
-                      :text-color="chartType === 'area' ? 'white' : 'black'"
-                      @click="chartType = 'area'" 
-                    />
-                  </q-btn-group>
-                </div>
-              </div>
-              <sales-trend-chart :chart-data="currentSalesTrendData" :chart-type="chartType" :isDark="$q.dark.isActive" />
-            </q-card-section>
-          </q-card>
-        </div>
-        <div class="col-12 col-md-4">
-          <q-card bordered class="chart-card">
-            <q-card-section>
-              <div class="text-h6">Inventory Distribution</div>
-              <inventory-chart :chart-data="inventoryData" :isDark="$q.dark.isActive" />
-            </q-card-section>
-          </q-card>
-        </div>
-      </div>
-
-      <!-- Activity Feed Section -->
-      <div class="row q-col-gutter-md q-mb-xl">
-        <div class="col-12">
-          <recent-activities-section :activities="recentActivities" />
-        </div>
-      </div>
-    </div>
-  </q-page>
-</template>
-
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch, defineAsyncComponent } from 'vue';
 import { useQuasar } from 'quasar';
-import MetricsCard from '../components/dashboard/MetricsCard.vue';
-import InventoryChart from '../components/dashboard/InventoryChart.vue';
-import SalesTrendChart from '../components/charts/SalesTrendChart.vue';
-import RecentActivitiesSection from '../components/dashboard/RecentActivitiesSection.vue';
+const MetricsCard = defineAsyncComponent(() => import('../components/dashboard/MetricsCard.vue'));
+const ChartSection = defineAsyncComponent(() => import('../components/dashboard/ChartSection.vue'));
+const RecentActivitiesSection = defineAsyncComponent(() => import('../components/dashboard/RecentActivitiesSection.vue'));
 
 const $q = useQuasar();
 
@@ -544,6 +405,98 @@ watch(
 );
 </script>
 
+<template>
+  <q-page class="q-pa-md">
+    <div class="q-px-lg">
+      <div class="row items-center q-mb-md">
+        <div class="col">
+          <h1 class="text-h4 q-mb-none">Dashboard</h1>
+          <p class="text-subtitle1 q-mt-xs">System Overview</p>
+        </div>
+        <div class="col-auto">
+          <q-btn color="primary" icon="refresh" label="Refresh" @click="refreshData" :loading="isLoading" />
+        </div>
+      </div>
+
+      <!-- Key Metrics -->
+      <div class="row q-col-gutter-md q-mb-lg">
+        <!-- Total Inventory Value -->
+        <div class="col-12 col-sm-6 col-md-3">
+          <metrics-card
+            class="metrics-card"
+            title="Total Inventory Value"
+            icon="attach_money"
+            :value="formatCurrency(totalInventoryValue)"
+            :trend-percentage="16.2"
+            ytd-value="$24.5M"
+            :trend-data="[65, 68, 70, 72, 75, 78, 80]"
+            :is-loading="isLoading"
+          />
+        </div>
+
+        <!-- Total Sales -->
+        <div class="col-12 col-sm-6 col-md-3">
+          <metrics-card
+            class="metrics-card"
+            title="Total Sales"
+            icon="shopping_cart"
+            :value="formatCurrency(totalSales)"
+            :trend-percentage="12.5"
+            ytd-value="$7.2M"
+            :trend-data="[40, 42, 45, 48, 50, 52, 55]"
+            :is-loading="isLoading"
+          />
+        </div>
+
+        <!-- Inventory Items -->
+        <div class="col-12 col-sm-6 col-md-3">
+          <metrics-card
+            class="metrics-card"
+            title="Inventory Items"
+            icon="inventory_2"
+            :value="inventoryItems"
+            :trend-percentage="7.2"
+            additional-info="85 new this week"
+            :trend-data="[3200, 3300, 3400, 3500, 3600, 3700, 3845]"
+            :is-loading="isLoading"
+          />
+        </div>
+
+        <!-- Low Stock Items -->
+        <div class="col-12 col-sm-6 col-md-3">
+          <metrics-card
+            class="metrics-card"
+            title="Low Stock Items"
+            icon="warning"
+            :value="lowStockItems"
+            :trend-percentage="-4"
+            additional-info="5 critical"
+            :trend-data="[28, 26, 25, 24, 25, 24, 24]"
+            :is-loading="isLoading"
+          />
+        </div>
+      </div>
+
+      <!-- Charts Section - Using the new component -->
+      <chart-section
+        :sales-trend-data="currentSalesTrendData"
+        :inventory-data="inventoryData"
+        v-model:time-period="timePeriod"
+        v-model:chart-type="chartType"
+        :is-dark="$q.dark.isActive"
+        :is-loading="isLoading"
+      />
+
+      <!-- Activity Feed Section -->
+      <div class="row q-col-gutter-md q-mb-xl">
+        <div class="col-12">
+          <recent-activities-section :activities="recentActivities" :is-loading="isLoading" />
+        </div>
+      </div>
+    </div>
+  </q-page>
+</template>
+
 <style scoped>
 .text-h4 {
   font-weight: 600;
@@ -551,11 +504,6 @@ watch(
 
 .metrics-card {
   height: 100%;
-}
-
-.chart-card {
-  height: 100%;
-  min-height: 400px;
 }
 
 .q-page {
@@ -581,6 +529,3 @@ watch(
   }
 }
 </style>
-
-
-
