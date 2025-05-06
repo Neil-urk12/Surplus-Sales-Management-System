@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, defineAsyncComponent } from 'vue';
+import { ref, onMounted, defineAsyncComponent, computed } from 'vue';
 import type { QTableColumn, QTableProps } from 'quasar';
 const ProductCardModal = defineAsyncComponent(() => import('src/components/Global/ProductModal.vue'));
 const DeleteDialog = defineAsyncComponent(() => import('src/components/Global/DeleteDialog.vue'));
@@ -108,16 +108,32 @@ function openAddDialog() {
   showAddDialog.value = true;
 }
 
+// Add error handling for API connections
+const apiErrorMessage = computed(() => store.apiError);
+const hasApiError = computed(() => !!store.apiError);
+
+// Function to retry loading data after an error
+async function retryLoading() {
+  await store.initializeAccessories();
+}
+
+// Function to show error notification
+function showErrorNotification(message: string) {
+  // Use the custom notification utility
+  operationNotifications.validation.error(message || 'An error occurred');
+}
+
+// Enhanced error handling in CRUD operations
 async function handleAddAccessory(newAccessoryData: NewAccessoryInput) {
   try {
     isAddLoading.value = true;
-    // Execute the store action and await its completion
     const result = await store.addAccessory(newAccessoryData);
 
-    // Show notification after operation successfully completes
     if (result.success) {
       operationNotifications.add.success(`accessory: ${newAccessoryData.name}`);
       showAddDialog.value = false;
+    } else if (result.error) {
+      showErrorNotification(`Failed to add accessory: ${result.error}`);
     }
   } catch (error) {
     console.error('Error adding accessory:', error);
@@ -137,13 +153,13 @@ function editAccessory(accessory: AccessoryRow) {
 async function handleUpdateAccessory(id: number, updatedAccessory: NewAccessoryInput) {
   try {
     isEditLoading.value = true;
-    // Execute the store action and await its completion
     const result = await store.updateAccessory(id, updatedAccessory);
 
-    // Show notification after operation successfully completes
     if (result.success) {
       operationNotifications.update.success(`accessory: ${updatedAccessory.name}`);
       showEditDialog.value = false;
+    } else if (result.error) {
+      showErrorNotification(`Failed to update accessory: ${result.error}`);
     }
   } catch (error) {
     console.error('Error updating accessory:', error);
@@ -165,9 +181,14 @@ async function confirmDelete() {
     if (!accessoryToDelete.value) return;
     
     isDeleteLoading.value = true;
-    await store.deleteAccessory(accessoryToDelete.value.id);
-    operationNotifications.delete.success('accessory');
-    accessoryToDelete.value = null;
+    const result = await store.deleteAccessory(accessoryToDelete.value.id);
+    
+    if (result.success) {
+      operationNotifications.delete.success('accessory');
+      accessoryToDelete.value = null;
+    } else if (result.error) {
+      showErrorNotification(`Failed to delete accessory: ${result.error}`);
+    }
   } catch (error) {
     console.error('Error deleting accessory:', error);
     operationNotifications.delete.error('accessory');
@@ -275,9 +296,21 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!--ACCESSORIES TABLE - Only show when not loading -->
+      <!-- API Error Message -->
+      <div v-if="hasApiError && !pageLoading" class="q-py-md text-center">
+        <q-banner rounded class="bg-negative text-white">
+          <template v-slot:avatar>
+            <q-icon name="error" />
+          </template>
+          <div class="text-body1 q-mb-sm">Failed to load accessories</div>
+          <div class="text-caption q-mb-md">{{ apiErrorMessage }}</div>
+          <q-btn color="white" text-color="negative" label="Retry" @click="retryLoading" />
+        </q-banner>
+      </div>
+
+      <!--ACCESSORIES TABLE - Only show when not loading and no errors -->
       <q-table
-        v-if="!pageLoading"
+        v-if="!pageLoading && !hasApiError"
         class="my-sticky-column-table"
         flat
         bordered
