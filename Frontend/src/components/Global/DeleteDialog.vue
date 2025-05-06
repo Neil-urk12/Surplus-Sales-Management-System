@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import type { PropType } from 'vue';
 
 const props = defineProps({
     modelValue: {
@@ -25,6 +26,11 @@ const props = defineProps({
     iconName: {
         type: String, 
         default: 'warning',
+    },
+    onConfirmDelete: {
+        type: Function as PropType<() => void>,
+        default: null,
+        description: 'Optional callback function that will be called when deletion is confirmed'
     }
 });
 
@@ -39,7 +45,10 @@ const capitalizedItemType = computed(() => {
 
 function confirm() {
     emit('confirm-delete');
-    closeDialog(); // Usually close after confirm
+    if (props.onConfirmDelete) {
+        props.onConfirmDelete();
+    }
+    closeDialog();
 }
 
 function closeDialog() {
