@@ -561,7 +561,11 @@ function formatNumber(num: number): string {
           <q-card bordered>
             <q-card-section>
               <div class="text-h6">Sales Trend (Last 12 Months)</div>
-              <sales-trend-chart :chart-data="monthlySalesData" :isDark="$q.dark.isActive" />
+              <sales-trend-chart 
+                :chart-data="monthlySalesData" 
+                :isDark="$q.dark.isActive"
+                chart-type="line"
+              />
             </q-card-section>
           </q-card>
         </div>

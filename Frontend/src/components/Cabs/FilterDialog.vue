@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, PropType } from 'vue';
+import { ref, watch } from 'vue';
+import type { PropType } from 'vue';
 import type { CabStatus } from 'src/types/cabs';
 
 const props = defineProps({

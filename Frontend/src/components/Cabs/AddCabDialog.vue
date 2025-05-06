@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, watch, PropType, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { useQuasar } from 'quasar';
 import type { NewCabInput } from 'src/types/cabs';
+import type { PropType } from 'vue';
 import { validateAndSanitizeBase64Image } from '../../utils/imageValidation'; // Adjusted path
 import { operationNotifications } from '../../utils/notifications'; // Adjusted path
 // Import getNextFallbackImage or handle fallbacks differently if needed
@@ -35,9 +36,7 @@ const $q = useQuasar();
 
 // Constants for file validation
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif'] as const;
 const MAX_DIMENSION = 4096; // Maximum image dimension in pixels
-type AllowedMimeType = typeof ALLOWED_TYPES[number];
 
 // --- State --- 
 const newCab = ref<NewCabInput>({
