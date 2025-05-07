@@ -28,10 +28,8 @@ const tab = ref('email')
 const showModal = ref(false)
 const recoveryEmail = ref('')
 const recoveryPhone = ref('')
-const token = ref<string|null>(null)
-const error = ref(false)
-const isCaptchad = ref(false)
 const showCaptchaDialog = ref(false)
+const captchaToken = ref<string|null>(null)
 
 const isSendingRecovery = ref(false)
 const recoverySent = ref(false)
@@ -119,36 +117,27 @@ const validatePassword = () => {
   }
 }
 
-const handleSubmit = async () => {
-  validateEmail()
-  validatePassword()
-  loginError.value = ''
+const handleCaptchaVerified = (captchaValue: string) => {
+  captchaToken.value = captchaValue
+  showCaptchaDialog.value = false
+  void proceedLogin()
+}
 
-  // First check if fields are valid
-  if (errors.email || errors.password) {
-    showShake.value = true
-    setTimeout(() => showShake.value = false, 500)
-    return
-  }
+const handleCaptchaError = () => {
+  captchaToken.value = null
+  showCaptchaDialog.value = false
+}
 
-  // Only after fields are valid, check for captcha
-  if (!token.value) {
-    showCaptchaDialog.value = true
-    isCaptchad.value = true
-    return
-  }
-
+const proceedLogin = async () => {
   isSubmitting.value = true
-
   try {
     const result = await authStore.login(form)
-
     if (result.success) {
       isLoginValidated.value = true
-      token.value = null
+      captchaToken.value = null
       await router.push('/')
     } else {
-      token.value = null
+      captchaToken.value = null
       form.password = ''
       let msg = result.message || 'Invalid email or password. Please try again.'
       if (msg === 'Invalid credentials') {
@@ -166,6 +155,21 @@ const handleSubmit = async () => {
   } finally {
     isSubmitting.value = false
   }
+}
+
+const handleSubmit = () => {
+  validateEmail()
+  validatePassword()
+  loginError.value = ''
+
+  if (errors.email || errors.password) {
+    showShake.value = true
+    setTimeout(() => showShake.value = false, 500)
+    return
+  }
+
+  // Open CAPTCHA dialog instead of proceeding
+  showCaptchaDialog.value = true
 }
 
 // Watch for when both email and password are filled to set captcha loading
@@ -219,30 +223,12 @@ watch(
             :class="{ 'error': errors.password }"
           >
           <span class="error-message" v-if="errors.password">{{ errors.password }}</span>
-          <div class="row" v-if="!isLoginValidated">
-            <div class="captcha-container col" v-if="form.email && form.password">
-              <TurnstileCaptchaComponent.default
-                @verify="token = $event; isCaptchaLoading = false"
-                @error="error = true; isCaptchaLoading = false"
-                @expired="token = null; isCaptchaLoading = false"
-              />
-              <div class="col flex content-center justify-end">
+          <div class="col flex content-center justify-end">
                 <a href="#" class="forgot-password" @click.prevent="showModal = true">Forgot password?</a>
               </div>
-            </div>
-            <div class="captcha-container col" v-else>
-              <div class="captcha-placeholder">
-                <q-icon name="security" size="24px" color="grey-6" />
-                <span class="text-grey-6">Complete email and password to verify</span>
-              </div>
-              <div class="col flex content-center justify-end">
-                <a href="#" class="forgot-password" @click.prevent="showModal = true">Forgot password?</a>
-              </div>
-            </div>
-          </div>
         </div>
 
-        <button type="submit" :disabled="isSubmitting || isCaptchaLoading || !token">
+        <button type="submit" :disabled="isSubmitting">
           <span v-if="!isSubmitting" class="text-weight-medium">Sign In</span>
           <span v-else class="spinner"></span>
         </button>
@@ -355,10 +341,17 @@ watch(
       </q-card>
     </q-dialog>
 
-    <q-dialog v-model="showCaptchaDialog">
-      <q-card >
+    <q-dialog v-model="showCaptchaDialog" persistent>
+      <q-card>
         <q-card-section>
-          <div class="text-h6">CAPTCHA Verification required</div>
+          <div class="text-h6">CAPTCHA Verification</div>
+        </q-card-section>
+        <q-card-section>
+          <TurnstileCaptchaComponent.default
+            @verify="handleCaptchaVerified"
+            @error="handleCaptchaError"
+            @expired="handleCaptchaError"
+          />
         </q-card-section>
       </q-card>
     </q-dialog>
