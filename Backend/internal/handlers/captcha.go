@@ -2,11 +2,22 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"oop/internal/config"
 	"time"
 )
+
+// TurnstileError represents an error from Cloudflare Turnstile verification
+type TurnstileError struct {
+	ErrorCodes []string
+}
+
+func (e *TurnstileError) Error() string {
+	return fmt.Sprintf("turnstile verification failed: %v", e.ErrorCodes)
+}
 
 // verifyResp models the JSON returned by Cloudflare
 type verifyResp struct {
@@ -44,5 +55,11 @@ func VerifyTurnstile(token string) (bool, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return false, err
 	}
+
+	if !result.Success {
+		log.Printf("Turnstile verification failed with error codes: %v", result.ErrorCodes)
+		return false, &TurnstileError{ErrorCodes: result.ErrorCodes}
+	}
+
 	return result.Success, nil
 }
