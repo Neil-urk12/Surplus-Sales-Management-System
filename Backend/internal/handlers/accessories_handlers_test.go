@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -35,9 +36,9 @@ func (m *MockAccessoryRepository) GetByID(ctx context.Context, id int) (models.A
 }
 
 // Create mocks the Create method
-func (m *MockAccessoryRepository) Create(ctx context.Context, input models.NewAccessoryInput) (models.Accessory, error) {
+func (m *MockAccessoryRepository) Create(ctx context.Context, input models.NewAccessoryInput) (int, error) {
 	args := m.Called(ctx, input)
-	return args.Get(0).(models.Accessory), args.Error(1)
+	return args.Int(0), args.Error(1)
 }
 
 // Update mocks the Update method
@@ -270,27 +271,31 @@ func TestCreateAccessory(t *testing.T) {
 		// Setup test data
 		now := time.Now()
 		input := models.NewAccessoryInput{
-			Name:      "New Accessory",
-			Make:      models.MakeOEM,
-			Quantity:  10,
-			Price:     100.0,
-			UnitColor: models.ColorBlack,
+			Name:      "New Test Accessory",
+			Make:      models.MakeCustom,
+			Quantity:  5,
+			Price:     150.0,
+			UnitColor: models.ColorCustom,
+			Image:     "new_image.png",
 		}
 
-		createdAccessory := models.Accessory{
-			ID:        1,
+		newAccessoryID := 123 // ID returned by Create
+		expectedAccessory := models.Accessory{
+			ID:        newAccessoryID,
 			Name:      input.Name,
 			Make:      input.Make,
 			Quantity:  input.Quantity,
 			Price:     input.Price,
 			Status:    models.StatusInStock,
 			UnitColor: input.UnitColor,
+			Image:     input.Image,
 			CreatedAt: now,
 			UpdatedAt: now,
 		}
 
 		// Set expectations
-		mockRepo.On("Create", mock.Anything, input).Return(createdAccessory, nil)
+		mockRepo.On("Create", mock.Anything, input).Return(newAccessoryID, nil)
+		mockRepo.On("GetByID", mock.Anything, newAccessoryID).Return(expectedAccessory, nil)
 
 		// Setup app and make request
 		app := setupTestApp(mockRepo)
@@ -303,25 +308,39 @@ func TestCreateAccessory(t *testing.T) {
 		var response map[string]interface{}
 		err = json.Unmarshal(body, &response)
 		assert.NoError(t, err)
-		assert.True(t, response["success"].(bool))
-		assert.Equal(t, float64(1), response["id"])
+
+		assert.True(t, response["success"].(bool), "Expected success to be true")
+		assert.Equal(t, "Accessory created successfully", response["message"])
+
+		// Check for the 'data' field
+		data, ok := response["data"].(map[string]interface{})
+		assert.True(t, ok, "Expected 'data' field in the response")
+
+		// Assertions for the accessory data
+		assert.Equal(t, float64(expectedAccessory.ID), data["id"].(float64))
+		assert.Equal(t, expectedAccessory.Name, data["name"].(string))
+		assert.Equal(t, string(expectedAccessory.Make), data["make"].(string))
+		assert.Equal(t, float64(expectedAccessory.Quantity), data["quantity"].(float64))
+		assert.Equal(t, expectedAccessory.Price, data["price"].(float64))
+		assert.Equal(t, string(expectedAccessory.Status), data["status"].(string))
+		assert.Equal(t, string(expectedAccessory.UnitColor), data["unit_color"].(string))
+		assert.Equal(t, expectedAccessory.Image, data["image"].(string))
 
 		// Verify mock
 		mockRepo.AssertExpectations(t)
 	})
 
-	t.Run("Validation Error", func(t *testing.T) {
+	t.Run("Missing Required Fields", func(t *testing.T) {
 		// Create mock repository
 		mockRepo := new(MockAccessoryRepository)
 
-		// Setup test data - missing required fields
+		// Test data with missing fields
 		input := models.NewAccessoryInput{
-			// Name is missing
-			Make:      models.MakeOEM,
-			Quantity:  10,
-			Price:     100.0,
-			UnitColor: models.ColorBlack,
+			Name: "Test Accessory",
+			// Make and UnitColor are missing
 		}
+
+		// No expectation for mockRepo.Create as it shouldn't be called
 
 		// Setup app and make request
 		app := setupTestApp(mockRepo)
@@ -336,39 +355,76 @@ func TestCreateAccessory(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Contains(t, response["error"], "Missing required fields")
 
-		// No need to verify mock as it shouldn't be called
+		// Verify mock (ensure Create was not called)
+		mockRepo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Invalid JSON", func(t *testing.T) {
+		mockRepo := new(MockAccessoryRepository)
+		app := setupTestApp(mockRepo)
+
+		// Create HTTP request with invalid JSON
+		req := httptest.NewRequest("POST", "/api/accessories", bytes.NewBufferString("invalid-json"))
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+		var responseBody map[string]interface{}
+		_ = json.NewDecoder(resp.Body).Decode(&responseBody)
+		assert.Contains(t, responseBody["error"], "Invalid JSON format")
+		mockRepo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 	})
 
 	t.Run("Repository Error", func(t *testing.T) {
-		// Create mock repository
 		mockRepo := new(MockAccessoryRepository)
-
-		// Setup test data
 		input := models.NewAccessoryInput{
-			Name:      "New Accessory",
+			Name:      "Error Accessory",
 			Make:      models.MakeOEM,
-			Quantity:  10,
-			Price:     100.0,
+			Quantity:  1,
+			Price:     10.0,
 			UnitColor: models.ColorBlack,
 		}
+		mockRepo.On("Create", mock.Anything, input).Return(0, errors.New("database create error"))
 
-		// Set expectations - simulate a database error
-		mockRepo.On("Create", mock.Anything, input).Return(models.Accessory{}, errors.New("database error"))
-
-		// Setup app and make request
 		app := setupTestApp(mockRepo)
 		resp, body, err := makeRequest(app, "POST", "/api/accessories", input)
 
-		// Assert
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 
-		var response map[string]interface{}
-		err = json.Unmarshal(body, &response)
+		var responseBody map[string]interface{}
+		err = json.Unmarshal(body, &responseBody)
 		assert.NoError(t, err)
-		assert.Contains(t, response["error"], "Failed to create accessory")
+		assert.Contains(t, responseBody["error"], "Failed to create accessory")
+		mockRepo.AssertExpectations(t)
+	})
 
-		// Verify mock
+	t.Run("Error Fetching Created Accessory", func(t *testing.T) {
+		mockRepo := new(MockAccessoryRepository)
+		input := models.NewAccessoryInput{
+			Name:      "Test Accessory",
+			Make:      models.MakeOEM,
+			Quantity:  1,
+			Price:     10.0,
+			UnitColor: models.ColorBlack,
+		}
+
+		createdID := 123
+		mockRepo.On("Create", mock.Anything, input).Return(createdID, nil)
+		mockRepo.On("GetByID", mock.Anything, createdID).Return(models.Accessory{}, errors.New("error fetching accessory"))
+
+		app := setupTestApp(mockRepo)
+		resp, body, err := makeRequest(app, "POST", "/api/accessories", input)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+		var responseBody map[string]interface{}
+		err = json.Unmarshal(body, &responseBody)
+		assert.NoError(t, err)
+		assert.Contains(t, responseBody["error"], "Accessory created but failed to retrieve details")
 		mockRepo.AssertExpectations(t)
 	})
 }
@@ -380,32 +436,32 @@ func TestUpdateAccessory(t *testing.T) {
 		mockRepo := new(MockAccessoryRepository)
 
 		// Setup test data
+		accessoryID := 1
 		now := time.Now()
-		name := "Updated Accessory"
-		price := 150.0
-		input := models.UpdateAccessoryInput{
-			Name:  &name,
-			Price: &price,
+		updateInput := models.UpdateAccessoryInput{
+			Name:     ptrToString("Updated Test Accessory"),
+			Quantity: ptrToInt(15),
+			Price:    ptrToFloat64(175.0),
 		}
-
 		updatedAccessory := models.Accessory{
-			ID:        1,
-			Name:      name,
-			Make:      models.MakeOEM,
-			Quantity:  10,
-			Price:     price,
-			Status:    models.StatusInStock,
-			UnitColor: models.ColorBlack,
-			CreatedAt: now,
-			UpdatedAt: now,
+			ID:        accessoryID,
+			Name:      *updateInput.Name,
+			Make:      models.MakeOEM, // Assuming make is not updated or fetched from existing
+			Quantity:  *updateInput.Quantity,
+			Price:     *updateInput.Price,
+			Status:    models.StatusAvailable, // Or determined by quantity
+			UnitColor: models.ColorBlack,      // Assuming color is not updated
+			Image:     "original_image.png",
+			CreatedAt: now.Add(-time.Hour), // Original creation time
+			UpdatedAt: now,                 // Updated time
 		}
 
 		// Set expectations
-		mockRepo.On("Update", mock.Anything, 1, input).Return(updatedAccessory, nil)
+		mockRepo.On("Update", mock.Anything, accessoryID, updateInput).Return(updatedAccessory, nil)
 
 		// Setup app and make request
 		app := setupTestApp(mockRepo)
-		resp, body, err := makeRequest(app, "PUT", "/api/accessories/1", input)
+		resp, body, err := makeRequest(app, "PUT", "/api/accessories/"+fmt.Sprintf("%d", accessoryID), updateInput)
 
 		// Assert
 		assert.NoError(t, err)
@@ -414,31 +470,37 @@ func TestUpdateAccessory(t *testing.T) {
 		var response map[string]interface{}
 		err = json.Unmarshal(body, &response)
 		assert.NoError(t, err)
-		assert.True(t, response["success"].(bool))
-		assert.Equal(t, float64(1), response["id"])
+
+		assert.True(t, response["success"].(bool), "Expected success to be true")
+		assert.Equal(t, "Accessory updated successfully", response["message"])
+
+		// Check for the 'data' field
+		data, ok := response["data"].(map[string]interface{})
+		assert.True(t, ok, "Expected 'data' field in the response")
+
+		// Assertions for the accessory data
+		assert.Equal(t, float64(updatedAccessory.ID), data["id"].(float64))
+		assert.Equal(t, updatedAccessory.Name, data["name"].(string))
+		assert.Equal(t, float64(updatedAccessory.Quantity), data["quantity"].(float64))
+		assert.Equal(t, updatedAccessory.Price, data["price"].(float64))
+		assert.Equal(t, string(updatedAccessory.Status), data["status"].(string))
 
 		// Verify mock
 		mockRepo.AssertExpectations(t)
 	})
 
-	t.Run("Not Found", func(t *testing.T) {
+	t.Run("Accessory Not Found", func(t *testing.T) {
 		// Create mock repository
 		mockRepo := new(MockAccessoryRepository)
-
-		// Setup test data
-		name := "Updated Accessory"
-		price := 150.0
-		input := models.UpdateAccessoryInput{
-			Name:  &name,
-			Price: &price,
-		}
+		accessoryID := 999 // Non-existent ID
+		updateInput := models.UpdateAccessoryInput{Name: ptrToString("No Such Accessory")}
 
 		// Set expectations
-		mockRepo.On("Update", mock.Anything, 999, input).Return(models.Accessory{}, errors.New("accessory not found"))
+		mockRepo.On("Update", mock.Anything, accessoryID, updateInput).Return(models.Accessory{}, errors.New("accessory with ID 999 not found for update"))
 
 		// Setup app and make request
 		app := setupTestApp(mockRepo)
-		resp, body, err := makeRequest(app, "PUT", "/api/accessories/999", input)
+		resp, body, err := makeRequest(app, "PUT", "/api/accessories/"+fmt.Sprintf("%d", accessoryID), updateInput)
 
 		// Assert
 		assert.NoError(t, err)
@@ -447,26 +509,76 @@ func TestUpdateAccessory(t *testing.T) {
 		var response map[string]interface{}
 		err = json.Unmarshal(body, &response)
 		assert.NoError(t, err)
-		assert.Contains(t, response["error"], "Accessory with ID 999 not found")
+		assert.Contains(t, response["error"], "Accessory with ID 999 not found for update")
 
 		// Verify mock
 		mockRepo.AssertExpectations(t)
 	})
 
-	t.Run("Invalid ID", func(t *testing.T) {
-		// Create mock repository
+	t.Run("Invalid ID Format", func(t *testing.T) {
 		mockRepo := new(MockAccessoryRepository)
-
-		// Setup app and make request
 		app := setupTestApp(mockRepo)
-		resp, _, err := makeRequest(app, "PUT", "/api/accessories/invalid", models.UpdateAccessoryInput{})
+		updateInput := models.UpdateAccessoryInput{Name: ptrToString("Test Update")}
 
-		// Assert
+		resp, body, err := makeRequest(app, "PUT", "/api/accessories/invalid-id", updateInput)
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 
-		// No need to verify mock as it shouldn't be called
+		var responseBody map[string]interface{}
+		err = json.Unmarshal(body, &responseBody)
+		assert.NoError(t, err)
+		assert.Contains(t, responseBody["error"], "Invalid ID format")
+		mockRepo.AssertNotCalled(t, "Update", mock.Anything, mock.Anything, mock.Anything)
 	})
+
+	t.Run("Invalid JSON for Update", func(t *testing.T) {
+		mockRepo := new(MockAccessoryRepository)
+		app := setupTestApp(mockRepo)
+
+		req := httptest.NewRequest("PUT", "/api/accessories/1", bytes.NewBufferString("invalid-json"))
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+		var responseBody map[string]interface{}
+		_ = json.NewDecoder(resp.Body).Decode(&responseBody)
+		assert.Contains(t, responseBody["error"], "Invalid JSON format")
+		mockRepo.AssertNotCalled(t, "Update", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Repository Update Error", func(t *testing.T) {
+		mockRepo := new(MockAccessoryRepository)
+		accessoryID := 1
+		updateInput := models.UpdateAccessoryInput{Name: ptrToString("Error Update")}
+		mockRepo.On("Update", mock.Anything, accessoryID, updateInput).Return(models.Accessory{}, errors.New("database update error"))
+
+		app := setupTestApp(mockRepo)
+		resp, body, err := makeRequest(app, "PUT", "/api/accessories/"+fmt.Sprintf("%d", accessoryID), updateInput)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+		var responseBody map[string]interface{}
+		err = json.Unmarshal(body, &responseBody)
+		assert.NoError(t, err)
+		assert.Contains(t, responseBody["error"], "Failed to update accessory")
+		mockRepo.AssertExpectations(t)
+	})
+}
+
+// Helper functions for pointers (if not already defined elsewhere)
+func ptrToString(s string) *string {
+	return &s
+}
+
+func ptrToInt(i int) *int {
+	return &i
+}
+
+func ptrToFloat64(f float64) *float64 {
+	return &f
 }
 
 // TestDeleteAccessory tests the DeleteAccessory handler
