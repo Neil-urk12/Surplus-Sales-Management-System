@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import type { PropType } from 'vue';
-import type { MaterialStatus } from 'src/types/materials';
+import type { MaterialStatus, MaterialCategory, MaterialSupplier } from 'src/types/materials';
 
 const props = defineProps({
   modelValue: {
@@ -9,16 +9,19 @@ const props = defineProps({
     required: true,
   },
   categories: {
-    type: Array as PropType<string[]>,
+    type: Array as PropType<MaterialCategory[]>,
     required: true,
+    validator: (value: unknown[]) => value.every(item => typeof item === 'string')
   },
   suppliers: {
-    type: Array as PropType<string[]>,
+    type: Array as PropType<MaterialSupplier[]>,
     required: true,
+    validator: (value: unknown[]) => value.every(item => typeof item === 'string')
   },
   statuses: {
     type: Array as PropType<MaterialStatus[]>,
     required: true,
+    validator: (value: unknown[]) => value.every(item => typeof item === 'string')
   },
   // Pass initial values to sync with parent store state
   initialFilterCategory: {

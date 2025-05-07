@@ -2,6 +2,40 @@
 import { ref, watch } from 'vue';
 import type { PropType } from 'vue';
 
+/**
+ * Interface defining a filter option
+ */
+interface FilterOption {
+    key: string;
+    label: string;
+    options: string[];
+    modelValue: string | null;
+}
+
+/**
+ * Validates that all items in an array are strings
+ * @param value The array to validate
+ * @returns True if all items are strings, false otherwise
+ */
+function validateStringArray(value: unknown[]): boolean {
+    return value.every(item => typeof item === 'string');
+}
+
+/**
+ * Validates that a FilterOption has all required fields and correct types
+ * @param option FilterOption object to validate
+ * @returns True if valid, false otherwise
+ */
+function validateFilterOption(option: FilterOption): boolean {
+    return (
+        typeof option.key === 'string' &&
+        typeof option.label === 'string' &&
+        Array.isArray(option.options) &&
+        validateStringArray(option.options) &&
+        (option.modelValue === null || typeof option.modelValue === 'string')
+    );
+}
+
 const props = defineProps({
     modelValue: {
         type: Boolean,
@@ -12,13 +46,9 @@ const props = defineProps({
         default: 'Filter',
     },
     filterOptions: {
-        type: Array as PropType<{
-            key: string;
-            label: string;
-            options: string[];
-            modelValue: string | null;
-        }[]>,
+        type: Array as PropType<FilterOption[]>,
         required: true,
+        validator: (value: FilterOption[]) => value.every(validateFilterOption)
     },
 });
 
