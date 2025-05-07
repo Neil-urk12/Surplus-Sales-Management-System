@@ -114,6 +114,7 @@ const hasApiError = computed(() => !!store.apiError);
 
 // Function to retry loading data after an error
 async function retryLoading() {
+  await new Promise(resolve => setTimeout(resolve, 1500));
   await store.initializeAccessories();
 }
 

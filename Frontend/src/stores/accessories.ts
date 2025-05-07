@@ -12,6 +12,7 @@ import type {
   AccessoryColorInput
 } from 'src/types/accessories'
 import { accessoriesApi } from 'src/services/accessoriesApi'
+import axios from 'axios'
 
 export type { AccessoryRow } from 'src/types/accessories'
 
@@ -30,9 +31,15 @@ export const useAccessoriesStore = defineStore('accessories', () => {
       // Replace with API call using our service
       const accessories = await accessoriesApi.getAllAccessories()
       accessoryRows.value = accessories
-    } catch (error) {
-      console.error('Error initializing accessories:', error)
-      apiError.value = error instanceof Error ? error.message : 'Failed to load accessories'
+    } catch (error: unknown) {
+      console.error('Error initializing accessories:', error);
+      if (axios.isAxiosError(error)) { // Axios specific error handling
+        apiError.value = `Failed to load accessories: ${error.response?.status} - ${error.response?.data?.message || 'Unknown error'}`;
+      } else if (error instanceof Error) {
+        apiError.value = `Failed to load accessories: ${error.message}`;
+      } else {
+        apiError.value = 'Failed to load accessories: Unknown error';
+      }
     } finally {
       isLoading.value = false
     }
