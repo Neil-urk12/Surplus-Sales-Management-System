@@ -234,7 +234,14 @@ function onUpdate() {
 }
 
 async function validateImageUrl(url: string): Promise<boolean> {
-  if (!url || !url.startsWith('http')) {
+  if (!url) {
+    imageUrlValid.value = false;
+    return false;
+  }
+  
+  // Improve URL validation using a more comprehensive check
+  const urlRegex = /^(https?:\/\/)([a-zA-Z0-9][-a-zA-Z0-9]*(\.[a-zA-Z0-9][-a-zA-Z0-9]*)+|localhost)(:\d+)?(\/[-a-zA-Z0-9%_.~#+]*)*(\?[;&a-zA-Z0-9%_.~+=-]*)?(#[-a-zA-Z0-9%_.~+]*)?$/;
+  if (!urlRegex.test(url)) {
     imageUrlValid.value = false;
     return false;
   }
@@ -302,22 +309,59 @@ async function validateFile(file: File): Promise<{ isValid: boolean; error?: str
       return { isValid: false, error: `File size (${sizeMB}MB) exceeds 5MB limit.` };
     }
 
-    const validMimeTypes = {
-      'image/jpeg': [0xFF, 0xD8, 0xFF],
-      'image/png': [0x89, 0x50, 0x4E, 0x47],
-      'image/gif': [0x47, 0x49, 0x46, 0x38]
+    // Enhanced signature detection with larger byte samples
+    interface MimeTypeInfo {
+      signature: number[];
+      minLength?: number;
+      alternateSignature?: number[];
+    }
+
+    const validMimeTypes: Record<string, MimeTypeInfo> = {
+      'image/jpeg': {
+        signature: [0xFF, 0xD8, 0xFF],
+        minLength: 12, // JPEG headers can vary but are at least 12 bytes
+      },
+      'image/png': {
+        signature: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A],
+        minLength: 8,
+      },
+      'image/gif': {
+        signature: [0x47, 0x49, 0x46, 0x38, 0x39, 0x61], // GIF89a
+        alternateSignature: [0x47, 0x49, 0x46, 0x38, 0x37, 0x61], // GIF87a
+        minLength: 6,
+      }
     };
 
     if (!Object.keys(validMimeTypes).includes(file.type)) {
       return { isValid: false, error: `Invalid file type: ${file.type}.` };
     }
 
-    const arrayBuffer = await file.slice(0, 4).arrayBuffer();
+    // Read a larger sample of bytes for more accurate detection
+    const maxSignatureLength = Math.max(
+      ...Object.values(validMimeTypes).map(type => 
+        type.minLength || type.signature.length
+      )
+    );
+    
+    const arrayBuffer = await file.slice(0, maxSignatureLength).arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
-    const expectedSignature = validMimeTypes[file.type as keyof typeof validMimeTypes];
-    const isValidSignature = expectedSignature.every((byte, i) => byte === bytes[i]);
+    
+    const typeInfo = validMimeTypes[file.type];
+    if (!typeInfo) {
+      return { isValid: false, error: `Type info not found for ${file.type}.` };
+    }
+    
+    const { signature } = typeInfo;
+    
+    let isValidSignature = signature.every((byte: number, i: number) => byte === bytes[i]);
+    
+    // Check alternate signature if available (for GIF)
+    if (!isValidSignature && typeInfo.alternateSignature) {
+      isValidSignature = typeInfo.alternateSignature.every((byte: number, i: number) => byte === bytes[i]);
+    }
+    
     if (!isValidSignature) {
-      return { isValid: false, error: 'File content does not match extension.' };
+      return { isValid: false, error: 'File content does not match declared type.' };
     }
 
     const dimensionValidation = await validateImageDimensions(file);

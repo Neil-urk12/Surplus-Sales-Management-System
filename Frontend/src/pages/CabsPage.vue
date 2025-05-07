@@ -319,14 +319,8 @@ async function handleConfirmSell(payload: {
     
     if (error instanceof AppError && error.type === 'inventory') {
       await errorHandler.recoverFromInventoryError([
-        async () => { 
-          await store.initializeCabs(); 
-          return;
-        },
-        async () => { 
-          await accessoriesStore.initializeAccessories(); 
-          return;
-        }
+        async () => { await store.initializeCabs(); },
+        async () => { await accessoriesStore.initializeAccessories(); }
       ]);
     }
   } finally {
@@ -358,11 +352,21 @@ function filterCabs(
 /* eslint-enable @typescript-eslint/no-unused-vars */
   return rows.filter(row => {
     const searchTerms = terms.toLowerCase();
+    
+    // Helper function to safely convert values to searchable strings
+    const safeString = (value: unknown): string => {
+      if (value === null || value === undefined) return '';
+      if (typeof value === 'string') return value;
+      if (typeof value === 'number') return value.toString();
+      if (typeof value === 'boolean') return value.toString();
+      return ''; // For objects, arrays, or other complex types, return empty string
+    };
+    
     return (
-      String(row.name).toLowerCase().includes(searchTerms) ||
-      String(row.make).toLowerCase().includes(searchTerms) ||
-      String(row.status).toLowerCase().includes(searchTerms) ||
-      String(row.unit_color).toLowerCase().includes(searchTerms)
+      safeString(row.name).toLowerCase().includes(searchTerms) ||
+      safeString(row.make).toLowerCase().includes(searchTerms) ||
+      safeString(row.status).toLowerCase().includes(searchTerms) ||
+      safeString(row.unit_color).toLowerCase().includes(searchTerms)
     );
   });
 }

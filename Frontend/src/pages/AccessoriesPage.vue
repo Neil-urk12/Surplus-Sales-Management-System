@@ -213,13 +213,64 @@ async function confirmDelete() {
 // Function to handle applying filters
 function handleApplyFilters(filters: Record<string, string | null>) {
   try {
-    // Convert null values to empty strings for the store
-    store.filterMake = filters.make === null ? '' : (filters.make as AccessoryMakeInput);
-    store.filterColor = filters.color === null ? '' : (filters.color as AccessoryColorInput);
-    store.filterStatus = filters.status === null ? '' : (filters.status as AccessoryStatus | '');
+    // Validate and convert null values to empty strings for the store
+    // For make
+    if (filters.make === null) {
+      store.filterMake = '';
+    } else {
+      // Check if the value is a valid make
+      const isValidMake = makes.some(make => make === filters.make);
+      if (isValidMake) {
+        store.filterMake = filters.make as AccessoryMakeInput;
+      } else {
+        store.filterMake = '';
+      }
+    }
+    
+    // For color
+    if (filters.color === null) {
+      store.filterColor = '';
+    } else {
+      // Check if the value is a valid color
+      const isValidColor = colors.some(color => color === filters.color);
+      if (isValidColor) {
+        store.filterColor = filters.color as AccessoryColorInput;
+      } else {
+        store.filterColor = '';
+      }
+    }
+    
+    // For status
+    if (filters.status === null) {
+      store.filterStatus = '';
+    } else {
+      // Check if the value is a valid status
+      const isValidStatus = statuses.some(status => status === filters.status);
+      if (isValidStatus) {
+        store.filterStatus = filters.status as AccessoryStatus | '';
+      } else {
+        store.filterStatus = '';
+      }
+    }
 
     // Show notification that filters were applied
-    operationNotifications.filters.success();
+    const activeFilterCount = [
+      store.filterMake, 
+      store.filterColor, 
+      store.filterStatus
+    ].filter(Boolean).length;
+    
+    if (activeFilterCount > 0) {
+      // Show default success notification
+      operationNotifications.filters.success();
+      // Log the number of filters applied for debugging
+      console.log(`${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''} applied`);
+    } else {
+      // Clear search when all filters are cleared
+      store.search.searchInput = '';
+      // Show default success notification
+      operationNotifications.filters.success();
+    }
 
     // Close the filter dialog
     showFilterDialog.value = false;

@@ -231,25 +231,42 @@ async function validateImageUrl(url: string): Promise<boolean> {
         }
       };
 
-      signal.addEventListener('abort', () => { cleanup(); resolve(false); });
-      img.onload = () => { cleanup(); imageUrlValid.value = true; validatingImage.value = false; resolve(true); };
+      // Set up a timeout to prevent hanging indefinitely
+      const timeoutId = setTimeout(() => {
+        if (!signal.aborted) {
+          currentAbortController?.abort();
+          console.warn('Image URL validation timed out:', url);
+          imageUrlValid.value = false;
+          validatingImage.value = false;
+          resolve(false);
+        }
+      }, 5000); // 5 second timeout
+
+      // Improved abort handler that checks if signal is aborted before resolving
+      signal.addEventListener('abort', () => { 
+        cleanup(); 
+        clearTimeout(timeoutId);
+        if (!signal.aborted) {
+          resolve(false);
+        }
+      });
+      
+      img.onload = () => { 
+        cleanup(); 
+        clearTimeout(timeoutId);
+        imageUrlValid.value = true; 
+        validatingImage.value = false; 
+        resolve(true); 
+      };
+      
       img.onerror = () => {
         cleanup();
+        clearTimeout(timeoutId);
         imageUrlValid.value = false;
         validatingImage.value = false;
         resolve(false);
       };
 
-      const timeoutId = setTimeout(() => {
-        if (!signal.aborted) {
-          currentAbortController?.abort();
-          imageUrlValid.value = false;
-          validatingImage.value = false;
-          resolve(false);
-        }
-      }, 5000);
-
-      signal.addEventListener('abort', () => { clearTimeout(timeoutId); });
       img.src = url;
     });
     return result;
@@ -275,6 +292,9 @@ async function validateFile(file: File): Promise<{ isValid: boolean; error?: str
       return { isValid: false, error: `File size (${sizeMB}MB) exceeds 5MB limit.` };
     }
 
+    // MIME type validation - Note: this is a basic validation and can be spoofed
+    // For production applications, consider using a dedicated file validation library
+    // or a server-side validation service for better security
     const validMimeTypes = {
       'image/jpeg': [0xFF, 0xD8, 0xFF],
       'image/png': [0x89, 0x50, 0x4E, 0x47],
@@ -285,6 +305,9 @@ async function validateFile(file: File): Promise<{ isValid: boolean; error?: str
       return { isValid: false, error: `Invalid file type: ${file.type}.` };
     }
 
+    // Magic number validation - checks file signature bytes
+    // This is more reliable than just checking the extension or reported MIME type
+    // But still not 100% secure against sophisticated attacks
     const arrayBuffer = await file.slice(0, 4).arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
     const expectedSignature = validMimeTypes[file.type as keyof typeof validMimeTypes];
@@ -293,11 +316,15 @@ async function validateFile(file: File): Promise<{ isValid: boolean; error?: str
       return { isValid: false, error: 'File content does not match extension.' };
     }
 
+    // Additional validation for image dimensions
+    // This helps prevent potential DOS attacks with malformed images
     const dimensionValidation = await validateImageDimensions(file);
     if (!dimensionValidation.isValid) {
       return dimensionValidation;
     }
 
+    // Security note: Client-side validation alone is not sufficient for security
+    // Any sensitive data or user uploads should also be validated server-side
     return { isValid: true };
   } catch (error) {
     console.error('Unexpected error during file validation:', error);
@@ -351,6 +378,11 @@ async function handleFile(file: File) {
       return;
     }
 
+    // Create a blob URL for preview - more memory efficient than data URLs
+    const objectUrl = URL.createObjectURL(file);
+    previewUrl.value = objectUrl;
+    
+    // Store file for form submission - using FileReader for actual upload data
     const reader = new FileReader();
     reader.onload = (e) => {
       if (e.target?.result) {
@@ -361,7 +393,7 @@ async function handleFile(file: File) {
           clearImageInput();
         } else {
           newMaterial.value.image = base64ValidationResult.sanitizedData!;
-          imageUrlValid.value = true; // Watcher will update previewUrl
+          imageUrlValid.value = true;
           $q.notify({ type: 'positive', message: 'Image uploaded successfully', position: 'top', timeout: 2000 });
         }
       } else {
@@ -389,6 +421,7 @@ function removeImage(event?: Event) {
 }
 
 function clearImageInput() {
+  // Revoke any existing blob URL to prevent memory leaks
   if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
     URL.revokeObjectURL(previewUrl.value);
   }
@@ -402,6 +435,7 @@ function clearImageInput() {
 }
 
 async function handleFileSelect(event: Event) {
+  event.preventDefault();
   const input = event.target as HTMLInputElement;
   if (input.files && input.files[0]) {
     const file = input.files[0];
@@ -635,7 +669,7 @@ function handleDrop(event: DragEvent) {
           color="primary"
           label="Add Material"
           @click="onAdd"
-          :disable="disable || !newMaterial.name || !newMaterial.category || !newMaterial.supplier || newMaterial.quantity < 0 || !imageUrlValid || isUploadingImage"
+          :disable="disable || !capitalizedName || !newMaterial.category || !newMaterial.supplier || newMaterial.quantity < 0 || !imageUrlValid || isUploadingImage"
         />
       </q-card-actions>
     </q-card>

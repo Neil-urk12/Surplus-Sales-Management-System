@@ -384,6 +384,35 @@ function handleApplyFilters(filterData: { category: string | null; supplier: str
   showFilterDialog.value = false;
 }
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+function filterMaterials(
+  rows: readonly Record<string, unknown>[], 
+  terms: string, 
+  cols: readonly QTableColumn[], 
+  getCellValue: (col: QTableColumn, row: Record<string, unknown>) => unknown
+): readonly Record<string, unknown>[] {
+/* eslint-enable @typescript-eslint/no-unused-vars */
+  return rows.filter(row => {
+    const searchTerms = terms.toLowerCase();
+    
+    // Helper function to safely convert values to searchable strings
+    const safeString = (value: unknown): string => {
+      if (value === null || value === undefined) return '';
+      if (typeof value === 'string') return value;
+      if (typeof value === 'number') return value.toString();
+      if (typeof value === 'boolean') return value.toString();
+      return ''; // For objects, arrays, or other complex types, return empty string
+    };
+    
+    return (
+      safeString(row.name).toLowerCase().includes(searchTerms) ||
+      safeString(row.category).toLowerCase().includes(searchTerms) ||
+      safeString(row.supplier).toLowerCase().includes(searchTerms) ||
+      safeString(row.status).toLowerCase().includes(searchTerms)
+    );
+  });
+}
+
 // Update onMounted hook
 onMounted(async () => {
   console.log('MaterialsPage mounted, initializing materials');
@@ -424,7 +453,7 @@ onMounted(async () => {
         <!--MATERIALS TABLE-->
         <q-table class="my-sticky-column-table" flat bordered title="Materials" :rows="store.filteredMaterialRows"
           :columns="materialColumns" row-key="id" :filter="store.search.searchValue" @row-click="onMaterialRowClick"
-          :pagination="{ rowsPerPage: 5 }" :loading="store.isLoading">
+          :pagination="{ rowsPerPage: 5 }" :loading="store.isLoading" :filter-method="filterMaterials">
           <template v-slot:loading>
             <q-inner-loading showing color="primary">
               <q-spinner-gears size="50px" color="primary" />

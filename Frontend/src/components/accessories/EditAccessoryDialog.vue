@@ -376,12 +376,24 @@ function updateAccessory() {
                   <q-spinner-dots color="primary" size="40px" />
                   <div class="text-subtitle2 q-mt-sm">Processing image...</div>
                 </div>
+                <div v-else-if="!previewUrl || previewUrl === defaultImageUrl" class="text-center">
+                  <q-icon name="cloud_upload" size="48px" color="primary" />
+                  <div class="text-body1 q-mt-sm">
+                    Drag and drop an image here or click to select
+                  </div>
+                  <div class="text-caption text-grey q-mt-sm">
+                    Supported formats: JPG, PNG, GIF
+                    <br>
+                    Maximum file size: 5MB
+                  </div>
+                </div>
                 <div v-else class="row items-center justify-center">
                   <div class="col-8 text-center">
                     <img
                       :src="previewUrl"
                       class="preview-image"
                       :alt="newAccessory.name || 'Preview image'"
+                      @error="previewUrl = defaultImageUrl"
                     />
                   </div>
                   <div class="col-4 text-center">

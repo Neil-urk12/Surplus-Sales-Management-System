@@ -43,11 +43,7 @@ const localFilters = ref<Record<string, string | null>>({});
 function initLocalFilters() {
     const newFilters: Record<string, string | null> = {};
     Object.keys(props.filterData).forEach(key => {
-        if (props.filterData[key]) {
-            newFilters[key] = props.filterData[key].value;
-        } else {
-            newFilters[key] = null;
-        }
+        newFilters[key] = props.filterData[key]?.value ?? null;
     });
     localFilters.value = newFilters;
 }
