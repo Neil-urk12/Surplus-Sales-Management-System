@@ -42,6 +42,13 @@ const defaultImageUrl = getDefaultImage('accessory');
 // Available options from store
 const { makes, colors, statuses } = store;
 
+// Current filter values
+const filterValues = computed(() => ({
+  make: store.filterMake === '' ? null : store.filterMake,
+  color: store.filterColor === '' ? null : store.filterColor,
+  status: store.filterStatus === '' ? null : store.filterStatus
+}));
+
 const columns: QTableColumn[] = [
   { name: 'id', align: 'center', label: 'ID', field: 'id', sortable: true },
   {
@@ -203,34 +210,31 @@ async function confirmDelete() {
   }
 }
 
-// Create filter options for the filter dialog
-const filterOptions = computed(() => [
-  {
-    key: 'make',
-    label: 'Make',
-    options: makes,
-    modelValue: store.filterMake === '' ? null : store.filterMake
-  },
-  {
-    key: 'color',
-    label: 'Color',
-    options: colors,
-    modelValue: store.filterColor === '' ? null : store.filterColor
-  },
-  {
-    key: 'status',
-    label: 'Status',
-    options: statuses,
-    modelValue: store.filterStatus === '' ? null : store.filterStatus
-  }
-]);
-
 // Function to handle applying filters
 function handleApplyFilters(filters: Record<string, string | null>) {
-  store.filterMake = filters.make === null ? '' : filters.make;
-  store.filterColor = filters.color === null ? '' : filters.color;
-  store.filterStatus = filters.status === null ? '' : filters.status;
-  operationNotifications.filters.success();
+  try {
+    // Convert null values to empty strings for the store
+    store.filterMake = filters.make === null ? '' : filters.make;
+    store.filterColor = filters.color === null ? '' : filters.color;
+    store.filterStatus = filters.status === null ? '' : filters.status;
+
+    // Get count of active filters for notification message
+    const activeFilterCount = Object.values(filters).filter(value => value !== null).length;
+
+    // Show appropriate notification based on if filters were applied or cleared
+    if (activeFilterCount > 0) {
+      operationNotifications.filters.success(`Applied ${activeFilterCount} filter${activeFilterCount !== 1 ? 's' : ''}`);
+    } else {
+      // If all filters were cleared, consider resetting search as well
+      operationNotifications.filters.success('All filters cleared');
+    }
+
+    // Close the filter dialog
+    showFilterDialog.value = false;
+  } catch (error) {
+    console.error('Error applying filters:', error);
+    showErrorNotification('Failed to apply filters');
+  }
 }
 
 onMounted(async () => {
@@ -378,9 +382,12 @@ onMounted(async () => {
       <EditAccessoryDialog v-model="showEditDialog" :makes="makes" :colors="colors" :accessory="selected"
         @submit="handleUpdateAccessory" :loading="isEditLoading" />
 
-      <!-- Filter Dialog -->
-      <FilterDialog v-model="showFilterDialog" title="Filter Accessories" :filter-options="filterOptions"
-        @apply-filters="handleApplyFilters" @reset-filters="store.resetFilters" />
+      <!-- Filter Dialog with direct passing of filter data -->
+      <FilterDialog v-model="showFilterDialog" title="Filter Accessories" :filter-data="{
+        make: { label: 'Make', options: makes, value: filterValues.make },
+        color: { label: 'Color', options: colors, value: filterValues.color },
+        status: { label: 'Status', options: statuses, value: filterValues.status }
+      }" @apply-filters="handleApplyFilters" @reset-filters="store.resetFilters" />
 
       <!-- Delete Confirmation Dialog -->
       <DeleteDialog v-model="showDeleteDialog" itemType="accessory" :itemName="accessoryToDelete?.name || ''"

@@ -3,37 +3,16 @@ import { ref, watch } from 'vue';
 import type { PropType } from 'vue';
 
 /**
- * Interface defining a filter option
+ * Interface defining filter data format
  */
-interface FilterOption {
-    key: string;
+interface FilterItemData {
     label: string;
     options: string[];
-    modelValue: string | null;
+    value: string | null;
 }
 
-/**
- * Validates that all items in an array are strings
- * @param value The array to validate
- * @returns True if all items are strings, false otherwise
- */
-function validateStringArray(value: unknown[]): boolean {
-    return value.every(item => typeof item === 'string');
-}
-
-/**
- * Validates that a FilterOption has all required fields and correct types
- * @param option FilterOption object to validate
- * @returns True if valid, false otherwise
- */
-function validateFilterOption(option: FilterOption): boolean {
-    return (
-        typeof option.key === 'string' &&
-        typeof option.label === 'string' &&
-        Array.isArray(option.options) &&
-        validateStringArray(option.options) &&
-        (option.modelValue === null || typeof option.modelValue === 'string')
-    );
+interface FilterData {
+    [key: string]: FilterItemData;
 }
 
 const props = defineProps({
@@ -45,10 +24,9 @@ const props = defineProps({
         type: String,
         default: 'Filter',
     },
-    filterOptions: {
-        type: Array as PropType<FilterOption[]>,
-        required: true,
-        validator: (value: FilterOption[]) => value.every(validateFilterOption)
+    filterData: {
+        type: Object as PropType<FilterData>,
+        required: true
     },
 });
 
@@ -64,8 +42,8 @@ const localFilters = ref<Record<string, string | null>>({});
 // Initialize local filters from props
 function initLocalFilters() {
     const newFilters: Record<string, string | null> = {};
-    props.filterOptions.forEach(option => {
-        newFilters[option.key] = option.modelValue;
+    Object.keys(props.filterData).forEach(key => {
+        newFilters[key] = props.filterData[key].value;
     });
     localFilters.value = newFilters;
 }
@@ -73,10 +51,14 @@ function initLocalFilters() {
 // Initialize on component creation
 initLocalFilters();
 
-// Watch for external changes to filter options
-watch(() => props.filterOptions, () => {
+// Watch for external changes to filter data
+watch(() => props.filterData, () => {
     initLocalFilters();
-}, { deep: true });
+}, {
+    deep: true,
+    immediate: true,
+    key: 'filter-dialog-data-changes'
+});
 
 function apply() {
     emit('apply-filters', localFilters.value);
@@ -107,9 +89,9 @@ function closeDialog() {
             </q-card-section>
 
             <q-card-section class="q-pt-none">
-                <div v-for="option in filterOptions" :key="option.key" class="q-mb-md">
-                    <q-select v-model="localFilters[option.key]" :options="['All', ...option.options]"
-                        :label="option.label" clearable outlined dense />
+                <div v-for="(filterItem, key) in filterData" :key="key" class="q-mb-md">
+                    <q-select v-model="localFilters[key]" :options="['All', ...filterItem.options]"
+                        :label="filterItem.label" clearable outlined dense />
                 </div>
             </q-card-section>
 
