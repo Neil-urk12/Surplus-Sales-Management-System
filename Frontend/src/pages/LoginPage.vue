@@ -83,6 +83,7 @@ const isSubmitting = ref(false)
 const showShake = ref(false)
 const loginError = ref('')
 const isCaptchaLoading = ref(false)
+const isLoginValidated = ref(false)
 
 onMounted( async () => {
   if (authStore.isAuthenticated) await router.push('/')
@@ -143,8 +144,12 @@ const handleSubmit = async () => {
     const result = await authStore.login(form)
 
     if (result.success) {
+      isLoginValidated.value = true
+      token.value = null
       await router.push('/')
     } else {
+      token.value = null
+      form.password = ''
       let msg = result.message || 'Invalid email or password. Please try again.'
       if (msg === 'Invalid credentials') {
         msg = 'Invalid email or password.'
@@ -214,10 +219,9 @@ watch(
             :class="{ 'error': errors.password }"
           >
           <span class="error-message" v-if="errors.password">{{ errors.password }}</span>
-          <div class="row">
+          <div class="row" v-if="!isLoginValidated">
             <div class="captcha-container col" v-if="form.email && form.password">
               <TurnstileCaptchaComponent.default
-                :key="form.email + '-' + form.password"
                 @verify="token = $event; isCaptchaLoading = false"
                 @error="error = true; isCaptchaLoading = false"
                 @expired="token = null; isCaptchaLoading = false"
