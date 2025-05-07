@@ -12,6 +12,7 @@ import type {
   CabColorInput
 } from 'src/types/cabs'
 import { cabsService } from 'src/services/cabsService'
+import { useSearch } from 'src/utils/useSearch'
 
 export type { CabsRow } from 'src/types/cabs'
 
@@ -29,7 +30,7 @@ export const useCabsStore = defineStore('cabs', () => {
       if (filterMake.value) filters.make = filterMake.value
       if (filterColor.value) filters.unit_color = filterColor.value
       if (filterStatus.value) filters.status = filterStatus.value
-      if (cabSearch.value) filters.search = cabSearch.value
+      if (search.searchValue.value) filters.search = search.searchValue.value
 
       const cabs = await cabsService.getCabs(filters)
       cabRows.value = cabs
@@ -40,26 +41,11 @@ export const useCabsStore = defineStore('cabs', () => {
     }
   }
 
-  // Search with debounce
-  const rawCabSearch = ref('')
-  const cabSearch = ref('')
-  let debounceTimeout: ReturnType<typeof setTimeout> | null = null
-
-  // Debounce function to update cabSearch after typing stops
-  function updateCabSearch(value: string) {
-    if (debounceTimeout) {
-      clearTimeout(debounceTimeout)
-    }
-
-    debounceTimeout = setTimeout(() => {
-      cabSearch.value = value
+  // Setup search with the composable
+  const search = useSearch({
+    onSearch: (value) => {
       void initializeCabs()
-    }, 300)
-  }
-
-  // Watch for changes in rawCabSearch
-  watch(rawCabSearch, (newValue) => {
-    updateCabSearch(newValue)
+    }
   })
 
   // Use input types that allow empty strings for filters
@@ -121,8 +107,7 @@ export const useCabsStore = defineStore('cabs', () => {
     filterMake.value = ''
     filterColor.value = ''
     filterStatus.value = ''
-    rawCabSearch.value = ''
-    cabSearch.value = ''
+    search.clearSearch()
     // Reload data without filters
     await initializeCabs()
   }
@@ -199,8 +184,7 @@ export const useCabsStore = defineStore('cabs', () => {
     // State
     cabRows,
     isLoading,
-    rawCabSearch,
-    cabSearch,
+    search,
     filterMake,
     filterColor,
     filterStatus,
