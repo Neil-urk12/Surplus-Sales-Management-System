@@ -73,7 +73,7 @@ export const useAuthStore = defineStore('auth', () => {
         if (status === 403 && errorMessage.includes('inactive')) {
           return { success: false, message: 'Your account is inactive. Please contact an administrator.' };
         } else if (status === 401) {
-          return { success: false, message: 'Invalid email or password. Please try again.' };
+          return { success: false, message: errorMessage }; // Return the exact error message from backend
         } else {
           return { success: false, message: errorMessage };
         }
@@ -81,6 +81,7 @@ export const useAuthStore = defineStore('auth', () => {
       return { success: false, message: 'An error occurred while connecting to the server. Please try again later.' };
     }
   }
+
   function logout() {
     clearAuth()
     console.log('Logout action called')

@@ -1,12 +1,35 @@
 <script setup lang="ts">
-import { computed, ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import * as TurnstileCaptchaComponent from '../components/Global/TurnstileCaptcha.vue'
+
+// Define Turnstile interface for TypeScript
+interface TurnstileOptions {
+  sitekey: string;
+  callback: (token: string) => void;
+  'error-callback': () => void;
+  'expired-callback': () => void;
+  theme?: 'light' | 'dark' | 'auto';
+}
+
+interface Turnstile {
+  render: (element: HTMLElement, options: TurnstileOptions) => string;
+}
+
+// Extend Window interface
+declare global {
+  interface Window {
+    turnstile?: Turnstile;
+  }
+}
 
 const tab = ref('email')
 const showModal = ref(false)
 const recoveryEmail = ref('')
 const recoveryPhone = ref('')
+const showCaptchaDialog = ref(false)
+const captchaToken = ref<string|null>(null)
 
 const isSendingRecovery = ref(false)
 const recoverySent = ref(false)
@@ -57,9 +80,20 @@ const errors = reactive({
 const isSubmitting = ref(false)
 const showShake = ref(false)
 const loginError = ref('')
+const isCaptchaLoading = ref(false)
+const isLoginValidated = ref(false)
 
 onMounted( async () => {
   if (authStore.isAuthenticated) await router.push('/')
+
+  // Load Turnstile script if not already loaded
+  if (!window.turnstile) {
+    const script = document.createElement('script')
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+    script.async = true
+    script.defer = true
+    document.head.appendChild(script)
+  }
 })
 
 const validateEmail = () => {
@@ -83,7 +117,47 @@ const validatePassword = () => {
   }
 }
 
-const handleSubmit = async () => {
+const handleCaptchaVerified = (captchaValue: string) => {
+  captchaToken.value = captchaValue
+  showCaptchaDialog.value = false
+  void proceedLogin()
+}
+
+const handleCaptchaError = () => {
+  captchaToken.value = null
+  showCaptchaDialog.value = false
+}
+
+const proceedLogin = async () => {
+  isSubmitting.value = true
+  try {
+    const result = await authStore.login(form)
+    if (result.success) {
+      isLoginValidated.value = true
+      captchaToken.value = null
+      await router.push('/')
+    } else {
+      captchaToken.value = null
+      form.password = ''
+      let msg = result.message || 'Invalid email or password. Please try again.'
+      if (msg === 'Invalid credentials') {
+        msg = 'Invalid email or password.'
+      }
+      loginError.value = msg
+      showShake.value = true
+      setTimeout(() => showShake.value = false, 500)
+    }
+  } catch (error) {
+    console.error('Login error:', error)
+    loginError.value = 'An unexpected error occurred. Please try again later.'
+    showShake.value = true
+    setTimeout(() => showShake.value = false, 500)
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+const handleSubmit = () => {
   validateEmail()
   validatePassword()
   loginError.value = ''
@@ -94,25 +168,23 @@ const handleSubmit = async () => {
     return
   }
 
-  isSubmitting.value = true
-
-  try {
-    const success = await authStore.login(form)
-
-    if (success) {
-      await router.push('/')
-    } else {
-      loginError.value = 'Invalid email or password. Please try again.'
-      showShake.value = true
-      setTimeout(() => showShake.value = false, 500)
-    }
-  } catch (error) {
-    console.error('Login error:', error)
-    loginError.value = 'An unexpected error occurred. Please try again later.'
-  } finally {
-    isSubmitting.value = false
-  }
+  // Open CAPTCHA dialog instead of proceeding
+  showCaptchaDialog.value = true
 }
+
+// Watch for when both email and password are filled to set captcha loading
+watch(
+  () => [form.email, form.password],
+  ([email, password], [oldEmail, oldPassword]) => {
+    if (email && password && (!oldEmail || !oldPassword)) {
+      isCaptchaLoading.value = true
+    }
+    // Optionally, if either is cleared, reset loading state
+    if (!email || !password) {
+      isCaptchaLoading.value = false
+    }
+  }
+)
 </script>
 
 <template>
@@ -126,6 +198,7 @@ const handleSubmit = async () => {
 
       <form @submit.prevent="handleSubmit">
         <div v-if="loginError" class="error-message general-error">
+          <q-icon name="error" class="error-icon" />
           {{ loginError }}
         </div>
 
@@ -150,7 +223,9 @@ const handleSubmit = async () => {
             :class="{ 'error': errors.password }"
           >
           <span class="error-message" v-if="errors.password">{{ errors.password }}</span>
-          <a href="#" class="forgot-password" @click.prevent="showModal = true">Forgot password?</a>
+          <div class="col flex content-center justify-end">
+                <a href="#" class="forgot-password" @click.prevent="showModal = true">Forgot password?</a>
+              </div>
         </div>
 
         <button type="submit" :disabled="isSubmitting">
@@ -265,6 +340,21 @@ const handleSubmit = async () => {
         </transition>
       </q-card>
     </q-dialog>
+
+    <q-dialog v-model="showCaptchaDialog" persistent>
+      <q-card>
+        <q-card-section>
+          <div class="text-h6">CAPTCHA Verification</div>
+        </q-card-section>
+        <q-card-section>
+          <TurnstileCaptchaComponent.default
+            @verify="handleCaptchaVerified"
+            @error="handleCaptchaError"
+            @expired="handleCaptchaError"
+          />
+        </q-card-section>
+      </q-card>
+    </q-dialog>
   </div>
 </template>
 
@@ -301,5 +391,42 @@ const handleSubmit = async () => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+.captcha-container {
+  margin: 15px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.general-error {
+  background-color: var(--q-negative);
+  color: white;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.error-icon {
+  font-size: 20px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.captcha-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  background-color: var(--q-grey-1);
+  border-radius: 4px;
+  min-height: 100px;
 }
 </style>
