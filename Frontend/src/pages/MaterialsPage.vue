@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, defineAsyncComponent } from 'vue';
 import type { QTableColumn, QTableProps } from 'quasar';
-import ProductCardModal from 'src/components/Global/ProductModal.vue'
 import { useQuasar } from 'quasar';
 import { useMaterialsStore } from 'src/stores/materials';
 import type { MaterialRow, NewMaterialInput } from 'src/stores/materials';
 import type { UpdateMaterialInput } from 'src/types/materials';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
+const ProductCardModal = defineAsyncComponent(() => import('src/components/Global/ProductModal.vue'));
 const DeleteDialog = defineAsyncComponent(() => import('src/components/Global/DeleteDialog.vue'));
 const AddMaterialDialog = defineAsyncComponent(() => import('../components/AddMaterialDialog.vue'))
 const EditMaterialDialog = defineAsyncComponent(() => import('../components/EditMaterialDialog.vue'))
