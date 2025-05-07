@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, defineAsyncComponent, computed } from 'vue';
+import { ref, onMounted, defineAsyncComponent, computed, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
 import type { Customer } from '../types/models';
@@ -30,19 +30,37 @@ const isConfirmDialogOpen = ref(false);
 const selectedCustomerId = ref<string | null>(null);
 const customerToDelete = ref<Customer | null>(null);
 
-// Search functionality
+// Search functionality with debounce
+const searchInput = ref('');
 const searchQuery = ref('');
+
+// Debounce the search input to prevent excessive recalculations
+watch(searchInput, (newValue) => {
+  const timeoutId = setTimeout(() => {
+    searchQuery.value = newValue;
+  }, 300);
+
+  return () => clearTimeout(timeoutId);
+});
+
 const filteredCustomers = computed(() => {
-  if (!searchQuery.value.trim()) return customers.value;
+  if (!searchQuery.value.trim()) return customers.value || [];
 
   const query = searchQuery.value.toLowerCase().trim();
-  return customers.value.filter(customer =>
-    customer.fullName.toLowerCase().includes(query) ||
-    customer.email.toLowerCase().includes(query) ||
-    customer.phone.toLowerCase().includes(query) ||
-    (customer.address && customer.address.toLowerCase().includes(query)) ||
-    customer.id.toLowerCase().includes(query)
-  );
+
+  return Array.isArray(customers.value) ? customers.value.filter(customer => {
+    const fullNameLower = customer.fullName.toLowerCase();
+    const emailLower = customer.email.toLowerCase();
+    const phoneLower = customer.phone.toLowerCase();
+    const idLower = customer.id.toLowerCase();
+    const addressLower = customer.address ? customer.address.toLowerCase() : '';
+
+    return fullNameLower.includes(query) ||
+      emailLower.includes(query) ||
+      phoneLower.includes(query) ||
+      addressLower.includes(query) ||
+      idLower.includes(query);
+  }) : [];
 });
 
 onMounted(async () => {
@@ -129,7 +147,7 @@ const viewPurchaseHistory = (customerId: string) => {
 };
 
 const handleSearch = (query: string) => {
-  searchQuery.value = query;
+  searchInput.value = query;
 };
 </script>
 
@@ -148,8 +166,8 @@ const handleSearch = (query: string) => {
 
       <!-- Search Box -->
       <div class="q-mb-md">
-        <AdvancedSearch v-model="searchQuery" placeholder="Search customers by name, email, phone or address..."
-          @search="handleSearch" />
+        <AdvancedSearch v-model="searchInput" placeholder="Search customers by name, email, phone or address..."
+          @search="handleSearch" :debounce-time="300" />
       </div>
 
       <div v-if="isLoading && !customers.length" class="text-center q-pa-md">
@@ -172,15 +190,14 @@ const handleSearch = (query: string) => {
       </div>
 
       <!-- Empty search results message -->
-      <div v-else-if="!isLoading && customers.length > 0 && filteredCustomers.length === 0"
-        class="text-center q-pa-xl text-grey">
+      <div v-else-if="!isLoading && filteredCustomers?.length === 0" class="text-center q-pa-xl text-grey">
         <q-icon name="search_off" size="4rem" />
         <div class="text-h6 q-mt-md">No customers match your search</div>
         <div class="q-mt-sm">Try adjusting your search criteria.</div>
       </div>
 
       <!-- Grid of customer cards -->
-      <div v-else-if="!isLoading && filteredCustomers.length > 0" class="row q-col-gutter-md">
+      <div v-else-if="!isLoading && filteredCustomers?.length > 0" class="row q-col-gutter-md">
         <div v-for="customer in filteredCustomers" :key="customer.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
           <q-card class="customer-card" flat bordered>
             <q-card-section>
