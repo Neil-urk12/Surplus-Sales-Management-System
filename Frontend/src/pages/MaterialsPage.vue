@@ -4,7 +4,7 @@ import type { QTableColumn, QTableProps } from 'quasar';
 import { useQuasar } from 'quasar';
 import { useMaterialsStore } from 'src/stores/materials';
 import type { MaterialRow, NewMaterialInput } from 'src/stores/materials';
-import type { UpdateMaterialInput } from 'src/types/materials';
+import type { UpdateMaterialInput, MaterialCategoryInput, MaterialSupplierInput, MaterialStatus } from 'src/types/materials';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
 const ProductCardModal = defineAsyncComponent(() => import('src/components/Global/ProductModal.vue'));
@@ -374,6 +374,15 @@ async function confirmDelete() {
 
 // Add ref for edit dialog
 const showEditDialog = ref(false);
+
+// Function to handle applying filters from the FilterMaterialDialog
+function handleApplyFilters(filterData: { category: string | null; supplier: string | null; status: string | null }) {
+  // Type assertion is safe here because we're ensuring the values match the expected types from the dialog
+  store.filterCategory = (filterData.category || '') as MaterialCategoryInput;
+  store.filterSupplier = (filterData.supplier || '') as MaterialSupplierInput;
+  store.filterStatus = (filterData.status || '') as MaterialStatus | '';
+  showFilterDialog.value = false;
+}
 
 // Update onMounted hook
 onMounted(async () => {

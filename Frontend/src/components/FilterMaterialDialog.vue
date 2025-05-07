@@ -4,6 +4,8 @@ import type { PropType } from 'vue';
 import type { MaterialStatus, MaterialCategory, MaterialSupplier } from 'src/types/materials';
 
 const ALL_OPTION = 'All';
+// Define a type that includes ALL_OPTION to fix TypeScript error
+type FilterValue<T> = T | typeof ALL_OPTION | null;
 
 const props = defineProps({
   modelValue: {
@@ -47,9 +49,9 @@ const emit = defineEmits<{
 }>();
 
 // Local state for filters within the dialog
-const localFilterCategory = ref<string | null>(props.initialFilterCategory);
-const localFilterSupplier = ref<string | null>(props.initialFilterSupplier);
-const localFilterStatus = ref<MaterialStatus | null>(props.initialFilterStatus);
+const localFilterCategory = ref<FilterValue<string>>(props.initialFilterCategory);
+const localFilterSupplier = ref<FilterValue<string>>(props.initialFilterSupplier);
+const localFilterStatus = ref<FilterValue<MaterialStatus>>(props.initialFilterStatus);
 
 // Watch props to update local state if dialog is reopened with different initial values
 watch(() => [props.initialFilterCategory, props.initialFilterSupplier, props.initialFilterStatus], () => {

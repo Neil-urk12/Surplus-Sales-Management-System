@@ -315,12 +315,18 @@ async function handleConfirmSell(payload: {
     showSellDialog.value = false;
     operationNotifications.update.success(`Sold ${payload.quantity} ${cabToSell.value.name}`);
   } catch (error) {
-    const { type } = errorHandler.handleOperation(error, 'update', 'cab sale');
-
-    if (type === 'inventory') {
+    errorHandler.handleOperation(error, 'update', 'cab sale');
+    
+    if (error instanceof AppError && error.type === 'inventory') {
       await errorHandler.recoverFromInventoryError([
-        () => store.initializeCabs(),
-        () => accessoriesStore.initializeAccessories()
+        async () => { 
+          await store.initializeCabs(); 
+          return;
+        },
+        async () => { 
+          await accessoriesStore.initializeAccessories(); 
+          return;
+        }
       ]);
     }
   } finally {
@@ -342,14 +348,21 @@ function handleDownloadCsv() {
   exportToCsv(store.filteredCabRows, 'cabs-inventory', csvColumns);
 }
 
-function filterCabs(rows: CabsRow[], terms: string) {
+/* eslint-disable @typescript-eslint/no-unused-vars */
+function filterCabs(
+  rows: readonly Record<string, unknown>[], 
+  terms: string, 
+  cols: readonly QTableColumn[], 
+  getCellValue: (col: QTableColumn, row: Record<string, unknown>) => unknown
+): readonly Record<string, unknown>[] {
+/* eslint-enable @typescript-eslint/no-unused-vars */
   return rows.filter(row => {
     const searchTerms = terms.toLowerCase();
     return (
-      row.name.toLowerCase().includes(searchTerms) ||
-      row.make.toLowerCase().includes(searchTerms) ||
-      row.status.toLowerCase().includes(searchTerms) ||
-      row.unit_color.toLowerCase().includes(searchTerms)
+      String(row.name).toLowerCase().includes(searchTerms) ||
+      String(row.make).toLowerCase().includes(searchTerms) ||
+      String(row.status).toLowerCase().includes(searchTerms) ||
+      String(row.unit_color).toLowerCase().includes(searchTerms)
     );
   });
 }
