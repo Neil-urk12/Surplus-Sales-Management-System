@@ -25,6 +25,11 @@ onMounted(() => {
     emit('error')
     return
   }
+  if (typeof window.turnstile.render !== 'function') {
+    console.error('Turnstile render function is not available')
+    emit('error')
+    return
+  }
 
   window.turnstile.render(widgetEl.value, {
     sitekey: siteKey,
