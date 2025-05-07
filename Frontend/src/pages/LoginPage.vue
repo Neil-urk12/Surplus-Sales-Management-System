@@ -139,18 +139,24 @@ const handleSubmit = async () => {
   isSubmitting.value = true
 
   try {
-    const success = await authStore.login(form)
+    const result = await authStore.login(form)
 
-    if (success) {
+    if (result.success) {
       await router.push('/')
     } else {
-      loginError.value = 'Invalid email or password. Please try again.'
+      let msg = result.message || 'Invalid email or password. Please try again.'
+      if (msg === 'Invalid credentials') {
+        msg = 'Invalid email or password.'
+      }
+      loginError.value = msg
       showShake.value = true
       setTimeout(() => showShake.value = false, 500)
     }
   } catch (error) {
     console.error('Login error:', error)
     loginError.value = 'An unexpected error occurred. Please try again later.'
+    showShake.value = true
+    setTimeout(() => showShake.value = false, 500)
   } finally {
     isSubmitting.value = false
   }
@@ -168,6 +174,7 @@ const handleSubmit = async () => {
 
       <form @submit.prevent="handleSubmit">
         <div v-if="loginError" class="error-message general-error">
+          <q-icon name="error" class="error-icon" />
           {{ loginError }}
         </div>
 
@@ -194,15 +201,19 @@ const handleSubmit = async () => {
           <span class="error-message" v-if="errors.password">{{ errors.password }}</span>
           <div class="row">
             <div class="captcha-container col" v-if="form.email && form.password">
-          <TurnstileCaptchaComponent.default
-            @verify="token = $event"
-            @error="error = true"
-            @expired="token = null"
-          />
-          <div class="col flex content-center justify-end"><a href="#" class="forgot-password" @click.prevent="showModal = true">Forgot password?</a></div>
-        </div>
+              <TurnstileCaptchaComponent.default
+                @verify="token = $event"
+                @error="error = true"
+                @expired="token = null"
+              />
+              <div class="col flex content-center justify-end">
+                <a href="#" class="forgot-password" @click.prevent="showModal = true">Forgot password?</a>
+              </div>
+            </div>
             <div class="col" v-else>
-              <div class="flex content-center justify-end"><a href="#" class="forgot-password" @click.prevent="showModal = true">Forgot password?</a></div>
+              <div class="flex content-center justify-end">
+                <a href="#" class="forgot-password" @click.prevent="showModal = true">Forgot password?</a>
+              </div>
             </div>
           </div>
         </div>
@@ -369,6 +380,21 @@ const handleSubmit = async () => {
   margin: 15px 0;
   display: flex;
   justify-content: center;
+}
+
+.general-error {
+  background-color: var(--q-negative);
+  color: white;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.error-icon {
+  font-size: 20px;
 }
 
 @keyframes spin {
