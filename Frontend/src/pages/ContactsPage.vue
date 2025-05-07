@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted, defineAsyncComponent } from 'vue';
+import { ref, onMounted, defineAsyncComponent, computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
 import type { Customer } from '../types/models';
 import { useCustomerStore } from '../stores/customerStore';
 const CustomerPurchaseHistoryModal = defineAsyncComponent(() => import('../components/CustomerPurchaseHistoryModal.vue'));
 const DeleteDialog = defineAsyncComponent(() => import('src/components/Global/DeleteDialog.vue'));
+const AdvancedSearch = defineAsyncComponent(() => import('src/components/Global/AdvancedSearch.vue'));
 
 const customerStore = useCustomerStore();
 const { customers, isLoading, error } = storeToRefs(customerStore);
@@ -28,6 +29,21 @@ const selectedCustomerIdForHistory = ref<string | null>(null);
 const isConfirmDialogOpen = ref(false);
 const selectedCustomerId = ref<string | null>(null);
 const customerToDelete = ref<Customer | null>(null);
+
+// Search functionality
+const searchQuery = ref('');
+const filteredCustomers = computed(() => {
+  if (!searchQuery.value.trim()) return customers.value;
+
+  const query = searchQuery.value.toLowerCase().trim();
+  return customers.value.filter(customer =>
+    customer.fullName.toLowerCase().includes(query) ||
+    customer.email.toLowerCase().includes(query) ||
+    customer.phone.toLowerCase().includes(query) ||
+    (customer.address && customer.address.toLowerCase().includes(query)) ||
+    customer.id.toLowerCase().includes(query)
+  );
+});
 
 onMounted(async () => {
   await fetchCustomers();
@@ -112,6 +128,9 @@ const viewPurchaseHistory = (customerId: string) => {
   isHistoryModalOpen.value = true;
 };
 
+const handleSearch = (query: string) => {
+  searchQuery.value = query;
+};
 </script>
 
 <template>
@@ -125,6 +144,12 @@ const viewPurchaseHistory = (customerId: string) => {
             Add Customer
           </q-btn>
         </div>
+      </div>
+
+      <!-- Search Box -->
+      <div class="q-mb-md">
+        <AdvancedSearch v-model="searchQuery" placeholder="Search customers by name, email, phone or address..."
+          @search="handleSearch" />
       </div>
 
       <div v-if="isLoading && !customers.length" class="text-center q-pa-md">
@@ -146,9 +171,17 @@ const viewPurchaseHistory = (customerId: string) => {
         <div class="q-mt-sm">Click 'Add Customer' to get started.</div>
       </div>
 
+      <!-- Empty search results message -->
+      <div v-else-if="!isLoading && customers.length > 0 && filteredCustomers.length === 0"
+        class="text-center q-pa-xl text-grey">
+        <q-icon name="search_off" size="4rem" />
+        <div class="text-h6 q-mt-md">No customers match your search</div>
+        <div class="q-mt-sm">Try adjusting your search criteria.</div>
+      </div>
+
       <!-- Grid of customer cards -->
-      <div v-else-if="!isLoading && customers.length > 0" class="row q-col-gutter-md">
-        <div v-for="customer in customers" :key="customer.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
+      <div v-else-if="!isLoading && filteredCustomers.length > 0" class="row q-col-gutter-md">
+        <div v-for="customer in filteredCustomers" :key="customer.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
           <q-card class="customer-card" flat bordered>
             <q-card-section>
               <div class="row items-center no-wrap">
@@ -238,49 +271,21 @@ const viewPurchaseHistory = (customerId: string) => {
 
           <q-form @submit.prevent="editingCustomer ? handleEditCustomer() : handleAddCustomer()">
             <q-card-section class="q-pt-none">
-              <q-input
-                filled
-                v-model="newCustomer.fullName"
-                label="Name *"
-                autofocus
-                :rules="[val => !!val || 'Name is required']"
-                :disable="isLoading"
-              />
-              <q-input
-                filled
-                v-model="newCustomer.email"
-                label="Email *"
-                type="email"
+              <q-input filled v-model="newCustomer.fullName" label="Name *" autofocus
+                :rules="[val => !!val || 'Name is required']" :disable="isLoading" />
+              <q-input filled v-model="newCustomer.email" label="Email *" type="email"
                 :rules="[val => !!val || 'Email is required', val => /.+@.+\..+/.test(val) || 'Invalid email format']"
-                :disable="isLoading"
-              />
-              <q-input
-                filled
-                v-model="newCustomer.phone"
-                label="Phone *"
-                lazy-rules
-                :rules="[
-                  val => val && val.length > 0 || 'Please type the phone number',
-                  val => /^\+639\d{9}$/.test(val) || 'Phone number must be in the format +639xxxxxxxxx'
-                ]"
-                :disable="isLoading"
-              />
-              <q-input
-                filled
-                v-model="newCustomer.address"
-                label="Address"
-                autogrow
-                :disable="isLoading"
-              />
+                :disable="isLoading" />
+              <q-input filled v-model="newCustomer.phone" label="Phone *" lazy-rules :rules="[
+                val => val && val.length > 0 || 'Please type the phone number',
+                val => /^\+639\d{9}$/.test(val) || 'Phone number must be in the format +639xxxxxxxxx'
+              ]" :disable="isLoading" />
+              <q-input filled v-model="newCustomer.address" label="Address" autogrow :disable="isLoading" />
             </q-card-section>
 
             <q-card-actions align="right">
               <q-btn flat label="Cancel" color="primary" v-close-popup :disable="isLoading" />
-              <q-btn
-                flat
-                :label="editingCustomer ? 'Save Changes' : 'Add Customer'"
-                color="primary"
-                type="submit"
+              <q-btn flat :label="editingCustomer ? 'Save Changes' : 'Add Customer'" color="primary" type="submit"
                 :loading="isLoading"
                 :disable="!newCustomer.fullName || !newCustomer.email || !newCustomer.phone || isLoading" />
             </q-card-actions>
@@ -288,17 +293,10 @@ const viewPurchaseHistory = (customerId: string) => {
         </q-card>
       </q-dialog>
 
-      <customer-purchase-history-modal
-        v-model="isHistoryModalOpen"
-        :customer-id="selectedCustomerIdForHistory"
-      />
+      <customer-purchase-history-modal v-model="isHistoryModalOpen" :customer-id="selectedCustomerIdForHistory" />
 
-      <DeleteDialog
-        v-model="isConfirmDialogOpen"
-        itemType="customer"
-        :itemName="customerToDelete?.fullName || ''"
-        @confirm-delete="executeDelete"
-      />
+      <DeleteDialog v-model="isConfirmDialogOpen" itemType="customer" :itemName="customerToDelete?.fullName || ''"
+        @confirm-delete="executeDelete" />
 
     </div> <!-- End wrapper div -->
   </q-page>
@@ -312,6 +310,7 @@ const viewPurchaseHistory = (customerId: string) => {
   flex-direction: column;
   justify-content: space-between;
 }
+
 .customer-card:hover {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
 }
@@ -336,11 +335,11 @@ const viewPurchaseHistory = (customerId: string) => {
   flex-wrap: nowrap;
 }
 
-.customer-card .row.items-center > * {
+.customer-card .row.items-center>* {
   min-width: 0;
 }
 
-.customer-card .q-gutter-y-sm > .row {
+.customer-card .q-gutter-y-sm>.row {
   margin-bottom: 0.3em;
 }
 
@@ -357,6 +356,7 @@ const viewPurchaseHistory = (customerId: string) => {
     min-height: 200px;
     font-size: 0.97rem;
   }
+
   .q-col-xs-12 {
     width: 100% !important;
     max-width: 100% !important;
