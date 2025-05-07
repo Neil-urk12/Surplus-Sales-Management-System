@@ -238,7 +238,7 @@ watch(
           </div>
         </div>
 
-        <button type="submit" :disabled="isSubmitting || isCaptchaLoading">
+        <button type="submit" :disabled="isSubmitting || isCaptchaLoading || !token">
           <span v-if="!isSubmitting" class="text-weight-medium">Sign In</span>
           <span v-else class="spinner"></span>
         </button>
