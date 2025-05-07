@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import * as TurnstileCaptchaComponent from '../components/Global/TurnstileCaptcha.vue'
@@ -82,6 +82,7 @@ const errors = reactive({
 const isSubmitting = ref(false)
 const showShake = ref(false)
 const loginError = ref('')
+const isCaptchaLoading = ref(false)
 
 onMounted( async () => {
   if (authStore.isAuthenticated) await router.push('/')
@@ -161,6 +162,20 @@ const handleSubmit = async () => {
     isSubmitting.value = false
   }
 }
+
+// Watch for when both email and password are filled to set captcha loading
+watch(
+  () => [form.email, form.password],
+  ([email, password], [oldEmail, oldPassword]) => {
+    if (email && password && (!oldEmail || !oldPassword)) {
+      isCaptchaLoading.value = true
+    }
+    // Optionally, if either is cleared, reset loading state
+    if (!email || !password) {
+      isCaptchaLoading.value = false
+    }
+  }
+)
 </script>
 
 <template>
@@ -202,23 +217,28 @@ const handleSubmit = async () => {
           <div class="row">
             <div class="captcha-container col" v-if="form.email && form.password">
               <TurnstileCaptchaComponent.default
-                @verify="token = $event"
-                @error="error = true"
-                @expired="token = null"
+                :key="form.email + '-' + form.password"
+                @verify="token = $event; isCaptchaLoading = false"
+                @error="error = true; isCaptchaLoading = false"
+                @expired="token = null; isCaptchaLoading = false"
               />
               <div class="col flex content-center justify-end">
                 <a href="#" class="forgot-password" @click.prevent="showModal = true">Forgot password?</a>
               </div>
             </div>
-            <div class="col" v-else>
-              <div class="flex content-center justify-end">
+            <div class="captcha-container col" v-else>
+              <div class="captcha-placeholder">
+                <q-icon name="security" size="24px" color="grey-6" />
+                <span class="text-grey-6">Complete email and password to verify</span>
+              </div>
+              <div class="col flex content-center justify-end">
                 <a href="#" class="forgot-password" @click.prevent="showModal = true">Forgot password?</a>
               </div>
             </div>
           </div>
         </div>
 
-        <button type="submit" :disabled="isSubmitting">
+        <button type="submit" :disabled="isSubmitting || isCaptchaLoading">
           <span v-if="!isSubmitting" class="text-weight-medium">Sign In</span>
           <span v-else class="spinner"></span>
         </button>
@@ -399,5 +419,17 @@ const handleSubmit = async () => {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.captcha-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  background-color: var(--q-grey-1);
+  border-radius: 4px;
+  min-height: 100px;
 }
 </style>
