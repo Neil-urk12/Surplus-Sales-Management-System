@@ -41,6 +41,18 @@ func (h *MaterialHandlers) RegisterMaterialRoutes(r fiber.Router) {
 }
 
 // GetMaterialsHandler handles requests to retrieve multiple materials with filtering
+// @Summary Get all materials
+// @Description Retrieves a list of materials, with optional filtering.
+// @Tags Materials
+// @Produce json
+// @Security ApiKeyAuth
+// @Param search query string false "Search term for material name or description"
+// @Param category query string false "Filter by category"
+// @Param supplier query string false "Filter by supplier"
+// @Param status query string false "Filter by status (e.g., In Stock, Low Stock)"
+// @Success 200 {array} models.Material "Successfully retrieved list of materials"
+// @Failure 500 {object} ErrorResponse "Failed to retrieve materials"
+// @Router /materials [get]
 func (h *MaterialHandlers) GetMaterialsHandler(c *fiber.Ctx) error {
 	// Extract query parameters for filtering
 	searchTerm := c.Query("search")
@@ -51,8 +63,9 @@ func (h *MaterialHandlers) GetMaterialsHandler(c *fiber.Ctx) error {
 	materials, err := h.Repo.GetAll(searchTerm, category, supplier, status)
 	if err != nil {
 		log.Printf("Error getting materials: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to retrieve materials",
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error:      "Failed to retrieve materials",
+			StatusCode: fiber.StatusInternalServerError,
 		})
 	}
 
@@ -60,25 +73,39 @@ func (h *MaterialHandlers) GetMaterialsHandler(c *fiber.Ctx) error {
 }
 
 // GetMaterialHandler handles requests to retrieve a single material by ID
+// @Summary Get material by ID
+// @Description Retrieves a single material by its ID.
+// @Tags Materials
+// @Produce json
+// @Security ApiKeyAuth
+// @Param id path int true "Material ID"
+// @Success 200 {object} models.Material "Successfully retrieved material"
+// @Failure 400 {object} ErrorResponse "Invalid Material ID format"
+// @Failure 404 {object} ErrorResponse "Material not found"
+// @Failure 500 {object} ErrorResponse "Failed to retrieve material"
+// @Router /materials/{id} [get]
 func (h *MaterialHandlers) GetMaterialHandler(c *fiber.Ctx) error {
 	idStr := c.Params("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid Material ID format",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:      "Invalid Material ID format",
+			StatusCode: fiber.StatusBadRequest,
 		})
 	}
 
 	material, err := h.Repo.GetByID(id)
 	if err != nil {
 		log.Printf("Error getting material by ID %d: %v", id, err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to retrieve material",
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error:      "Failed to retrieve material",
+			StatusCode: fiber.StatusInternalServerError,
 		})
 	}
 	if material == nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Material not found",
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+			Error:      "Material not found",
+			StatusCode: fiber.StatusNotFound,
 		})
 	}
 
@@ -86,27 +113,41 @@ func (h *MaterialHandlers) GetMaterialHandler(c *fiber.Ctx) error {
 }
 
 // CreateMaterialHandler handles requests to create a new material
+// @Summary Create a new material
+// @Description Adds a new material to the inventory.
+// @Tags Materials
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param material body models.Material true "Material object to create"
+// @Success 201 {object} models.Material "Material created successfully"
+// @Failure 400 {object} ErrorResponse "Invalid request payload or missing required fields"
+// @Failure 500 {object} ErrorResponse "Failed to create material"
+// @Router /materials [post]
 func (h *MaterialHandlers) CreateMaterialHandler(c *fiber.Ctx) error {
 	var newMaterial models.Material
 	if err := c.BodyParser(&newMaterial); err != nil {
 		log.Printf("Error decoding create material request: %v", err)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request payload",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:      "Invalid request payload",
+			StatusCode: fiber.StatusBadRequest,
 		})
 	}
 
 	// Basic validation (could be expanded)
 	if newMaterial.Name == "" || newMaterial.Category == "" || newMaterial.Supplier == "" || newMaterial.Status == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Missing required material fields",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:      "Missing required material fields",
+			StatusCode: fiber.StatusBadRequest,
 		})
 	}
 
 	id, err := h.Repo.Create(&newMaterial)
 	if err != nil {
 		log.Printf("Error creating material: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to create material",
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error:      "Failed to create material",
+			StatusCode: fiber.StatusInternalServerError,
 		})
 	}
 
@@ -124,20 +165,35 @@ func (h *MaterialHandlers) CreateMaterialHandler(c *fiber.Ctx) error {
 }
 
 // UpdateMaterialHandler handles requests to update an existing material
+// @Summary Update an existing material
+// @Description Updates an existing material by its ID.
+// @Tags Materials
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param id path int true "Material ID"
+// @Param material body models.Material true "Material object with updated fields"
+// @Success 200 {object} models.Material "Material updated successfully"
+// @Success 204 "Material updated, but fetch failed (No Content)"
+// @Failure 400 {object} ErrorResponse "Invalid Material ID format or invalid request payload or missing required fields"
+// @Failure 500 {object} ErrorResponse "Failed to update material"
+// @Router /materials/{id} [put]
 func (h *MaterialHandlers) UpdateMaterialHandler(c *fiber.Ctx) error {
 	idStr := c.Params("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid Material ID format",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:      "Invalid Material ID format",
+			StatusCode: fiber.StatusBadRequest,
 		})
 	}
 
 	var updatedMaterial models.Material
 	if err := c.BodyParser(&updatedMaterial); err != nil {
 		log.Printf("Error decoding update material request for ID %d: %v", id, err)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request payload",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:      "Invalid request payload",
+			StatusCode: fiber.StatusBadRequest,
 		})
 	}
 
@@ -146,8 +202,9 @@ func (h *MaterialHandlers) UpdateMaterialHandler(c *fiber.Ctx) error {
 
 	// Basic validation
 	if updatedMaterial.Name == "" || updatedMaterial.Category == "" || updatedMaterial.Supplier == "" || updatedMaterial.Status == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Missing required material fields",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:      "Missing required material fields",
+			StatusCode: fiber.StatusBadRequest,
 		})
 	}
 
@@ -155,8 +212,9 @@ func (h *MaterialHandlers) UpdateMaterialHandler(c *fiber.Ctx) error {
 	if err != nil {
 		log.Printf("Error updating material ID %d: %v", id, err)
 		// Could check for specific errors like 'not found' if the repo layer provides them
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to update material",
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error:      "Failed to update material",
+			StatusCode: fiber.StatusInternalServerError,
 		})
 	}
 
@@ -172,12 +230,23 @@ func (h *MaterialHandlers) UpdateMaterialHandler(c *fiber.Ctx) error {
 }
 
 // DeleteMaterialHandler handles requests to delete a material
+// @Summary Delete a material
+// @Description Deletes a material by its ID.
+// @Tags Materials
+// @Produce json
+// @Security ApiKeyAuth
+// @Param id path int true "Material ID"
+// @Success 204 "Material deleted successfully (No Content)"
+// @Failure 400 {object} ErrorResponse "Invalid Material ID format"
+// @Failure 500 {object} ErrorResponse "Failed to delete material"
+// @Router /materials/{id} [delete]
 func (h *MaterialHandlers) DeleteMaterialHandler(c *fiber.Ctx) error {
 	idStr := c.Params("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid Material ID format",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:      "Invalid Material ID format",
+			StatusCode: fiber.StatusBadRequest,
 		})
 	}
 
@@ -185,8 +254,9 @@ func (h *MaterialHandlers) DeleteMaterialHandler(c *fiber.Ctx) error {
 	if err != nil {
 		log.Printf("Error deleting material ID %d: %v", id, err)
 		// Could check for specific errors like 'not found'
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to delete material",
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error:      "Failed to delete material",
+			StatusCode: fiber.StatusInternalServerError,
 		})
 	}
 
