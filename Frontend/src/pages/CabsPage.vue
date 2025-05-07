@@ -342,6 +342,18 @@ function handleDownloadCsv() {
   exportToCsv(store.filteredCabRows, 'cabs-inventory', csvColumns);
 }
 
+function filterCabs(rows: CabsRow[], terms: string) {
+  return rows.filter(row => {
+    const searchTerms = terms.toLowerCase();
+    return (
+      row.name.toLowerCase().includes(searchTerms) ||
+      row.make.toLowerCase().includes(searchTerms) ||
+      row.status.toLowerCase().includes(searchTerms) ||
+      row.unit_color.toLowerCase().includes(searchTerms)
+    );
+  });
+}
+
 onMounted(async () => {
   try {
     await Promise.all([
@@ -395,7 +407,7 @@ onMounted(async () => {
       <template v-else>
         <q-table class="my-sticky-column-table" flat bordered title="Cabs" :rows="store.filteredCabRows || []"
           :columns="columns" row-key="id" :filter="store.search.searchValue" @row-click="onRowClick"
-          :pagination="{ rowsPerPage: 5 }">
+          :filter-method="filterCabs" :pagination="{ rowsPerPage: 5 }">
           <template v-slot:body-cell-actions="props">
             <q-td :props="props" auto-width :key="props.row.id">
               <q-btn flat round dense color="grey" icon="more_vert" class="action-button"
