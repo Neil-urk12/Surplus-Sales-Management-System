@@ -17,19 +17,7 @@ import { getDefaultImage } from 'src/config/defaultImages';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
 import { exportToCsv } from '../utils/exportUtils';
-
-// Define custom error class for better error handling
-class CabOperationError extends Error {
-  public readonly type: 'validation' | 'database' | 'inventory' | 'purchase' | 'unknown';
-  public readonly userMessage: string;
-
-  constructor(message: string, type: 'validation' | 'database' | 'inventory' | 'purchase' | 'unknown' = 'unknown', userMessage?: string) {
-    super(message);
-    this.name = 'CabOperationError';
-    this.type = type;
-    this.userMessage = userMessage || message;
-  }
-}
+import { AppError, errorHandler } from '../utils/errorHandling';
 
 const $q = useQuasar();
 const store = useCabsStore();
@@ -122,18 +110,14 @@ async function handleAddCab(cabData: NewCabInput) {
       showAddDialog.value = false;
       operationNotifications.add.success(`cab: ${cabData.name}`);
     } else {
-      throw new CabOperationError(`Failed to add cab: ${cabData.name}`, 'database', 'Failed to add cab to system');
+      throw new AppError(
+        `Failed to add cab: ${cabData.name}`,
+        'database',
+        'Failed to add cab to system'
+      );
     }
   } catch (error) {
-    console.error('Error adding cab via handler:', error);
-
-    let message = 'cab';
-    if (error instanceof CabOperationError) {
-      message = error.userMessage;
-      $q.notify({ type: 'negative', message: error.userMessage });
-    }
-
-    operationNotifications.add.error(message);
+    errorHandler.handleOperation(error, 'add', 'cab');
   }
 }
 
@@ -146,7 +130,11 @@ function handleApplyFilters(filters: { make: string | null; color: string | null
 }
 
 async function handleResetFilters() {
-  await store.resetFilters();
+  try {
+    await store.resetFilters();
+  } catch (error) {
+    errorHandler.handle(error, 'resetting filters');
+  }
 }
 
 function editCab(cab: CabsRow) {
@@ -157,26 +145,27 @@ function editCab(cab: CabsRow) {
 async function handleUpdateCab(updatedData: NewCabInput) {
   try {
     if (!cabToEdit.value || !cabToEdit.value.id) {
-      throw new CabOperationError('No cab selected for update or missing ID', 'validation', 'No cab selected for update');
+      throw new AppError(
+        'No cab selected for update or missing ID',
+        'validation',
+        'No cab selected for update'
+      );
     }
+
     const result = await store.updateCab(cabToEdit.value.id, updatedData);
     if (result.success) {
       showEditDialog.value = false;
       operationNotifications.update.success(`cab: ${updatedData.name}`);
       cabToEdit.value = null;
     } else {
-      throw new CabOperationError(`Failed to update cab: ${updatedData.name}`, 'database', 'Failed to update cab in system');
+      throw new AppError(
+        `Failed to update cab: ${updatedData.name}`,
+        'database',
+        'Failed to update cab in system'
+      );
     }
   } catch (error) {
-    console.error('Error updating cab via handler:', error);
-
-    let message = 'cab';
-    if (error instanceof CabOperationError) {
-      message = error.userMessage;
-      $q.notify({ type: 'negative', message: error.userMessage });
-    }
-
-    operationNotifications.update.error(message);
+    errorHandler.handleOperation(error, 'update', 'cab');
   }
 }
 
@@ -188,25 +177,25 @@ function deleteCab(cab: CabsRow) {
 async function handleConfirmDelete() {
   try {
     if (!cabToDelete.value) {
-      throw new CabOperationError('No cab selected for deletion', 'validation', 'No cab selected for deletion');
+      throw new AppError(
+        'No cab selected for deletion',
+        'validation',
+        'No cab selected for deletion'
+      );
     }
 
     const result = await store.deleteCab(cabToDelete.value.id);
     if (result.success) {
       operationNotifications.delete.success('cab');
     } else {
-      throw new CabOperationError(`Failed to delete cab: ${cabToDelete.value.name}`, 'database', 'Failed to delete cab from system');
+      throw new AppError(
+        `Failed to delete cab: ${cabToDelete.value.name}`,
+        'database',
+        'Failed to delete cab from system'
+      );
     }
   } catch (error) {
-    console.error('Error deleting cab:', error);
-
-    let message = 'cab';
-    if (error instanceof CabOperationError) {
-      message = error.userMessage;
-      $q.notify({ type: 'negative', message: error.userMessage });
-    }
-
-    operationNotifications.delete.error(message);
+    errorHandler.handleOperation(error, 'delete', 'cab');
   } finally {
     cabToDelete.value = null;
   }
@@ -238,15 +227,69 @@ async function updateAccessoryStock(accessories: Array<{ id: number; quantity: n
       });
     } else if (accessory) {
       const errorMessage = `Insufficient stock for accessory ID ${acc.id}`;
-      $q.notify({ type: 'warning', message: errorMessage });
-      throw new CabOperationError(errorMessage, 'inventory', errorMessage);
+      throw new AppError(errorMessage, 'inventory', errorMessage, 'warning');
     } else {
       const errorMessage = `Accessory with ID ${acc.id} not found`;
-      throw new CabOperationError(errorMessage, 'inventory', errorMessage);
+      throw new AppError(errorMessage, 'inventory', errorMessage);
     }
   });
 
   await Promise.all(updatePromises);
+}
+
+async function processCabSale(
+  cab: CabsRow,
+  customerId: string,
+  soldQuantity: number,
+  accessories: Array<{ id: number; name: string; price: number; quantity: number; unitPrice: number }>
+): Promise<void> {
+  if (soldQuantity <= 0 || soldQuantity > cab.quantity) {
+    throw new AppError(
+      `Invalid quantity: ${soldQuantity} for cab with available quantity: ${cab.quantity}`,
+      'validation',
+      'Invalid quantity or not enough stock',
+      'warning'
+    );
+  }
+
+  const { newQuantity, newStatus } = calculateNewCabState(cab.quantity, soldQuantity);
+  const updatedCabData: NewCabInput = {
+    name: cab.name,
+    make: cab.make,
+    quantity: newQuantity,
+    price: cab.price,
+    unit_color: cab.unit_color,
+    status: newStatus,
+    image: cab.image
+  };
+
+  const purchaseResult = await customerStore.recordCabPurchase(customerId, {
+    cabId: cab.id,
+    cabName: cab.name,
+    quantity: soldQuantity,
+    unitPrice: cab.price,
+    accessories: accessories
+  });
+
+  if (!purchaseResult.success) {
+    throw new AppError(
+      'Failed to record purchase in customer records',
+      'purchase',
+      'Failed to record purchase. Please try again.'
+    );
+  }
+
+  await updateAccessoryStock(accessories);
+
+  const result = await store.updateCab(cab.id, updatedCabData);
+  if (!result.success) {
+    throw new AppError(
+      'Failed to update cab inventory after purchase recorded',
+      'inventory',
+      'Failed to update cab inventory. The purchase was recorded but inventory not updated.',
+      'critical'
+    );
+  }
 }
 
 async function handleConfirmSell(payload: {
@@ -261,94 +304,24 @@ async function handleConfirmSell(payload: {
     return;
   }
 
-  const cabBeingSold = cabToSell.value;
-  const soldQuantity = payload.quantity;
-  const cabName = cabBeingSold.name;
-
-  if (soldQuantity <= 0 || soldQuantity > cabBeingSold.quantity) {
-    const errorMessage = 'Invalid quantity or not enough stock';
-    $q.notify({ type: 'negative', message: errorMessage });
-    operationNotifications.validation.error(errorMessage);
-    return;
-  }
-
   try {
-    const { newQuantity, newStatus } = calculateNewCabState(cabBeingSold.quantity, soldQuantity);
-    const updatedCabData: NewCabInput = {
-      name: cabBeingSold.name,
-      make: cabBeingSold.make,
-      quantity: newQuantity,
-      price: cabBeingSold.price,
-      unit_color: cabBeingSold.unit_color,
-      status: newStatus,
-      image: cabBeingSold.image
-    };
-
-    const purchaseResult = await customerStore.recordCabPurchase(payload.customerId, {
-      cabId: cabBeingSold.id,
-      cabName: cabBeingSold.name,
-      quantity: soldQuantity,
-      unitPrice: cabBeingSold.price,
-      accessories: payload.accessories
-    });
-
-    if (!purchaseResult.success) {
-      throw new CabOperationError(
-        'Failed to record purchase in customer records',
-        'purchase',
-        'Failed to record purchase. Please try again.'
-      );
-    }
-
-    await updateAccessoryStock(payload.accessories);
-
-    const result = await store.updateCab(cabBeingSold.id, updatedCabData);
-    if (!result.success) {
-      throw new CabOperationError(
-        'Failed to update cab inventory after purchase recorded',
-        'inventory',
-        'Failed to update cab inventory. The purchase was recorded but inventory not updated.'
-      );
-    }
+    await processCabSale(
+      cabToSell.value,
+      payload.customerId,
+      payload.quantity,
+      payload.accessories
+    );
 
     showSellDialog.value = false;
-    operationNotifications.update.success(`Sold ${soldQuantity} ${cabName}`);
+    operationNotifications.update.success(`Sold ${payload.quantity} ${cabToSell.value.name}`);
   } catch (error) {
-    console.error('Error processing sell confirmation:', error);
+    const { type } = errorHandler.handleOperation(error, 'update', 'cab sale');
 
-    let errorMessage = 'Failed to process sale';
-    let errorType = 'unknown';
-
-    if (error instanceof CabOperationError) {
-      errorMessage = error.userMessage;
-      errorType = error.type;
-      $q.notify({
-        type: 'negative',
-        message: error.userMessage,
-        caption: `Error type: ${error.type}`,
-        timeout: 5000
-      });
-    } else if (error instanceof Error) {
-      errorMessage = error.message;
-    }
-
-    operationNotifications.update.error(errorMessage);
-
-    // Depending on error type, we might want to attempt recovery actions
-    if (errorType === 'inventory') {
-      $q.notify({
-        type: 'info',
-        message: 'Attempting to refresh inventory data...',
-        timeout: 2000
-      });
-
-      // Refresh inventory data - handle promises properly
-      void Promise.all([
-        store.initializeCabs(),
-        accessoriesStore.initializeAccessories()
-      ]).catch(refreshError => {
-        console.error('Error refreshing data:', refreshError);
-      });
+    if (type === 'inventory') {
+      await errorHandler.recoverFromInventoryError([
+        () => store.initializeCabs(),
+        () => accessoriesStore.initializeAccessories()
+      ]);
     }
   } finally {
     cabToSell.value = null;
@@ -377,13 +350,7 @@ onMounted(async () => {
       customerStore.fetchCustomers()
     ]);
   } catch (error) {
-    console.error('Error initializing data:', error);
-    $q.notify({
-      type: 'negative',
-      message: 'Failed to initialize application data',
-      caption: 'Please refresh the page or contact support if the problem persists',
-      timeout: 5000
-    });
+    errorHandler.handle(error, 'initializing application data');
   }
 });
 
