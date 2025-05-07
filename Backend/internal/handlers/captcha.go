@@ -51,6 +51,12 @@ func VerifyTurnstile(token string) (bool, error) {
 	}
 	defer resp.Body.Close()
 
+	// Check if the response status code is OK
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Turnstile API returned non-200 status code: %d", resp.StatusCode)
+		return false, fmt.Errorf("turnstile API returned status code: %d", resp.StatusCode)
+	}
+
 	var result verifyResp
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return false, err
