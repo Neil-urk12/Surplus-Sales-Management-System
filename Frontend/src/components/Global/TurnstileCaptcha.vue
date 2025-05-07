@@ -14,14 +14,20 @@ const emit = defineEmits<{
 }>()
 
 onMounted(() => {
+  const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY
   if (!widgetEl.value || !window.turnstile) {
     console.error('Turnstile script not loaded yet')
     emit('error')
     return
   }
+  if (!siteKey) {
+    console.error('VITE_TURNSTILE_SITE_KEY environment variable is not defined')
+    emit('error')
+    return
+  }
 
   window.turnstile.render(widgetEl.value, {
-    sitekey: import.meta.env.VITE_TURNSTILE_SITE_KEY!,
+    sitekey: siteKey,
     callback: (token: string) => emit('verify', token),
     'error-callback': ()    => emit('error'),
     'expired-callback': ()  => emit('expired'),
