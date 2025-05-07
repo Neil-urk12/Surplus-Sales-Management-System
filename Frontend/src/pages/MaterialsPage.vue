@@ -53,6 +53,12 @@ const defaultImageUrl = 'https://loremflickr.com/600/400/material';
 // Available options from store
 const { categories, suppliers, statuses } = store;
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/**
+ * Computed property for capitalizing material names.
+ * This is currently not actively used in the UI but is kept
+ * for potential future use in the application.
+ */
 const capitalizedName = computed({
   get: () => newMaterial.value.name,
   set: (value: string) => {
@@ -63,6 +69,7 @@ const capitalizedName = computed({
     }
   }
 });
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 const materialColumns: QTableColumn[] = [
   { name: 'id', align: 'center', label: 'ID', field: 'id', sortable: true },
@@ -113,12 +120,18 @@ function openAddDialog() {
     quantity: 0,
     status: 'Out of Stock',
     image: defaultImageUrl
-  }
+  };
   imageUrlValid.value = true;
-  showAddDialog.value = true
+  showAddDialog.value = true;
 }
 
-async function addNewMaterial() {
+// Add function to refresh materials list
+async function refreshMaterials() {
+  console.log('Refreshing materials list');
+  await store.initializeMaterials();
+}
+
+async function addNewMaterial(materialInput: NewMaterialInput) {
   try {
     // Validate image URL before proceeding
     if (!imageUrlValid.value) {
@@ -127,17 +140,19 @@ async function addNewMaterial() {
     }
 
     // If image URL is empty, use default (only relevant if image is part of update)
-    if (!newMaterial.value.image) {
-      newMaterial.value.image = defaultImageUrl;
+    if (!materialInput.image) {
+      materialInput.image = defaultImageUrl;
     }
 
     // Execute the store action and await its completion
-    const result = await store.addMaterial(newMaterial.value);
+    const result = await store.addMaterial(materialInput);
 
     // Only close dialog and show notification after operation successfully completes
     if (result.success) {
       showAddDialog.value = false;
-      operationNotifications.add.success(`material: ${newMaterial.value.name}`);
+      operationNotifications.add.success(`material: ${materialInput.name}`);
+      // Refresh the materials list to ensure we have the latest data
+      await refreshMaterials();
     }
   } catch (error) {
     console.error('Error adding material:', error);
@@ -280,377 +295,6 @@ watch(() => newMaterial.value.image, async (newUrl: string) => {
   }
 });
 
-// Add new refs for file handling
-const fileInput = ref<HTMLInputElement | null>(null);
-const previewUrl = ref('');
-const isUploadingImage = ref(false);
-const isDragging = ref(false);
-
-// Add these constants at the top of the script
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif'] as const;
-const MAX_DIMENSION = 4096; // Maximum image dimension in pixels
-
-type AllowedMimeType = typeof ALLOWED_TYPES[number];
-
-// Enhanced drag event handlers
-function handleDragLeave(event: DragEvent) {
-  // Check if the mouse left the container (not just moved between child elements)
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-  const x = event.clientX;
-  const y = event.clientY;
-
-  // Check if the mouse is outside the container's bounds
-  if (x <= rect.left || x >= rect.right || y <= rect.top || y >= rect.bottom) {
-    isDragging.value = false;
-  }
-}
-
-// Update handleDrop function
-function handleDrop(event: DragEvent) {
-  event.preventDefault();
-  isDragging.value = false;
-
-  if (event.dataTransfer?.files && event.dataTransfer.files[0]) {
-    const file = event.dataTransfer.files[0];
-    void handleFile(file);
-  }
-}
-
-// Update handleFile function
-async function handleFile(file: File) {
-  try {
-    isUploadingImage.value = true;
-
-    console.log('Starting file validation for:', file.name);
-    const validation = await validateFile(file);
-    if (!validation.isValid) {
-      console.error('File validation failed:', validation.error);
-      $q.notify({
-        type: 'negative',
-        message: validation.error || 'Invalid file',
-        position: 'top',
-        timeout: 3000
-      });
-      return;
-    }
-    console.log('File validation passed');
-
-    // Create a temporary URL for preview
-    console.log('Creating preview URL');
-    const tempPreviewUrl = URL.createObjectURL(file);
-    previewUrl.value = tempPreviewUrl;
-    console.log('Preview URL set:', previewUrl.value);
-
-    console.log('Starting FileReader');
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      console.log('FileReader loaded');
-      if (e.target?.result) {
-        const base64String = e.target.result as string;
-        console.log('Processing base64 data');
-        const base64ValidationResult = validateAndSanitizeBase64Image(base64String);
-
-        if (!base64ValidationResult.isValid) {
-          console.error('Base64 validation failed:', base64ValidationResult.error);
-          $q.notify({
-            type: 'negative',
-            message: base64ValidationResult.error || 'Invalid image data',
-            position: 'top',
-            timeout: 3000
-          });
-          previewUrl.value = defaultImageUrl;
-          return;
-        }
-
-        console.log('Base64 validation passed, updating image');
-        if (showEditDialog.value) {
-          materialToEdit.value.image = base64ValidationResult.sanitizedData!;
-        } else {
-          newMaterial.value.image = base64ValidationResult.sanitizedData!;
-        }
-        imageUrlValid.value = true;
-
-        $q.notify({
-          type: 'positive',
-          message: 'Image uploaded successfully',
-          position: 'top',
-          timeout: 2000
-        });
-      }
-    };
-
-    reader.onerror = (error) => {
-      console.error('FileReader error:', error);
-      previewUrl.value = defaultImageUrl;
-      $q.notify({
-        type: 'negative',
-        message: 'Error reading file. Please try again.',
-        position: 'top',
-        timeout: 3000
-      });
-    };
-
-    console.log('Starting file read');
-    reader.readAsDataURL(file);
-  } catch (error) {
-    console.error('Error in handleFile:', error);
-    previewUrl.value = defaultImageUrl;
-    $q.notify({
-      type: 'negative',
-      message: 'An unexpected error occurred. Please try again.',
-      position: 'top',
-      timeout: 3000
-    });
-  } finally {
-    isUploadingImage.value = false;
-  }
-}
-
-// Update validateFile function
-async function validateFile(file: File): Promise<{ isValid: boolean; error?: string }> {
-  try {
-    console.log('Starting file validation:', {
-      name: file.name,
-      type: file.type,
-      size: file.size
-    });
-
-    // Step 1: Basic file validation
-    if (!file) {
-      console.error('Validation failed: No file provided');
-      return { isValid: false, error: 'No file provided.' };
-    }
-
-    // Step 2: Size validation
-    if (file.size > MAX_FILE_SIZE) {
-      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      console.error(`Validation failed: File size ${sizeMB}MB exceeds limit`);
-      return {
-        isValid: false,
-        error: `File size (${sizeMB}MB) exceeds 5MB limit. Please choose a smaller file.`
-      };
-    }
-
-    // Step 3: Enhanced MIME type validation with file signature check
-    const validMimeTypes = {
-      'image/jpeg': [0xFF, 0xD8, 0xFF],
-      'image/png': [0x89, 0x50, 0x4E, 0x47],
-      'image/gif': [0x47, 0x49, 0x46, 0x38]
-    };
-
-    if (!Object.keys(validMimeTypes).includes(file.type)) {
-      console.error(`Validation failed: Invalid file type ${file.type}`);
-      return {
-        isValid: false,
-        error: `Invalid file type: ${file.type}. Please upload a JPG, PNG, or GIF image.`
-      };
-    }
-
-    // Step 4: File signature validation
-    const arrayBuffer = await file.slice(0, 4).arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    const expectedSignature = validMimeTypes[file.type as keyof typeof validMimeTypes];
-
-    const isValidSignature = expectedSignature.every((byte, i) => byte === bytes[i]);
-    if (!isValidSignature) {
-      console.error('Validation failed: File signature mismatch');
-      return {
-        isValid: false,
-        error: 'Invalid image format. The file content does not match its extension.'
-      };
-    }
-
-    // Step 5: Validate image dimensions
-    try {
-      const dimensionValidation = await validateImageDimensions(file);
-      if (!dimensionValidation.isValid) {
-        console.error('Validation failed:', dimensionValidation.error);
-        return dimensionValidation;
-      }
-    } catch (error) {
-      console.error('Error validating image dimensions:', error);
-      return {
-        isValid: false,
-        error: 'Error validating image dimensions. Please try again.'
-      };
-    }
-
-    console.log('File validation passed successfully');
-    return { isValid: true };
-  } catch (error) {
-    console.error('Unexpected error during file validation:', error);
-    return {
-      isValid: false,
-      error: 'An unexpected error occurred during validation. Please try again.'
-    };
-  }
-}
-
-// Add validateImageDimensions function
-function validateImageDimensions(file: File): Promise<{ isValid: boolean; error?: string }> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
-
-    const cleanup = () => {
-      URL.revokeObjectURL(objectUrl);
-    };
-
-    img.onload = () => {
-      cleanup();
-      console.log('Image dimensions:', {
-        width: img.width,
-        height: img.height,
-        maxAllowed: MAX_DIMENSION
-      });
-
-      if (img.width > MAX_DIMENSION || img.height > MAX_DIMENSION) {
-        resolve({
-          isValid: false,
-          error: `Image dimensions (${img.width}x${img.height}) cannot exceed ${MAX_DIMENSION}x${MAX_DIMENSION} pixels.`
-        });
-      } else if (img.width === 0 || img.height === 0) {
-        resolve({
-          isValid: false,
-          error: 'Invalid image dimensions.'
-        });
-      } else {
-        resolve({ isValid: true });
-      }
-    };
-
-    img.onerror = () => {
-      cleanup();
-      console.error('Error loading image for dimension validation');
-      resolve({
-        isValid: false,
-        error: 'Error loading image. Please ensure it is a valid image file.'
-      });
-    };
-
-    // Set a timeout to avoid hanging
-    const timeout = setTimeout(() => {
-      cleanup();
-      console.error('Dimension validation timed out');
-      resolve({
-        isValid: false,
-        error: 'Image validation timed out. Please try again.'
-      });
-    }, 10000); // 10 second timeout
-
-    img.src = objectUrl;
-
-    // Clear timeout when image loads or errors
-    img.onload = () => {
-      clearTimeout(timeout);
-      cleanup();
-      if (img.width > MAX_DIMENSION || img.height > MAX_DIMENSION) {
-        resolve({
-          isValid: false,
-          error: `Image dimensions (${img.width}x${img.height}) cannot exceed ${MAX_DIMENSION}x${MAX_DIMENSION} pixels.`
-        });
-      } else if (img.width === 0 || img.height === 0) {
-        resolve({
-          isValid: false,
-          error: 'Invalid image dimensions.'
-        });
-      } else {
-        resolve({ isValid: true });
-      }
-    };
-
-    img.onerror = () => {
-      clearTimeout(timeout);
-      cleanup();
-      resolve({
-        isValid: false,
-        error: 'Error loading image. Please ensure it is a valid image file.'
-      });
-    };
-  });
-}
-
-// Update removeImage function
-function removeImage(event?: Event) {
-  if (event) {
-    event.stopPropagation();
-  }
-  clearImageInput();
-}
-
-// Update clearImageInput function
-function clearImageInput() {
-  if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
-    URL.revokeObjectURL(previewUrl.value);
-  }
-  previewUrl.value = defaultImageUrl;
-  if (showEditDialog.value) {
-    materialToEdit.value.image = defaultImageUrl;
-  } else {
-    newMaterial.value.image = defaultImageUrl;
-  }
-  imageUrlValid.value = true;
-  if (fileInput.value) {
-    fileInput.value.value = '';
-  }
-  isUploadingImage.value = false;
-}
-
-// Update handleFileSelect function
-async function handleFileSelect(event: Event) {
-  const input = event.target as HTMLInputElement;
-  if (input.files && input.files[0]) {
-    const file = input.files[0];
-    console.log('Selected file:', {
-      name: file.name,
-      type: file.type,
-      size: file.size,
-      lastModified: file.lastModified
-    });
-
-    // Check file type
-    if (!ALLOWED_TYPES.includes(file.type as AllowedMimeType)) {
-      $q.notify({
-        type: 'negative',
-        message: `Invalid file type: ${file.type}. Allowed types are: JPEG, PNG, and GIF`,
-        position: 'top',
-        timeout: 3000
-      });
-      return;
-    }
-
-    // Check file size
-    if (file.size > MAX_FILE_SIZE) {
-      $q.notify({
-        type: 'negative',
-        message: `File size (${(file.size / 1024 / 1024).toFixed(2)}MB) exceeds the 5MB limit`,
-        position: 'top',
-        timeout: 3000
-      });
-      return;
-    }
-
-    try {
-      await handleFile(file);
-    } catch (error) {
-      console.error('Error handling file:', error);
-      $q.notify({
-        type: 'negative',
-        message: 'Error processing the image. Please try again.',
-        position: 'top',
-        timeout: 3000
-      });
-    }
-  }
-}
-
-// Function to trigger file input
-function triggerFileInput() {
-  fileInput.value?.click();
-}
-
 // Function to handle edit material
 function editMaterial(material: MaterialRow) {
   // Deep copy selected material to the dedicated edit ref
@@ -661,7 +305,7 @@ function editMaterial(material: MaterialRow) {
 }
 
 // Function to handle update material
-async function updateMaterial() {
+async function updateMaterial(updatedMaterial: MaterialRow) {
   try {
     // Validate image URL before proceeding
     if (!imageUrlValid.value) {
@@ -670,27 +314,31 @@ async function updateMaterial() {
     }
 
     // If image URL is empty, use default (only relevant if image is part of update)
-    if (!materialToEdit.value.image) {
-      materialToEdit.value.image = defaultImageUrl;
+    if (!updatedMaterial.image) {
+      updatedMaterial.image = defaultImageUrl;
     }
 
-    // Prepare the update payload from materialToEdit
+    // Prepare the update payload from the received updatedMaterial
     const updatePayload: UpdateMaterialInput = {
-      name: materialToEdit.value.name,
-      category: materialToEdit.value.category,
-      supplier: materialToEdit.value.supplier,
-      quantity: materialToEdit.value.quantity,
-      status: materialToEdit.value.status,
-      image: materialToEdit.value.image
+      name: updatedMaterial.name,
+      category: updatedMaterial.category,
+      supplier: updatedMaterial.supplier,
+      quantity: updatedMaterial.quantity,
+      status: updatedMaterial.status,
+      image: updatedMaterial.image
     };
 
+    console.log('Sending update for material:', updatedMaterial.id, updatePayload);
+
     // Execute the store action and await its completion
-    const result = await store.updateMaterial(materialToEdit.value.id, updatePayload);
+    const result = await store.updateMaterial(updatedMaterial.id, updatePayload);
 
     // Only close dialog and show notification after operation successfully completes
     if (result.success) {
       showEditDialog.value = false;
-      operationNotifications.update.success(`material: ${materialToEdit.value.name}`);
+      operationNotifications.update.success(`material: ${updatedMaterial.name}`);
+      // Refresh the materials list to ensure we have the latest data
+      await refreshMaterials();
     }
   } catch (error) {
     console.error('Error updating material:', error);
@@ -713,10 +361,15 @@ async function confirmDelete() {
   try {
     if (!materialToDelete.value) return;
 
-    await store.deleteMaterial(materialToDelete.value.id);
-    showDeleteDialog.value = false;
-    materialToDelete.value = null;
-    operationNotifications.delete.success('material');
+    const result = await store.deleteMaterial(materialToDelete.value.id);
+    
+    if (result.success) {
+      showDeleteDialog.value = false;
+      materialToDelete.value = null;
+      operationNotifications.delete.success('material');
+      // Refresh the materials list to ensure we have the latest data
+      await refreshMaterials();
+    }
   } catch (error) {
     console.error('Error deleting material:', error);
     operationNotifications.delete.error('material');
@@ -728,7 +381,8 @@ const showEditDialog = ref(false);
 
 // Update onMounted hook
 onMounted(async () => {
-  await store.initializeMaterials();
+  console.log('MaterialsPage mounted, initializing materials');
+  await refreshMaterials();
 });
 </script>
 
@@ -846,126 +500,15 @@ onMounted(async () => {
         />
 
         <!-- Add Material Dialog -->
-        <AddMaterialDialog v-model="showAddDialog" @add="addNewMaterial" :disable="!imageUrlValid || validatingImage">
-          <q-input
-            v-model="capitalizedName"
-            label="Material Name"
-            dense
-            outlined
-            :rules="[val => !!val || 'Field is required']"
-          />
-          <q-select
-            v-model="newMaterial.category"
-            label="Category"
-            :options="categories"
-            dense
-            outlined
-            :rules="[val => !!val || 'Field is required']"
-          />
-          <q-select
-            v-model="newMaterial.supplier"
-            label="Supplier"
-            :options="suppliers"
-            dense
-            outlined
-            :rules="[val => !!val || 'Field is required']"
-          />
-          <q-input
-            v-model.number="newMaterial.quantity"
-            label="Quantity"
-            type="number"
-            dense
-            outlined
-            :rules="[val => val >= 0 || 'Quantity cannot be negative']"
-          />
-          <q-input
-            v-model="newMaterial.status"
-            label="Status"
-            dense
-            outlined
-            readonly
-          />
-          <!-- Enhanced Image Input Section -->
-          <div class="column q-gutter-y-sm">
-            <div class="row items-center q-gutter-x-sm">
-              <q-input
-                v-model="newMaterial.image"
-                label="Image URL"
-                dense
-                outlined
-                class="col"
-                :rules="[val => imageUrlValid || 'Invalid image URL']"
-                :loading="validatingImage"
-                @blur="validateImageUrl(newMaterial.image)"
-                clearable
-                @clear="removeImage"
-              >
-                <template v-slot:prepend>
-                  <q-icon name="link" />
-                </template>
-                <template v-slot:append>
-                  <q-icon v-if="imageUrlValid && newMaterial.image && newMaterial.image !== defaultImageUrl" name="check_circle" color="positive" />
-                  <q-icon v-else-if="!imageUrlValid" name="error" color="negative" />
-                </template>
-              </q-input>
-              <q-btn
-                icon="upload_file"
-                flat
-                round
-                dense
-                @click="triggerFileInput"
-                title="Upload Image"
-              />
-            </div>
-            <div
-              class="upload-container q-pa-md"
-              :class="{ 'dragging': isDragging }"
-              @dragover.prevent
-              @dragenter.prevent="isDragging = true"
-              @dragleave.prevent="handleDragLeave"
-              @drop.prevent="handleDrop"
-            >
-              <div class="text-center">
-                <q-icon name="cloud_upload" size="lg" color="grey-7" />
-                <p class="q-mt-sm text-grey-7">Drag & drop an image here, or click upload icon</p>
-              </div>
-              <input
-                ref="fileInput"
-                type="file"
-                accept="image/png, image/jpeg, image/gif, image/webp"
-                @change="handleFileSelect"
-                style="display: none;"
-              />
-            </div>
-            <!-- Image Preview and Remove Button -->
-            <div v-if="newMaterial.image && imageUrlValid" class="row items-center justify-center q-mt-sm relative-position">
-              <q-img
-                :src="newMaterial.image"
-                spinner-color="primary"
-                style="max-height: 150px; max-width: 100%; border-radius: 4px;"
-                alt="Image Preview"
-                @error="imageUrlValid = false"
-              >
-                <template v-slot:error>
-                  <div class="absolute-full flex flex-center bg-negative text-white">
-                    Cannot load image
-                  </div>
-                </template>
-              </q-img>
-              <q-btn
-                icon="close"
-                flat
-                round
-                dense
-                color="negative"
-                size="sm"
-                class="absolute-top-right q-ma-xs bg-white"
-                @click="removeImage"
-                style="z-index: 1; border-radius: 50%;"
-              />
-            </div>
-          </div>
-        </AddMaterialDialog>
+        <AddMaterialDialog 
+          v-model="showAddDialog" 
+          @add="addNewMaterial" 
+          :disable="!imageUrlValid || validatingImage"
+          :materialData="newMaterial"
+          :categories="categories"
+          :suppliers="suppliers"
+          :defaultImageUrl="defaultImageUrl"
+        />
 
         <!-- Filter Dialog -->
         <FilterMaterialDialog v-model="showFilterDialog">
@@ -1001,127 +544,16 @@ onMounted(async () => {
         </FilterMaterialDialog>
 
         <!-- Edit Material Dialog -->
-        <EditMaterialDialog v-model="showEditDialog" @update="updateMaterial" :disable="!imageUrlValid || validatingImage">
-          <q-input
-            v-model="materialToEdit.name"
-            label="Material Name"
-            dense
-            outlined
-            :rules="[val => !!val || 'Field is required']"
-          />
-          <q-select
-            v-model="materialToEdit.category"
-            label="Category"
-            :options="categories"
-            dense
-            outlined
-            :rules="[val => !!val || 'Field is required']"
-          />
-          <q-select
-            v-model="materialToEdit.supplier"
-            label="Supplier"
-            :options="suppliers"
-            dense
-            outlined
-            :rules="[val => !!val || 'Field is required']"
-          />
-          <q-input
-            v-model.number="materialToEdit.quantity"
-            label="Quantity"
-            type="number"
-            dense
-            outlined
-            :rules="[val => val >= 0 || 'Quantity cannot be negative']"
-          />
-          <q-select
-            v-model="materialToEdit.status"
-            label="Status"
-            :options="statuses"
-            dense
-            outlined
-            :rules="[val => !!val || 'Field is required']"
-          />
-          <!-- Enhanced Image Input Section -->
-          <div class="column q-gutter-y-sm">
-            <div class="row items-center q-gutter-x-sm">
-              <q-input
-                v-model="materialToEdit.image"
-                label="Image URL (Optional)"
-                dense
-                outlined
-                class="col"
-                :rules="[val => imageUrlValid || 'Invalid image URL']"
-                :loading="validatingImage"
-                @blur="validateImageUrl(materialToEdit.image)"
-                clearable
-                @clear="removeImage"
-              >
-                <template v-slot:prepend>
-                  <q-icon name="link" />
-                </template>
-                <template v-slot:append>
-                  <q-icon v-if="imageUrlValid && materialToEdit.image && materialToEdit.image !== defaultImageUrl" name="check_circle" color="positive" />
-                  <q-icon v-else-if="!imageUrlValid" name="error" color="negative" />
-                </template>
-              </q-input>
-              <q-btn
-                icon="upload_file"
-                flat
-                round
-                dense
-                @click="triggerFileInput"
-                title="Upload Image"
-              />
-            </div>
-            <div
-              class="upload-container q-pa-md"
-              :class="{ 'dragging': isDragging }"
-              @dragover.prevent
-              @dragenter.prevent="isDragging = true"
-              @dragleave.prevent="handleDragLeave"
-              @drop.prevent="handleDrop"
-            >
-              <div class="text-center">
-                <q-icon name="cloud_upload" size="lg" color="grey-7" />
-                <p class="q-mt-sm text-grey-7">Drag & drop an image here, or click upload icon</p>
-              </div>
-              <input
-                ref="fileInput"
-                type="file"
-                accept="image/png, image/jpeg, image/gif, image/webp"
-                @change="handleFileSelect"
-                style="display: none;"
-              />
-            </div>
-            <!-- Image Preview and Remove Button -->
-            <div v-if="materialToEdit.image && imageUrlValid" class="row items-center justify-center q-mt-sm relative-position">
-              <q-img
-                :src="materialToEdit.image"
-                spinner-color="primary"
-                style="max-height: 150px; max-width: 100%; border-radius: 4px;"
-                alt="Image Preview"
-                @error="imageUrlValid = false"
-              >
-                <template v-slot:error>
-                  <div class="absolute-full flex flex-center bg-negative text-white">
-                    Cannot load image
-                  </div>
-                </template>
-              </q-img>
-              <q-btn
-                icon="close"
-                flat
-                round
-                dense
-                color="negative"
-                size="sm"
-                class="absolute-top-right q-ma-xs bg-white"
-                @click="removeImage"
-                style="z-index: 1; border-radius: 50%;"
-              />
-            </div>
-          </div>
-        </EditMaterialDialog>
+        <EditMaterialDialog 
+          v-model="showEditDialog" 
+          @update="updateMaterial" 
+          :disable="!imageUrlValid || validatingImage"
+          :materialData="materialToEdit"
+          :categories="categories"
+          :suppliers="suppliers"
+          :statuses="statuses"
+          :defaultImageUrl="defaultImageUrl"
+        />
 
         <DeleteDialog
           v-model="showDeleteDialog"

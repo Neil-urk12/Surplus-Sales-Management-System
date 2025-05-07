@@ -56,6 +56,7 @@ export const useMaterialsStore = defineStore('materials', () => {
         }
       })
       materialRows.value = response.data
+      console.log('Materials loaded successfully:', materialRows.value.length)
     } catch (error) {
       console.error('Error initializing materials:', error)
       materialRows.value = []
@@ -173,6 +174,7 @@ export const useMaterialsStore = defineStore('materials', () => {
 
     try {
       isLoading.value = true
+      console.log('Adding material:', material)
       const response = await api.post<MaterialRow>('/api/materials', material, {
         headers: {
           Authorization: `Bearer ${authStore.token}`
@@ -180,6 +182,7 @@ export const useMaterialsStore = defineStore('materials', () => {
       })
 
       materialRows.value.push(response.data)
+      console.log('Material added successfully:', response.data)
 
       return { success: true, id: response.data.id }
     } catch (error: unknown) {
@@ -308,6 +311,7 @@ export const useMaterialsStore = defineStore('materials', () => {
 
     try {
       isLoading.value = true;
+      console.log('Updating material:', id, materialUpdate)
       const response = await api.put<MaterialRow>(`/api/materials/${id}`, materialUpdate, {
         headers: {
           Authorization: `Bearer ${authStore.token}`
@@ -315,6 +319,7 @@ export const useMaterialsStore = defineStore('materials', () => {
       });
 
       materialRows.value[index] = response.data;
+      console.log('Material updated successfully:', response.data)
 
       return { success: true };
     } catch (error: unknown) {
