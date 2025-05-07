@@ -5,6 +5,8 @@ const ProductCardModal = defineAsyncComponent(() => import('src/components/Globa
 const DeleteDialog = defineAsyncComponent(() => import('src/components/Global/DeleteDialog.vue'));
 const AddAccessoryDialog = defineAsyncComponent(() => import('src/components/accessories/AddAccessoryDialog.vue'));
 const EditAccessoryDialog = defineAsyncComponent(() => import('src/components/accessories/EditAccessoryDialog.vue'));
+const AdvancedSearch = defineAsyncComponent(() => import('src/components/Global/AdvancedSearch.vue'));
+const FilterDialog = defineAsyncComponent(() => import('src/components/Global/FilterDialog.vue'));
 import { useAccessoriesStore } from 'src/stores/accessories';
 import type { AccessoryRow, NewAccessoryInput } from 'src/types/accessories';
 import { getDefaultImage } from 'src/config/defaultImages';
@@ -52,11 +54,12 @@ const columns: QTableColumn[] = [
   },
   { name: 'make', label: 'Make', field: 'make' },
   { name: 'quantity', label: 'Quantity', field: 'quantity', sortable: true },
-  { name: 'price', label: 'Price', field: 'price', sortable: true, format: (val: number) =>
-        `₱ ${val.toLocaleString('en-PH', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2
-        })}`
+  {
+    name: 'price', label: 'Price', field: 'price', sortable: true, format: (val: number) =>
+      `₱ ${val.toLocaleString('en-PH', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })}`
   },
   { name: 'status', label: 'Status', field: 'status' },
   { name: 'color', label: 'Color', field: 'unit_color' },
@@ -75,10 +78,10 @@ const onRowClick: QTableProps['onRowClick'] = (evt, row) => {
   if (target.closest('.action-button') || target.closest('.action-menu')) {
     return; // Do nothing if clicked on action button or its menu
   }
-  
+
   // Update selected with a proper copy of the row data
   selected.value = { ...row as AccessoryRow };
-  
+
   // Validate and set the image
   if (selected.value.image) {
     if (selected.value.image.startsWith('data:image/')) {
@@ -93,7 +96,7 @@ const onRowClick: QTableProps['onRowClick'] = (evt, row) => {
     // If no image, use default
     selected.value.image = defaultImageUrl;
   }
-  
+
   showProductCardModal.value = true;
 }
 
@@ -180,10 +183,10 @@ function deleteAccessory(accessory: AccessoryRow) {
 async function confirmDelete() {
   try {
     if (!accessoryToDelete.value) return;
-    
+
     isDeleteLoading.value = true;
     const result = await store.deleteAccessory(accessoryToDelete.value.id);
-    
+
     if (result.success) {
       operationNotifications.delete.success('accessory');
       accessoryToDelete.value = null;
@@ -200,8 +203,34 @@ async function confirmDelete() {
   }
 }
 
-function applyFilters() {
-  showFilterDialog.value = false;
+// Create filter options for the filter dialog
+const filterOptions = computed(() => [
+  {
+    key: 'make',
+    label: 'Make',
+    options: makes,
+    modelValue: store.filterMake === '' ? null : store.filterMake
+  },
+  {
+    key: 'color',
+    label: 'Color',
+    options: colors,
+    modelValue: store.filterColor === '' ? null : store.filterColor
+  },
+  {
+    key: 'status',
+    label: 'Status',
+    options: statuses,
+    modelValue: store.filterStatus === '' ? null : store.filterStatus
+  }
+]);
+
+// Function to handle applying filters
+function handleApplyFilters(filters: Record<string, string | null>) {
+  store.filterMake = filters.make === null ? '' : filters.make;
+  store.filterColor = filters.color === null ? '' : filters.color;
+  store.filterStatus = filters.status === null ? '' : filters.status;
+  operationNotifications.filters.success();
 }
 
 onMounted(async () => {
@@ -220,27 +249,11 @@ onMounted(async () => {
       <div class="flex row q-my-sm">
         <div class="flex full-width col">
           <div class="flex col q-mr-sm">
-            <q-input
-              v-model="store.rawAccessorySearch"
-              outlined
-              dense
-              placeholder="Search"
-              class="full-width"
-              :disable="pageLoading"
-            >
-              <template v-slot:prepend>
-                <q-icon name="search" />
-              </template>
-            </q-input>
+            <AdvancedSearch v-model="store.search.searchInput" placeholder="Search accessories"
+              @clear="store.resetFilters" color="primary" :disable="pageLoading" />
           </div>
           <div class="flex col">
-            <q-btn
-              outline
-              icon="filter_list"
-              label="Filters"
-              @click="showFilterDialog = true"
-              :disable="pageLoading"
-            />
+            <q-btn outline icon="filter_list" label="Filters" @click="showFilterDialog = true" :disable="pageLoading" />
           </div>
         </div>
 
@@ -265,7 +278,7 @@ onMounted(async () => {
           <q-space />
           <q-skeleton type="QBtn" width="50px" />
         </div>
-        
+
         <!-- Skeleton Table Header -->
         <div class="row q-py-sm bg-grey-2">
           <div class="col-1"><q-skeleton type="text" /></div>
@@ -277,9 +290,10 @@ onMounted(async () => {
           <div class="col-1"><q-skeleton type="text" /></div>
           <div class="col-1"><q-skeleton type="text" /></div>
         </div>
-        
+
         <!-- Skeleton Table Rows -->
-        <div v-for="n in 5" :key="n" class="row q-py-md q-gutter-y-sm items-center" :class="n % 2 === 0 ? 'bg-grey-1' : ''">
+        <div v-for="n in 5" :key="n" class="row q-py-md q-gutter-y-sm items-center"
+          :class="n % 2 === 0 ? 'bg-grey-1' : ''">
           <div class="col-1"><q-skeleton type="text" width="30px" /></div>
           <div class="col-3"><q-skeleton type="text" width="90%" /></div>
           <div class="col-2"><q-skeleton type="text" width="70%" /></div>
@@ -289,7 +303,7 @@ onMounted(async () => {
           <div class="col-1"><q-skeleton type="text" width="60%" /></div>
           <div class="col-1"><q-skeleton type="QBtn" width="40px" /></div>
         </div>
-        
+
         <!-- Skeleton Pagination -->
         <div class="row justify-end q-mt-md">
           <q-skeleton type="QBtn" width="40px" class="q-mr-sm" />
@@ -311,20 +325,9 @@ onMounted(async () => {
       </div>
 
       <!--ACCESSORIES TABLE - Only show when not loading and no errors -->
-      <q-table
-        v-if="!pageLoading && !hasApiError"
-        class="my-sticky-column-table"
-        flat
-        bordered
-        title="Accessories"
-        :rows="store.filteredAccessoryRows"
-        :columns="columns"
-        row-key="id"
-        :filter="store.accessorySearch"
-        @row-click="onRowClick"
-        :pagination="{ rowsPerPage: 5 }"
-        :loading="store.isLoading"
-      >
+      <q-table v-if="!pageLoading && !hasApiError" class="my-sticky-column-table" flat bordered title="Accessories"
+        :rows="store.filteredAccessoryRows" :columns="columns" row-key="id" :filter="store.search.searchValue"
+        @row-click="onRowClick" :pagination="{ rowsPerPage: 5 }" :loading="store.isLoading">
         <template v-slot:loading>
           <q-inner-loading showing color="primary">
             <q-spinner-gears size="50px" color="primary" />
@@ -333,26 +336,12 @@ onMounted(async () => {
         </template>
         <template v-slot:body-cell-actions="props">
           <q-td :props="props" auto-width :key="props.row.id">
-            <q-btn
-              flat
-              round
-              dense
-              color="grey"
-              icon="more_vert"
-              class="action-button"
-              :aria-label="'Actions for ' + props.row.name"
-              :disable="isDeleteLoading || isEditLoading"
-            >
+            <q-btn flat round dense color="grey" icon="more_vert" class="action-button"
+              :aria-label="'Actions for ' + props.row.name" :disable="isDeleteLoading || isEditLoading">
               <q-menu class="action-menu" :aria-label="'Available actions for ' + props.row.name">
                 <q-list style="min-width: 100px">
-                  <q-item
-                    clickable
-                    v-close-popup
-                    @click.stop="editAccessory(props.row)"
-                    role="button"
-                    :aria-label="'Edit ' + props.row.name"
-                    :disable="isEditLoading"
-                  >
+                  <q-item clickable v-close-popup @click.stop="editAccessory(props.row)" role="button"
+                    :aria-label="'Edit ' + props.row.name" :disable="isEditLoading">
                     <q-item-section>
                       <q-item-label>
                         <q-icon name="edit" size="xs" class="q-mr-sm" aria-hidden="true" />
@@ -360,15 +349,8 @@ onMounted(async () => {
                       </q-item-label>
                     </q-item-section>
                   </q-item>
-                  <q-item
-                    clickable
-                    v-close-popup
-                    @click.stop="deleteAccessory(props.row)"
-                    role="button"
-                    :aria-label="'Delete ' + props.row.name"
-                    class="text-negative"
-                    :disable="isDeleteLoading"
-                  >
+                  <q-item clickable v-close-popup @click.stop="deleteAccessory(props.row)" role="button"
+                    :aria-label="'Delete ' + props.row.name" class="text-negative" :disable="isDeleteLoading">
                     <q-item-section>
                       <q-item-label class="text-negative">
                         <q-icon name="delete" size="xs" class="q-mr-sm" aria-hidden="true" />
@@ -384,90 +366,25 @@ onMounted(async () => {
       </q-table>
 
       <!-- Existing Accessory Modal -->
-      <ProductCardModal
-        v-model="showProductCardModal"
-        :image="selected?.image || ''"
-        :title="selected?.name || ''"
-        :unit_color="selected?.unit_color || ''"
-        :price="selected?.price || 0"
-        :quantity="selected?.quantity || 0"
-        :details="`${selected?.make}`"
-        :status="selected?.status || ''"
-        @add="addToCart"
-      />
+      <ProductCardModal v-model="showProductCardModal" :image="selected?.image || ''" :title="selected?.name || ''"
+        :unit_color="selected?.unit_color || ''" :price="selected?.price || 0" :quantity="selected?.quantity || 0"
+        :details="`${selected?.make}`" :status="selected?.status || ''" @add="addToCart" />
 
       <!-- Add Accessory Dialog -->
-      <AddAccessoryDialog
-        v-model="showAddDialog"
-        :makes="makes"
-        :colors="colors"
-        @submit="handleAddAccessory"
-        :loading="isAddLoading"
-      />
+      <AddAccessoryDialog v-model="showAddDialog" :makes="makes" :colors="colors" @submit="handleAddAccessory"
+        :loading="isAddLoading" />
 
       <!-- Edit Accessory Dialog -->
-      <EditAccessoryDialog
-        v-model="showEditDialog"
-        :makes="makes"
-        :colors="colors"
-        :accessory="selected"
-        @submit="handleUpdateAccessory"
-        :loading="isEditLoading"
-      />
+      <EditAccessoryDialog v-model="showEditDialog" :makes="makes" :colors="colors" :accessory="selected"
+        @submit="handleUpdateAccessory" :loading="isEditLoading" />
 
       <!-- Filter Dialog -->
-      <q-dialog v-model="showFilterDialog">
-        <q-card style="min-width: 350px">
-          <q-card-section class="row items-center">
-            <div class="text-h6">Filter Accessories</div>
-            <q-space />
-            <q-btn icon="close" flat round dense v-close-popup />
-          </q-card-section>
-
-          <q-card-section class="q-pt-none">
-            <q-select
-              v-model="store.filterMake"
-              :options="makes"
-              label="Make"
-              clearable
-              outlined
-              class="q-mb-md"
-            />
-
-            <q-select
-              v-model="store.filterColor"
-              :options="colors"
-              label="Color"
-              clearable
-              outlined
-              class="q-mb-md"
-            />
-
-            <q-select
-              v-model="store.filterStatus"
-              :options="statuses"
-              label="Status"
-              clearable
-              outlined
-              class="q-mb-md"
-            />
-          </q-card-section>
-
-          <q-card-actions align="right" class="text-primary">
-            <q-btn flat label="Reset" color="negative" @click="store.resetFilters" />
-            <q-btn flat label="Apply Filters" @click="applyFilters" />
-          </q-card-actions>
-        </q-card>
-      </q-dialog>
+      <FilterDialog v-model="showFilterDialog" title="Filter Accessories" :filter-options="filterOptions"
+        @apply-filters="handleApplyFilters" @reset-filters="store.resetFilters" />
 
       <!-- Delete Confirmation Dialog -->
-      <DeleteDialog
-        v-model="showDeleteDialog"
-        itemType="accessory"
-        :itemName="accessoryToDelete?.name || ''"
-        @confirm-delete="confirmDelete"
-        :loading="isDeleteLoading"
-      />
+      <DeleteDialog v-model="showDeleteDialog" itemType="accessory" :itemName="accessoryToDelete?.name || ''"
+        @confirm-delete="confirmDelete" :loading="isDeleteLoading" />
     </div>
   </div>
 </template>
@@ -545,4 +462,4 @@ onMounted(async () => {
   z-index: 1001 !important
 .page-height
   height: 100vh
-</style> 
+</style>
