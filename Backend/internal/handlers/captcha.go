@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
-	"os"
+	"oop/internal/config"
+	"time"
 )
 
 // verifyResp models the JSON returned by Cloudflare
@@ -15,11 +16,22 @@ type verifyResp struct {
 
 // VerifyTurnstile sends `token` to Cloudflare and returns whether it passed
 func VerifyTurnstile(token string) (bool, error) {
+	// Load Turnstile configuration
+	turnstileConfig, err := config.LoadTurnstileConfig()
+	if err != nil {
+		return false, err
+	}
+
 	form := url.Values{}
-	form.Set("secret", os.Getenv("TURNSTSTILE_SECRET_KEY"))
+	form.Set("secret", turnstileConfig.SecretKey)
 	form.Set("response", token)
 
-	resp, err := http.PostForm(
+	// Create a client with a 10-second timeout
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.PostForm(
 		"https://challenges.cloudflare.com/turnstile/v0/siteverify",
 		form,
 	)
