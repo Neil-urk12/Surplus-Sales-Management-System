@@ -154,6 +154,7 @@ func main() {
 	// Initialize repositories
 	userRepo := repositories.NewUserRepository(dbClient)
 	materialRepo := repositories.NewMaterialRepository(dbClient.DB)
+	accessoryRepo := repositories.NewAccessoryRepository(dbClient.DB)
 
 	// Initialize cabs repository directly with DB
 	cabsRepo := repositories.NewCabsRepository(dbClient.DB)
@@ -163,6 +164,7 @@ func main() {
 	materialHandler := handlers.NewMaterialHandlers(materialRepo, jwtSecret)
 	// Initialize cabs handler
 	cabsHandler := handlers.NewCabsHandlers(cabsRepo)
+	accessoryHandler := handlers.NewAccessoriesHandler(accessoryRepo)
 
 	// --- Route Registration ---
 	api := app.Group("/api") // Base group for API routes
@@ -222,6 +224,13 @@ func main() {
 	api.Post("/cabs", cabsHandler.AddCab)          // POST /api/cabs
 	api.Put("/cabs/:id", cabsHandler.UpdateCab)    // PUT /api/cabs/:id
 	api.Delete("/cabs/:id", cabsHandler.DeleteCab) // DELETE /api/cabs/:id
+
+	// Register Accessories routes
+	api.Get("/accessories", accessoryHandler.GetAllAccessories)      // GET /api/accessories
+	api.Get("/accessories/:id", accessoryHandler.GetAccessoryByID)   // GET /api/accessories/:id
+	api.Post("/accessories", accessoryHandler.CreateAccessory)       // POST /api/accessories
+	api.Put("/accessories/:id", accessoryHandler.UpdateAccessory)    // PUT /api/accessories/:id
+	api.Delete("/accessories/:id", accessoryHandler.DeleteAccessory) // DELETE /api/accessories/:id
 
 	// Protected User Routes (require JWT)
 	authMiddleware := middleware.JWTMiddleware(jwtSecret)
