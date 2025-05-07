@@ -14,7 +14,7 @@ export const accessoriesApi = {
      */
     getAllAccessories: async (): Promise<AccessoryRow[]> => {
         const response = await axios.get<AccessoriesListResponse>(`${API_URL}/accessories`);
-        return response.data.data; // Assuming backend returns { data: AccessoryRow[], ... }
+        return response.data.data || [];
     },
 
     /**
@@ -33,10 +33,12 @@ export const accessoriesApi = {
      * @returns Promise with operation response
      */
     addAccessory: async (accessory: NewAccessoryInput): Promise<AccessoryOperationResponse> => {
+        console.log('Accessory being sent to API:', JSON.stringify(accessory)); // ADD THIS
         const response = await axios.post<AccessoryOperationResponse>(
             `${API_URL}/accessories`,
             accessory
         );
+        console.log('API response data for addAccessory:', JSON.stringify(response.data)); // ADD THIS
         return response.data;
     },
 
@@ -63,12 +65,22 @@ export const accessoriesApi = {
      * @returns Promise with operation response
      */
     deleteAccessory: async (id: number): Promise<AccessoryOperationResponse> => {
-        const response = await axios.delete<AccessoryOperationResponse>(
-            `${API_URL}/accessories/${id}`
-        );
-        if (response.status === 204) {
-            return { success: true };
+        try {
+            const response = await axios.delete<AccessoryOperationResponse>(
+                `${API_URL}/accessories/${id}`
+            );
+            if (response.status === 204) {
+                return { success: true };
+            }
+            return response.data;
+        } catch (error) {
+            // If we get a 404 after trying to delete, the item was already deleted
+            // Consider this a success case
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                console.log('Accessory already deleted (404 response)');
+                return { success: true };
+            }
+            throw error; // Re-throw other errors to be handled by the caller
         }
-        return response.data;
     }
 }; 

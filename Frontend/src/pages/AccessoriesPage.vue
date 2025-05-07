@@ -186,6 +186,7 @@ async function confirmDelete() {
     if (result.success) {
       operationNotifications.delete.success('accessory');
       accessoryToDelete.value = null;
+      showDeleteDialog.value = false;
     } else if (result.error) {
       showErrorNotification(`Failed to delete accessory: ${result.error}`);
     }
@@ -193,7 +194,7 @@ async function confirmDelete() {
     console.error('Error deleting accessory:', error);
     operationNotifications.delete.error('accessory');
   } finally {
-    showDeleteDialog.value = false;
+    if (showDeleteDialog.value) showDeleteDialog.value = false;
     isDeleteLoading.value = false;
   }
 }
@@ -213,7 +214,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="q-pa-md">
+  <div class="q-pa-md page-height">
     <div class="q-pa-sm full-width">
       <div class="flex row q-my-sm">
         <div class="flex full-width col">
@@ -541,4 +542,6 @@ onMounted(async () => {
 
 .action-menu
   z-index: 1001 !important
+.page-height
+  height: 100vh
 </style> 

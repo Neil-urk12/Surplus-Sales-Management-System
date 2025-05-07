@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"oop/internal/models"
 	"oop/internal/repositories"
@@ -124,7 +125,7 @@ func (h *AccessoriesHandler) CreateAccessory(c *fiber.Ctx) error {
 	}
 
 	// Create accessory
-	accessory, err := h.Repo.Create(c.Context(), input)
+	createdAccessoryID, err := h.Repo.Create(c.Context(), input)
 	if err != nil {
 		// Check for specific repository errors
 		if strings.Contains(err.Error(), "cannot be empty") {
@@ -135,10 +136,20 @@ func (h *AccessoriesHandler) CreateAccessory(c *fiber.Ctx) error {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create accessory"})
 	}
 
+	// Fetch the newly created accessory to get all its details
+	newlyCreatedAccessory, err := h.Repo.GetByID(c.Context(), createdAccessoryID)
+	if err != nil {
+		fmt.Printf("Error fetching newly created accessory %d: %v\n", createdAccessoryID, err) // Replace with proper logging
+		// For now, returning an error if fetching fails, as the client expects the full object.
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Accessory created but failed to retrieve details"})
+	}
+
+	log.Printf("Returning newly created accessory: %+v\n", newlyCreatedAccessory)
+
 	// Return success response
 	return c.Status(http.StatusCreated).JSON(fiber.Map{
 		"success": true,
-		"id":      accessory.ID,
+		"data":    newlyCreatedAccessory,
 		"message": "Accessory created successfully",
 	})
 }
@@ -164,7 +175,7 @@ func (h *AccessoriesHandler) UpdateAccessory(c *fiber.Ctx) error {
 	}
 
 	// Update accessory
-	accessory, err := h.Repo.Update(c.Context(), id, input)
+	updatedAccessory, err := h.Repo.Update(c.Context(), id, input)
 	if err != nil {
 		// Check if the error is 'not found'
 		if strings.Contains(strings.ToLower(err.Error()), "not found") {
@@ -175,10 +186,10 @@ func (h *AccessoriesHandler) UpdateAccessory(c *fiber.Ctx) error {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update accessory"})
 	}
 
-	// Return success response
+	// Return success response with the updated accessory data
 	return c.Status(http.StatusOK).JSON(fiber.Map{
 		"success": true,
-		"id":      accessory.ID,
+		"data":    updatedAccessory, // Return the full accessory object
 		"message": "Accessory updated successfully",
 	})
 }

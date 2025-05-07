@@ -44,9 +44,12 @@ const capitalizedItemType = computed(() => {
 });
 
 function confirm() {
-    emit('confirm-delete');
     if (props.onConfirmDelete) {
+        // If a callback is provided, use that
         props.onConfirmDelete();
+    } else {
+        // Otherwise use the event
+        emit('confirm-delete');
     }
     closeDialog();
 }

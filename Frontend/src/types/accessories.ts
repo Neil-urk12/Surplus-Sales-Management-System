@@ -61,6 +61,7 @@ export type UpdateAccessoryInput = Partial<NewAccessoryInput>;
 export interface AccessoryOperationResponse {
   success: boolean;
   id?: number;
+  data?: AccessoryRow;
   error?: string;
   message?: string;
   statusCode?: number;

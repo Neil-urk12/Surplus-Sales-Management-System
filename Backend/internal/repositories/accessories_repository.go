@@ -25,7 +25,7 @@ func determineStatus(quantity int) models.AccessoryStatus {
 type AccessoryRepository interface {
 	GetAll(ctx context.Context) ([]models.Accessory, error)
 	GetByID(ctx context.Context, id int) (models.Accessory, error)
-	Create(ctx context.Context, input models.NewAccessoryInput) (models.Accessory, error)
+	Create(ctx context.Context, input models.NewAccessoryInput) (int, error)
 	Update(ctx context.Context, id int, input models.UpdateAccessoryInput) (models.Accessory, error)
 	Delete(ctx context.Context, id int) error
 }
@@ -50,7 +50,13 @@ func (r *AccessoryRepositoryImpl) GetAll(ctx context.Context) ([]models.Accessor
 		ORDER BY id ASC
 	`
 
-	rows, err := r.DB.QueryContext(ctx, query)
+	stmt, err := r.DB.PrepareContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.QueryContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -96,13 +102,19 @@ func (r *AccessoryRepositoryImpl) GetByID(ctx context.Context, id int) (models.A
 	query := `
 		SELECT id, name, make, quantity, price, status, unit_color, image, created_at, updated_at
 		FROM accessories
-		WHERE id = $1
+		WHERE id = ?
 	`
+
+	stmt, err := r.DB.PrepareContext(ctx, query)
+	if err != nil {
+		return models.Accessory{}, err
+	}
+	defer stmt.Close()
 
 	var a models.Accessory
 	var makeStr, colorStr, statusStr string
 
-	err := r.DB.QueryRowContext(ctx, query, id).Scan(
+	err = stmt.QueryRowContext(ctx, id).Scan(
 		&a.ID,
 		&a.Name,
 		&makeStr,
@@ -129,42 +141,42 @@ func (r *AccessoryRepositoryImpl) GetByID(ctx context.Context, id int) (models.A
 	return a, nil
 }
 
-// Create inserts a new accessory into the database
-func (r *AccessoryRepositoryImpl) Create(ctx context.Context, input models.NewAccessoryInput) (models.Accessory, error) {
+// Create inserts a new accessory into the database and returns its ID.
+func (r *AccessoryRepositoryImpl) Create(ctx context.Context, input models.NewAccessoryInput) (int, error) {
 	status := determineStatus(input.Quantity)
 
 	query := `
 		INSERT INTO accessories (name, make, quantity, price, status, unit_color, image, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-		RETURNING id, created_at, updated_at
+		VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
 	`
 
-	var accessory models.Accessory
-	accessory.Name = input.Name
-	accessory.Make = input.Make
-	accessory.Quantity = input.Quantity
-	accessory.Price = input.Price
-	accessory.Status = status
-	accessory.UnitColor = input.UnitColor
-	accessory.Image = input.Image
+	stmt, err := r.DB.PrepareContext(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
 
-	err := r.DB.QueryRowContext(
+	res, err := stmt.ExecContext(
 		ctx,
-		query,
-		accessory.Name,
-		string(accessory.Make),
-		accessory.Quantity,
-		accessory.Price,
-		string(accessory.Status),
-		string(accessory.UnitColor),
-		accessory.Image,
-	).Scan(&accessory.ID, &accessory.CreatedAt, &accessory.UpdatedAt)
+		input.Name,
+		string(input.Make),
+		input.Quantity,
+		input.Price,
+		string(status),
+		string(input.UnitColor),
+		input.Image,
+	)
 
 	if err != nil {
-		return models.Accessory{}, err
+		return 0, err
 	}
 
-	return accessory, nil
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(id), nil
 }
 
 // Update modifies an existing accessory in the database
@@ -196,16 +208,20 @@ func (r *AccessoryRepositoryImpl) Update(ctx context.Context, id int, input mode
 		accessory.Image = *input.Image
 	}
 
-	query := `
+	updateQuery := `
 		UPDATE accessories
-		SET name = $1, make = $2, quantity = $3, price = $4, status = $5, unit_color = $6, image = $7, updated_at = NOW()
-		WHERE id = $8
-		RETURNING updated_at
+		SET name = ?, make = ?, quantity = ?, price = ?, status = ?, unit_color = ?, image = ?, updated_at = NOW()
+		WHERE id = ?
 	`
 
-	err = r.DB.QueryRowContext(
+	stmt, err := r.DB.PrepareContext(ctx, updateQuery)
+	if err != nil {
+		return models.Accessory{}, err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.ExecContext(
 		ctx,
-		query,
 		accessory.Name,
 		string(accessory.Make),
 		accessory.Quantity,
@@ -214,20 +230,37 @@ func (r *AccessoryRepositoryImpl) Update(ctx context.Context, id int, input mode
 		string(accessory.UnitColor),
 		accessory.Image,
 		id,
-	).Scan(&accessory.UpdatedAt)
+	)
 
 	if err != nil {
 		return models.Accessory{}, err
 	}
 
-	return accessory, nil
+	// Since RETURNING is not used, we might want to re-fetch the accessory to get the updated_at time set by NOW().
+	// Or, we can assume the client will handle this or that accessory.UpdatedAt will be set by application logic if needed after this call.
+	// For now, to keep it simple and avoid an extra DB call, we'll return the accessory object with its existing UpdatedAt value if it wasn't changed by NOW().
+	// To get the DB-generated updated_at, we'd need another GetByID call here.
+	// Let's call GetByID to ensure the returned accessory has the correct updated_at from the database.
+	updatedAccessory, err := r.GetByID(ctx, id)
+	if err != nil {
+		// If fetching the updated accessory fails, we might return the partially updated one or a specific error.
+		// For now, returning the error from GetByID.
+		return models.Accessory{}, err
+	}
+	return updatedAccessory, nil
 }
 
 // Delete removes an accessory from the database
 func (r *AccessoryRepositoryImpl) Delete(ctx context.Context, id int) error {
-	query := `DELETE FROM accessories WHERE id = $1`
+	query := `DELETE FROM accessories WHERE id = ?`
 
-	result, err := r.DB.ExecContext(ctx, query, id)
+	stmt, err := r.DB.PrepareContext(ctx, query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	result, err := stmt.ExecContext(ctx, id)
 	if err != nil {
 		return err
 	}

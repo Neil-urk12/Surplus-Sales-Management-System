@@ -83,49 +83,35 @@ export const useAccessoriesStore = defineStore('accessories', () => {
     })
   })
 
-  // Type guard functions
-  function isValidAccessoryMake(make: AccessoryMakeInput): make is AccessoryMake {
-    return make !== '';
-  }
-
-  function isValidAccessoryColor(color: AccessoryColorInput): color is AccessoryColor {
-    return color !== '';
-  }
-
   // Actions
   async function addAccessory(accessory: NewAccessoryInput): Promise<AccessoryOperationResponse> {
     try {
       isLoading.value = true
       apiError.value = null
 
-      // Validate required fields
+      // Validate required fields (client-side)
       if (!accessory.make || !accessory.unit_color) {
-        throw new Error('Make and color are required');
+        const errMessage = 'Make and color are required';
+        apiError.value = errMessage;
+        return {
+          success: false,
+          error: errMessage
+        };
       }
 
       // Call the API service to add the accessory
       const result = await accessoriesApi.addAccessory(accessory)
 
-      if (result.success && result.id) {
-        // Create a new accessory with validated types
-        const newAccessory: AccessoryRow = {
-          id: result.id,
-          name: accessory.name,
-          make: accessory.make as AccessoryMake,
-          quantity: accessory.quantity,
-          price: accessory.price,
-          status: accessory.quantity > 0 ? 'In Stock' : 'Out of Stock',
-          unit_color: accessory.unit_color as AccessoryColor,
-          image: accessory.image
-        };
-
-        // Add to local state
-        accessoryRows.value.push(newAccessory);
+      if (result.success && result.data) {
+        // Add the accessory returned by the API (includes ID, status, timestamps etc.)
+        accessoryRows.value.push(result.data);
+      } else if (result.error) {
+        apiError.value = result.error;
       }
 
       return result
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred while adding accessory'
       apiError.value = errorMessage
       return {
         success: false,
@@ -133,21 +119,6 @@ export const useAccessoriesStore = defineStore('accessories', () => {
       }
     } finally {
       isLoading.value = false
-    }
-  }
-
-  function updateAccessoryStatus(id: number, quantity: number) {
-    const accessory = accessoryRows.value.find(a => a.id === id)
-    if (accessory) {
-      if (quantity === 0) {
-        accessory.status = 'Out of Stock'
-      } else if (quantity <= 2) {
-        accessory.status = 'Low Stock'
-      } else if (quantity <= 5) {
-        accessory.status = 'In Stock'
-      } else {
-        accessory.status = 'Available'
-      }
     }
   }
 
@@ -173,11 +144,15 @@ export const useAccessoriesStore = defineStore('accessories', () => {
         if (index !== -1) {
           accessoryRows.value.splice(index, 1);
         }
+        return result;
+      } else if (result.error) {
+        apiError.value = result.error;
       }
 
       return result
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      console.error('Error in store.deleteAccessory:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred while deleting accessory'
       apiError.value = errorMessage
       return {
         success: false,
@@ -188,50 +163,27 @@ export const useAccessoriesStore = defineStore('accessories', () => {
     }
   }
 
-  async function updateAccessory(id: number, accessory: UpdateAccessoryInput): Promise<AccessoryOperationResponse> {
+  async function updateAccessory(id: number, accessoryUpdatePayload: UpdateAccessoryInput): Promise<AccessoryOperationResponse> {
     try {
       isLoading.value = true
       apiError.value = null
 
       // Call the API service to update the accessory
-      const result = await accessoriesApi.updateAccessory(id, accessory)
+      const result = await accessoriesApi.updateAccessory(id, accessoryUpdatePayload)
 
-      if (result.success) {
-        // Update local state
+      if (result.success && result.data) {
+        // Update local state with the accessory returned by the API
         const index = accessoryRows.value.findIndex(a => a.id === id);
         if (index !== -1) {
-          const existingAccessory = accessoryRows.value[index];
-
-          // Use type guards to validate make and color
-          const updatedMake = accessory.make && isValidAccessoryMake(accessory.make)
-            ? accessory.make
-            : existingAccessory.make;
-
-          const updatedColor = accessory.unit_color && isValidAccessoryColor(accessory.unit_color)
-            ? accessory.unit_color
-            : existingAccessory.unit_color;
-
-          // Update properties
-          accessoryRows.value[index] = {
-            ...existingAccessory,
-            name: accessory.name ?? existingAccessory.name,
-            make: updatedMake,
-            quantity: accessory.quantity ?? existingAccessory.quantity,
-            price: accessory.price ?? existingAccessory.price,
-            unit_color: updatedColor,
-            image: accessory.image ?? existingAccessory.image
-          };
-
-          // Update status based on quantity
-          if (typeof accessory.quantity === 'number') {
-            updateAccessoryStatus(id, accessory.quantity);
-          }
+          accessoryRows.value[index] = result.data;
         }
+      } else if (result.error) {
+        apiError.value = result.error;
       }
 
       return result
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred while updating accessory'
       apiError.value = errorMessage
       return {
         success: false,
@@ -261,7 +213,6 @@ export const useAccessoriesStore = defineStore('accessories', () => {
     // Actions
     initializeAccessories,
     addAccessory,
-    updateAccessoryStatus,
     resetFilters,
     deleteAccessory,
     updateAccessory
