@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, defineAsyncComponent } from 'vue';
 import type { QTableColumn, QTableProps } from 'quasar';
-import ProductCardModal from 'src/components/Global/ProductModal.vue'
 import { useQuasar } from 'quasar';
 import { useMaterialsStore } from 'src/stores/materials';
-import type { MaterialRow, NewMaterialInput } from 'src/stores/materials'; 
-import type { UpdateMaterialInput } from 'src/types/materials'; 
+import type { MaterialRow, NewMaterialInput } from 'src/stores/materials';
+import type { UpdateMaterialInput } from 'src/types/materials';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
+const ProductCardModal = defineAsyncComponent(() => import('src/components/Global/ProductModal.vue'));
 const DeleteDialog = defineAsyncComponent(() => import('src/components/Global/DeleteDialog.vue'));
 const AddMaterialDialog = defineAsyncComponent(() => import('../components/AddMaterialDialog.vue'))
 const EditMaterialDialog = defineAsyncComponent(() => import('../components/EditMaterialDialog.vue'))
 const FilterMaterialDialog = defineAsyncComponent(() => import('../components/FilterMaterialDialog.vue'))
+const AdvancedSearch = defineAsyncComponent(() => import('src/components/Global/AdvancedSearch.vue'));
 
 const $q = useQuasar();
 const store = useMaterialsStore();
@@ -158,11 +159,6 @@ async function addNewMaterial(materialInput: NewMaterialInput) {
     console.error('Error adding material:', error);
     operationNotifications.add.error('material');
   }
-}
-
-function applyFilters() {
-  showFilterDialog.value = false;
-  operationNotifications.filters.success();
 }
 
 // Add watch for quantity changes
@@ -394,11 +390,8 @@ onMounted(async () => {
         <div class="flex row q-my-sm">
           <div class="flex full-width col">
             <div class="flex col q-mr-sm">
-              <q-input v-model="store.rawMaterialSearch" outlined dense placeholder="Search" class="full-width">
-                <template v-slot:prepend>
-                  <q-icon name="search" />
-                </template>
-              </q-input>
+              <AdvancedSearch v-model="store.search.searchInput" placeholder="Search materials"
+                @clear="store.resetFilters" color="primary" />
             </div>
             <div class="flex col">
               <q-btn outline icon="filter_list" label="Filters" @click="showFilterDialog = true" />
@@ -420,19 +413,9 @@ onMounted(async () => {
         </div>
 
         <!--MATERIALS TABLE-->
-        <q-table
-          class="my-sticky-column-table"
-          flat
-          bordered
-          title="Materials"
-          :rows="store.filteredMaterialRows"
-          :columns="materialColumns"
-          row-key="id"
-          :filter="store.materialSearch"
-          @row-click="onMaterialRowClick"
-          :pagination="{ rowsPerPage: 5 }"
-          :loading="store.isLoading"
-        >
+        <q-table class="my-sticky-column-table" flat bordered title="Materials" :rows="store.filteredMaterialRows"
+          :columns="materialColumns" row-key="id" :filter="store.search.searchValue" @row-click="onMaterialRowClick"
+          :pagination="{ rowsPerPage: 5 }" :loading="store.isLoading">
           <template v-slot:loading>
             <q-inner-loading showing color="primary">
               <q-spinner-gears size="50px" color="primary" />
@@ -440,24 +423,12 @@ onMounted(async () => {
           </template>
           <template v-slot:body-cell-actions="props">
             <q-td :props="props" auto-width>
-              <q-btn
-                flat
-                round
-                dense
-                color="grey"
-                icon="more_vert"
-                class="action-button"
-                :aria-label="'Actions for ' + props.row.name"
-              >
+              <q-btn flat round dense color="grey" icon="more_vert" class="action-button"
+                :aria-label="'Actions for ' + props.row.name">
                 <q-menu class="action-menu" :aria-label="'Available actions for ' + props.row.name">
                   <q-list style="min-width: 100px">
-                    <q-item
-                      clickable
-                      v-close-popup
-                      @click.stop="editMaterial(props.row)"
-                      role="button"
-                      :aria-label="'Edit ' + props.row.name"
-                    >
+                    <q-item clickable v-close-popup @click.stop="editMaterial(props.row)" role="button"
+                      :aria-label="'Edit ' + props.row.name">
                       <q-item-section>
                         <q-item-label>
                           <q-icon name="edit" size="xs" class="q-mr-sm" aria-hidden="true" />
@@ -465,14 +436,8 @@ onMounted(async () => {
                         </q-item-label>
                       </q-item-section>
                     </q-item>
-                    <q-item
-                      clickable
-                      v-close-popup
-                      @click.stop="deleteMaterial(props.row)"
-                      role="button"
-                      :aria-label="'Delete ' + props.row.name"
-                      class="text-negative"
-                    >
+                    <q-item clickable v-close-popup @click.stop="deleteMaterial(props.row)" role="button"
+                      :aria-label="'Delete ' + props.row.name" class="text-negative">
                       <q-item-section>
                         <q-item-label class="text-negative">
                           <q-icon name="delete" size="xs" class="q-mr-sm" aria-hidden="true" />
@@ -488,16 +453,10 @@ onMounted(async () => {
         </q-table>
 
         <!-- Existing Material Modal -->
-        <ProductCardModal
-          v-model="showMaterial"
-          :image="selectedMaterial?.image || ''"
-          :title="selectedMaterial?.name || ''"
-          :price="0"
-          :quantity="selectedMaterial?.quantity || 0"
-          :details="`Supplier: ${selectedMaterial?.supplier}`"
-          :unit_color="selectedMaterial?.category || ''"
-          @addItem="addMaterialToCart"
-        />
+        <ProductCardModal v-model="showMaterial" :image="selectedMaterial?.image || ''"
+          :title="selectedMaterial?.name || ''" :price="0" :quantity="selectedMaterial?.quantity || 0"
+          :details="`Supplier: ${selectedMaterial?.supplier}`" :unit_color="selectedMaterial?.category || ''"
+          @addItem="addMaterialToCart" />
 
         <!-- Add Material Dialog -->
         <AddMaterialDialog 
@@ -511,37 +470,11 @@ onMounted(async () => {
         />
 
         <!-- Filter Dialog -->
-        <FilterMaterialDialog v-model="showFilterDialog">
-          <!-- Default slot for filter options -->
-          <q-select
-            v-model="store.filterCategory"
-            label="Filter by Category"
-            :options="['All', ...categories]"
-            dense
-            outlined
-            class="q-mb-sm"
-          />
-          <q-select
-            v-model="store.filterSupplier"
-            label="Filter by Supplier"
-            :options="['All', ...suppliers]"
-            dense
-            outlined
-            class="q-mb-sm"
-          />
-          <q-select
-            v-model="store.filterStatus"
-            label="Filter by Status"
-            :options="['All', ...statuses]"
-            dense
-            outlined
-          />
-          <!-- Named slot for actions -->
-          <template #actions>
-            <q-btn flat label="Clear Filters" @click="store.resetFilters" />
-            <q-btn flat label="Apply Filters" @click="applyFilters" />
-          </template>
-        </FilterMaterialDialog>
+        <FilterMaterialDialog v-model="showFilterDialog" :categories="categories" :suppliers="suppliers"
+          :statuses="statuses" :initial-filter-category="store.filterCategory === '' ? null : store.filterCategory"
+          :initial-filter-supplier="store.filterSupplier === '' ? null : store.filterSupplier"
+          :initial-filter-status="store.filterStatus === '' ? null : store.filterStatus"
+          @apply-filters="handleApplyFilters" @reset-filters="store.resetFilters" />
 
         <!-- Edit Material Dialog -->
         <EditMaterialDialog 
@@ -555,12 +488,8 @@ onMounted(async () => {
           :defaultImageUrl="defaultImageUrl"
         />
 
-        <DeleteDialog
-          v-model="showDeleteDialog"
-          itemType="material"
-          :itemName="materialToDelete?.name || ''"
-          @confirm-delete="confirmDelete"
-        />
+        <DeleteDialog v-model="showDeleteDialog" itemType="material" :itemName="materialToDelete?.name || ''"
+          @confirm-delete="confirmDelete" />
       </div>
     </div>
   </q-page>
