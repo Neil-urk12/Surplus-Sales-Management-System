@@ -13,6 +13,7 @@ import type {
 } from 'src/types/accessories'
 import { accessoriesApi } from 'src/services/accessoriesApi'
 import axios from 'axios'
+import { useSearch } from 'src/utils/useSearch'
 
 export type { AccessoryRow } from 'src/types/accessories'
 
@@ -45,7 +46,12 @@ export const useAccessoriesStore = defineStore('accessories', () => {
     }
   }
 
-  // Search with debounce
+  const search = useSearch({
+    onSearch: (value) => {
+      accessorySearch.value = value;
+    }
+  });
+
   const rawAccessorySearch = ref('')
   const accessorySearch = ref('')
   let debounceTimeout: ReturnType<typeof setTimeout> | null = null
@@ -135,6 +141,9 @@ export const useAccessoriesStore = defineStore('accessories', () => {
     filterStatus.value = ''
     rawAccessorySearch.value = ''
     accessorySearch.value = ''
+    if (search && typeof search.clearSearch === 'function') {
+      search.clearSearch();
+    }
   }
 
   async function deleteAccessory(id: number): Promise<AccessoryOperationResponse> {
@@ -208,6 +217,7 @@ export const useAccessoriesStore = defineStore('accessories', () => {
     apiError,
     rawAccessorySearch,
     accessorySearch,
+    search,
     filterMake,
     filterColor,
     filterStatus,
@@ -222,6 +232,7 @@ export const useAccessoriesStore = defineStore('accessories', () => {
     addAccessory,
     resetFilters,
     deleteAccessory,
-    updateAccessory
+    updateAccessory,
+    updateAccessorySearch
   }
 }) 

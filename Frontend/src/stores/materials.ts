@@ -14,6 +14,7 @@ import type {
 import { api } from 'boot/axios'
 import { useAuthStore } from 'src/stores/auth'
 import { AxiosError } from 'axios';
+import { useSearch } from 'src/utils/useSearch';
 
 export type { MaterialRow, NewMaterialInput } from 'src/types/materials'
 
@@ -65,6 +66,15 @@ export const useMaterialsStore = defineStore('materials', () => {
   }
 
   /**
+   * Setup search with the composable
+   */
+  const search = useSearch({
+    onSearch: (value) => {
+      materialSearch.value = value;
+    }
+  });
+
+  /**
    * Reactive state for the raw material search input value.
    * @type {string}
    */
@@ -75,32 +85,21 @@ export const useMaterialsStore = defineStore('materials', () => {
    * @type {string}
    */
   const materialSearch = ref('')
-  /**
-   * Timeout ID for the debounce function.
-   * @type {ReturnType<typeof setTimeout> | null}
-   */
-  let debounceTimeout: ReturnType<typeof setTimeout> | null = null
 
   /**
-   * Updates the debounced material search value after a delay.
-   * Clears any existing debounce timeout before setting a new one.
+   * Updates the search value and triggers the search.
    * @param {string} value - The new search value.
    */
-  function updateMaterialSearch(value: string) {
-    if (debounceTimeout) {
-      clearTimeout(debounceTimeout)
-    }
-
-    debounceTimeout = setTimeout(() => {
-      materialSearch.value = value
-    }, 300)
+  function updateSearch(value: string) {
+    rawMaterialSearch.value = value;
+    materialSearch.value = value;
   }
 
   /**
-   * Watches for changes in rawMaterialSearch and updates materialSearch using debounce.
+   * Watches for changes in rawMaterialSearch and updates materialSearch.
    */
   watch(rawMaterialSearch, (newValue) => {
-    updateMaterialSearch(newValue)
+    materialSearch.value = newValue;
   })
 
   /**
@@ -168,7 +167,7 @@ export const useMaterialsStore = defineStore('materials', () => {
       return { success: false, error: 'Authentication required.' }
     }
     if (!material.name || !material.category || !material.supplier || material.quantity == null || !material.status) {
-        return { success: false, error: 'Missing required material fields.' };
+      return { success: false, error: 'Missing required material fields.' };
     }
 
     try {
@@ -342,6 +341,7 @@ export const useMaterialsStore = defineStore('materials', () => {
     isLoading,
     rawMaterialSearch,
     materialSearch,
+    search,
     filterCategory,
     filterSupplier,
     filterStatus,
@@ -354,6 +354,7 @@ export const useMaterialsStore = defineStore('materials', () => {
     updateMaterialStatus,
     resetFilters,
     deleteMaterial,
-    updateMaterial
+    updateMaterial,
+    updateSearch
   }
 })

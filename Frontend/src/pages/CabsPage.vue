@@ -7,6 +7,7 @@ const EditCabDialog = defineAsyncComponent(() => import('src/components/Cabs/Edi
 const FilterDialog = defineAsyncComponent(() => import('src/components/Cabs/FilterDialog.vue'));
 const DeleteDialog = defineAsyncComponent(() => import('src/components/Cabs/DeleteDialog.vue'));
 const SellCabDialog = defineAsyncComponent(() => import('src/components/Cabs/SellCabDialog.vue'));
+const AdvancedSearch = defineAsyncComponent(() => import('src/components/Global/AdvancedSearch.vue'));
 import { useQuasar } from 'quasar';
 import { useCabsStore } from 'src/stores/cabs';
 import { useAccessoriesStore } from 'src/stores/accessories';
@@ -16,6 +17,7 @@ import { getDefaultImage } from 'src/config/defaultImages';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
 import { exportToCsv } from '../utils/exportUtils';
+import { AppError, errorHandler } from '../utils/errorHandling';
 
 const $q = useQuasar();
 const store = useCabsStore();
@@ -42,7 +44,7 @@ function getValidatedImage(image: string | null | undefined): string {
     if (validationResult.isValid && validationResult.sanitizedData) {
       return validationResult.sanitizedData;
     }
-    
+
     console.warn('Invalid Base64 image detected, using default.');
     return defaultImageUrl;
   }
@@ -85,7 +87,7 @@ const onRowClick: QTableProps['onRowClick'] = (evt, row) => {
     return;
   }
   selected.value = { ...row as CabsRow };
-  
+
   selected.value.image = getValidatedImage(selected.value.image);
   showProductCardModal.value = true;
 }
@@ -107,10 +109,15 @@ async function handleAddCab(cabData: NewCabInput) {
     if (result.success) {
       showAddDialog.value = false;
       operationNotifications.add.success(`cab: ${cabData.name}`);
+    } else {
+      throw new AppError(
+        `Failed to add cab: ${cabData.name}`,
+        'database',
+        'Failed to add cab to system'
+      );
     }
   } catch (error) {
-    console.error('Error adding cab via handler:', error);
-    operationNotifications.add.error('cab');
+    errorHandler.handleOperation(error, 'add', 'cab');
   }
 }
 
@@ -123,7 +130,11 @@ function handleApplyFilters(filters: { make: string | null; color: string | null
 }
 
 async function handleResetFilters() {
-  await store.resetFilters();
+  try {
+    await store.resetFilters();
+  } catch (error) {
+    errorHandler.handle(error, 'resetting filters');
+  }
 }
 
 function editCab(cab: CabsRow) {
@@ -134,17 +145,27 @@ function editCab(cab: CabsRow) {
 async function handleUpdateCab(updatedData: NewCabInput) {
   try {
     if (!cabToEdit.value || !cabToEdit.value.id) {
-      throw new Error('No cab selected for update or missing ID');
+      throw new AppError(
+        'No cab selected for update or missing ID',
+        'validation',
+        'No cab selected for update'
+      );
     }
+
     const result = await store.updateCab(cabToEdit.value.id, updatedData);
     if (result.success) {
       showEditDialog.value = false;
       operationNotifications.update.success(`cab: ${updatedData.name}`);
       cabToEdit.value = null;
+    } else {
+      throw new AppError(
+        `Failed to update cab: ${updatedData.name}`,
+        'database',
+        'Failed to update cab in system'
+      );
     }
   } catch (error) {
-    console.error('Error updating cab via handler:', error);
-    operationNotifications.update.error('cab');
+    errorHandler.handleOperation(error, 'update', 'cab');
   }
 }
 
@@ -155,17 +176,27 @@ function deleteCab(cab: CabsRow) {
 
 async function handleConfirmDelete() {
   try {
-    if (!cabToDelete.value) return;
+    if (!cabToDelete.value) {
+      throw new AppError(
+        'No cab selected for deletion',
+        'validation',
+        'No cab selected for deletion'
+      );
+    }
+
     const result = await store.deleteCab(cabToDelete.value.id);
     if (result.success) {
       operationNotifications.delete.success('cab');
     } else {
-      operationNotifications.delete.error('cab');
+      throw new AppError(
+        `Failed to delete cab: ${cabToDelete.value.name}`,
+        'database',
+        'Failed to delete cab from system'
+      );
     }
-    cabToDelete.value = null;
   } catch (error) {
-    console.error('Error deleting cab:', error);
-    operationNotifications.delete.error('cab');
+    errorHandler.handleOperation(error, 'delete', 'cab');
+  } finally {
     cabToDelete.value = null;
   }
 }
@@ -177,12 +208,11 @@ function sellCab(cab: CabsRow) {
 
 function calculateNewCabState(currentQuantity: number, soldQuantity: number): { newQuantity: number; newStatus: CabStatus } {
   const newQuantity = currentQuantity - soldQuantity;
-  let newStatus: CabStatus = 'Available'; 
+  let newStatus: CabStatus = 'Available';
 
   if (newQuantity === 0) newStatus = 'Out of Stock';
   else if (newQuantity <= 2) newStatus = 'Low Stock';
   else if (newQuantity <= 5) newStatus = 'In Stock';
-  
 
   return { newQuantity, newStatus };
 }
@@ -196,18 +226,70 @@ async function updateAccessoryStock(accessories: Array<{ id: number; quantity: n
         quantity: accessory.quantity - acc.quantity
       });
     } else if (accessory) {
-      console.warn(`Not enough stock or accessory not found for ID: ${acc.id}. Skipping update.`);
-      
-      $q.notify({ type: 'warning', message: `Insufficient stock for accessory ID ${acc.id}.` });
-      throw new Error(`Insufficient stock for accessory ID ${acc.id}`); 
+      const errorMessage = `Insufficient stock for accessory ID ${acc.id}`;
+      throw new AppError(errorMessage, 'inventory', errorMessage, 'warning');
     } else {
-      console.error(`Accessory with ID ${acc.id} not found during stock update.`);
-      throw new Error(`Accessory with ID ${acc.id} not found.`); 
+      const errorMessage = `Accessory with ID ${acc.id} not found`;
+      throw new AppError(errorMessage, 'inventory', errorMessage);
     }
   });
 
-  
   await Promise.all(updatePromises);
+}
+
+async function processCabSale(
+  cab: CabsRow,
+  customerId: string,
+  soldQuantity: number,
+  accessories: Array<{ id: number; name: string; price: number; quantity: number; unitPrice: number }>
+): Promise<void> {
+  if (soldQuantity <= 0 || soldQuantity > cab.quantity) {
+    throw new AppError(
+      `Invalid quantity: ${soldQuantity} for cab with available quantity: ${cab.quantity}`,
+      'validation',
+      'Invalid quantity or not enough stock',
+      'warning'
+    );
+  }
+
+  const { newQuantity, newStatus } = calculateNewCabState(cab.quantity, soldQuantity);
+  const updatedCabData: NewCabInput = {
+    name: cab.name,
+    make: cab.make,
+    quantity: newQuantity,
+    price: cab.price,
+    unit_color: cab.unit_color,
+    status: newStatus,
+    image: cab.image
+  };
+
+  const purchaseResult = await customerStore.recordCabPurchase(customerId, {
+    cabId: cab.id,
+    cabName: cab.name,
+    quantity: soldQuantity,
+    unitPrice: cab.price,
+    accessories: accessories
+  });
+
+  if (!purchaseResult.success) {
+    throw new AppError(
+      'Failed to record purchase in customer records',
+      'purchase',
+      'Failed to record purchase. Please try again.'
+    );
+  }
+
+  await updateAccessoryStock(accessories);
+
+  const result = await store.updateCab(cab.id, updatedCabData);
+  if (!result.success) {
+    throw new AppError(
+      'Failed to update cab inventory after purchase recorded',
+      'inventory',
+      'Failed to update cab inventory. The purchase was recorded but inventory not updated.',
+      'critical'
+    );
+  }
 }
 
 async function handleConfirmSell(payload: {
@@ -216,86 +298,37 @@ async function handleConfirmSell(payload: {
   accessories: Array<{ id: number; name: string; price: number; quantity: number; unitPrice: number }>
 }) {
   if (!cabToSell.value) {
-    console.error('Cab to sell is not defined');
+    const errorMessage = 'No cab selected for sale';
+    $q.notify({ type: 'negative', message: errorMessage });
     operationNotifications.update.error('cab sale processing - internal error');
     return;
   }
 
-  const cabBeingSold = cabToSell.value;
-  const soldQuantity = payload.quantity;
-  const cabName = cabBeingSold.name;
-
-  if (soldQuantity <= 0 || soldQuantity > cabBeingSold.quantity) {
-    operationNotifications.validation.error('Invalid quantity or not enough stock');
-    return;
-  }
-
   try {
-    
-    const { newQuantity, newStatus } = calculateNewCabState(cabBeingSold.quantity, soldQuantity);
-    const updatedCabData: NewCabInput = {
-      name: cabBeingSold.name,
-      make: cabBeingSold.make,
-      quantity: newQuantity,
-      price: cabBeingSold.price,
-      unit_color: cabBeingSold.unit_color,
-      status: newStatus,
-      image: cabBeingSold.image 
-    };
+    await processCabSale(
+      cabToSell.value,
+      payload.customerId,
+      payload.quantity,
+      payload.accessories
+    );
 
-    
-    const purchaseResult = await customerStore.recordCabPurchase(payload.customerId, {
-      cabId: cabBeingSold.id,
-      cabName: cabBeingSold.name,
-      quantity: soldQuantity,
-      unitPrice: cabBeingSold.price,
-      accessories: payload.accessories
-    });
-
-    if (!purchaseResult.success) {
-      
-      operationNotifications.update.error('Failed purchase record');
-      return; 
-    }
-
-    
-    
-    
-    
-    await updateAccessoryStock(payload.accessories);
-
-    
-    
-    const result = await store.updateCab(cabBeingSold.id, updatedCabData);
-    if (!result.success) {
-      
-      
-      console.error('Failed to update cab inventory after purchase recorded.');
-      operationNotifications.update.error('Failed to update cab inventory');
-      
-      
-      return;
-    }
-
-    
     showSellDialog.value = false;
-    operationNotifications.update.success(`Sold ${soldQuantity} ${cabName}`);
-    cabToSell.value = null;
+    operationNotifications.update.success(`Sold ${payload.quantity} ${cabToSell.value.name}`);
+  } catch (error) {
+    const { type } = errorHandler.handleOperation(error, 'update', 'cab sale');
 
-  } catch (error: unknown) {
-    console.error('Error processing sell confirmation:', error);
-    
-    let message = 'cab sale processing';
-    if (error instanceof Error) {
-      message = error.message;
+    if (type === 'inventory') {
+      await errorHandler.recoverFromInventoryError([
+        () => store.initializeCabs(),
+        () => accessoriesStore.initializeAccessories()
+      ]);
     }
-    operationNotifications.update.error(message);
-    
+  } finally {
+    cabToSell.value = null;
   }
 }
 
 function handleDownloadCsv() {
-  
   const csvColumns = [
     { header: 'ID', field: 'id' as const },
     { header: 'Name', field: 'name' as const },
@@ -305,9 +338,20 @@ function handleDownloadCsv() {
     { header: 'Status', field: 'status' as const },
     { header: 'Color', field: 'unit_color' as const }
   ];
-  
-  
+
   exportToCsv(store.filteredCabRows, 'cabs-inventory', csvColumns);
+}
+
+function filterCabs(rows: CabsRow[], terms: string) {
+  return rows.filter(row => {
+    const searchTerms = terms.toLowerCase();
+    return (
+      row.name.toLowerCase().includes(searchTerms) ||
+      row.make.toLowerCase().includes(searchTerms) ||
+      row.status.toLowerCase().includes(searchTerms) ||
+      row.unit_color.toLowerCase().includes(searchTerms)
+    );
+  });
 }
 
 onMounted(async () => {
@@ -318,7 +362,7 @@ onMounted(async () => {
       customerStore.fetchCustomers()
     ]);
   } catch (error) {
-    console.error('Error initializing data:', error);
+    errorHandler.handle(error, 'initializing application data');
   }
 });
 
@@ -330,11 +374,8 @@ onMounted(async () => {
       <div class="flex row q-my-sm">
         <div class="flex full-width col">
           <div class="flex col q-mr-sm">
-            <q-input v-model="store.rawCabSearch" outlined dense placeholder="Search" class="full-width">
-              <template v-slot:prepend>
-                <q-icon name="search" />
-              </template>
-            </q-input>
+            <AdvancedSearch v-model="store.search.searchInput" placeholder="Search cabs" @clear="store.resetFilters"
+              color="primary" />
           </div>
           <div class="flex col">
             <q-btn outline icon="filter_list" label="Filters" @click="showFilterDialog = true" />
@@ -355,18 +396,18 @@ onMounted(async () => {
         </div>
       </div>
 
-      
+
       <template v-if="store.isLoading">
         <q-inner-loading showing color="primary">
           <q-spinner-gears size="50px" color="primary" />
         </q-inner-loading>
       </template>
 
-      
+
       <template v-else>
         <q-table class="my-sticky-column-table" flat bordered title="Cabs" :rows="store.filteredCabRows || []"
-          :columns="columns" row-key="id" :filter="store.cabSearch" @row-click="onRowClick"
-          :pagination="{ rowsPerPage: 5 }" >
+          :columns="columns" row-key="id" :filter="store.search.searchValue" @row-click="onRowClick"
+          :filter-method="filterCabs" :pagination="{ rowsPerPage: 5 }">
           <template v-slot:body-cell-actions="props">
             <q-td :props="props" auto-width :key="props.row.id">
               <q-btn flat round dense color="grey" icon="more_vert" class="action-button"
@@ -416,20 +457,22 @@ onMounted(async () => {
         @add-cab="handleAddCab" />
 
       <FilterDialog v-model="showFilterDialog" :makes="makes" :colors="colors" :statuses="statuses"
-        :initial-filter-make="store.filterMake === '' ? null : store.filterMake" :initial-filter-color="store.filterColor === '' ? null : store.filterColor"
-        :initial-filter-status="store.filterStatus === '' ? null : store.filterStatus" @apply-filters="handleApplyFilters"
-        @reset-filters="handleResetFilters" />
+        :initial-filter-make="store.filterMake === '' ? null : store.filterMake"
+        :initial-filter-color="store.filterColor === '' ? null : store.filterColor"
+        :initial-filter-status="store.filterStatus === '' ? null : store.filterStatus"
+        @apply-filters="handleApplyFilters" @reset-filters="handleResetFilters" />
 
-      
+
       <EditCabDialog v-if="cabToEdit" v-model="showEditDialog" :cab-data="cabToEdit" :makes="makes" :colors="colors"
         :default-image-url="defaultImageUrl" @update-cab="handleUpdateCab" />
 
       <DeleteDialog v-model="showDeleteDialog" item-type="cab" :item-name="cabToDelete?.name || 'this cab'"
         @confirm-delete="handleConfirmDelete" />
 
-      
-      <SellCabDialog v-if="cabToSell" v-model="showSellDialog" :cab-to-sell="cabToSell" :accessories="accessoriesStore.accessoryRows"
-        :customer-store="customerStore" @confirm-sell="handleConfirmSell" />
+
+      <SellCabDialog v-if="cabToSell" v-model="showSellDialog" :cab-to-sell="cabToSell"
+        :accessories="accessoriesStore.accessoryRows" :customer-store="customerStore"
+        @confirm-sell="handleConfirmSell" />
     </div>
   </q-page>
 </template>

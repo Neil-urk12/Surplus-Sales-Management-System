@@ -12,6 +12,7 @@ import type {
   CabColorInput
 } from 'src/types/cabs'
 import { cabsService } from 'src/services/cabsService'
+import { useSearch } from 'src/utils/useSearch'
 
 export type { CabsRow } from 'src/types/cabs'
 
@@ -19,48 +20,6 @@ export const useCabsStore = defineStore('cabs', () => {
   // State
   const cabRows = ref<CabsRow[]>([])
   const isLoading = ref(false)
-
-  // Initialize data
-  async function initializeCabs() {
-    try {
-      isLoading.value = true
-      const filters: Record<string, string> = {}
-
-      if (filterMake.value) filters.make = filterMake.value
-      if (filterColor.value) filters.unit_color = filterColor.value
-      if (filterStatus.value) filters.status = filterStatus.value
-      if (cabSearch.value) filters.search = cabSearch.value
-
-      const cabs = await cabsService.getCabs(filters)
-      cabRows.value = cabs
-    } catch (error) {
-      console.error('Error initializing cabs:', error)
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  // Search with debounce
-  const rawCabSearch = ref('')
-  const cabSearch = ref('')
-  let debounceTimeout: ReturnType<typeof setTimeout> | null = null
-
-  // Debounce function to update cabSearch after typing stops
-  function updateCabSearch(value: string) {
-    if (debounceTimeout) {
-      clearTimeout(debounceTimeout)
-    }
-
-    debounceTimeout = setTimeout(() => {
-      cabSearch.value = value
-      void initializeCabs()
-    }, 300)
-  }
-
-  // Watch for changes in rawCabSearch
-  watch(rawCabSearch, (newValue) => {
-    updateCabSearch(newValue)
-  })
 
   // Use input types that allow empty strings for filters
   const filterMake = ref<CabMakeInput>('')
@@ -71,6 +30,45 @@ export const useCabsStore = defineStore('cabs', () => {
   const makes: CabMake[] = ['Mazda', 'Porsche', 'Toyota', 'Nissan', 'Ford']
   const colors: CabColor[] = ['Black', 'White', 'Silver', 'Red', 'Blue']
   const statuses: CabStatus[] = ['In Stock', 'Low Stock', 'Out of Stock', 'Available']
+
+  // Setup search with the composable
+  const search = useSearch({
+    debounceTime: 300,
+    onSearch: () => {
+      // Only trigger API reload if we're doing server-side filtering
+      // If using client-side filtering exclusively, you could comment this out
+      void initializeCabs()
+    }
+  })
+
+  // Initialize data
+  async function initializeCabs() {
+    try {
+      isLoading.value = true
+      const filters: Record<string, string> = {}
+
+      if (filterMake.value) filters.make = filterMake.value
+      if (filterColor.value) filters.unit_color = filterColor.value
+      if (filterStatus.value) filters.status = filterStatus.value
+
+      // Only include search if it has a non-empty value
+      if (search.searchValue.value.trim()) {
+        filters.search = search.searchValue.value.trim()
+      }
+
+      const cabs = await cabsService.getCabs(filters)
+      cabRows.value = cabs
+      return { success: true }
+    } catch (error) {
+      console.error('Error initializing cabs:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      }
+    } finally {
+      isLoading.value = false
+    }
+  }
 
   // Computed
   const filteredCabRows = computed(() => {
@@ -121,8 +119,7 @@ export const useCabsStore = defineStore('cabs', () => {
     filterMake.value = ''
     filterColor.value = ''
     filterStatus.value = ''
-    rawCabSearch.value = ''
-    cabSearch.value = ''
+    search.clearSearch()
     // Reload data without filters
     await initializeCabs()
   }
@@ -199,8 +196,7 @@ export const useCabsStore = defineStore('cabs', () => {
     // State
     cabRows,
     isLoading,
-    rawCabSearch,
-    cabSearch,
+    search,
     filterMake,
     filterColor,
     filterStatus,
