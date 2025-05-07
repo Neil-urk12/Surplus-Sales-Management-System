@@ -3,6 +3,8 @@ import { ref, watch } from 'vue';
 import type { PropType } from 'vue';
 import type { MaterialStatus, MaterialCategory, MaterialSupplier } from 'src/types/materials';
 
+const ALL_OPTION = 'All';
+
 const props = defineProps({
   modelValue: {
     type: Boolean,
@@ -57,10 +59,11 @@ watch(() => [props.initialFilterCategory, props.initialFilterSupplier, props.ini
 });
 
 function apply() {
+  // Convert 'All' selections to null before emitting
   emit('apply-filters', {
-    category: localFilterCategory.value,
-    supplier: localFilterSupplier.value,
-    status: localFilterStatus.value,
+    category: localFilterCategory.value === ALL_OPTION ? null : localFilterCategory.value,
+    supplier: localFilterSupplier.value === ALL_OPTION ? null : localFilterSupplier.value,
+    status: localFilterStatus.value === ALL_OPTION ? null : localFilterStatus.value,
   });
   closeDialog();
 }
@@ -78,7 +81,7 @@ function closeDialog() {
 </script>
 
 <template>
-  <q-dialog :model-value="modelValue" @update:model-value="closeDialog">
+  <q-dialog :model-value="modelValue" @update:model-value="closeDialog" esc-key>
     <q-card style="min-width: 350px">
       <q-card-section class="row items-center">
         <div class="text-h6">Filter Materials</div>
@@ -87,14 +90,14 @@ function closeDialog() {
       </q-card-section>
 
       <q-card-section class="q-pt-none">
-        <q-select v-model="localFilterCategory" :options="['All', ...categories]" label="Category" clearable outlined
-          dense class="q-mb-md" />
+        <q-select v-model="localFilterCategory" :options="[ALL_OPTION, ...categories]" label="Category" clearable
+          outlined dense class="q-mb-md" />
 
-        <q-select v-model="localFilterSupplier" :options="['All', ...suppliers]" label="Supplier" clearable outlined
-          dense class="q-mb-md" />
+        <q-select v-model="localFilterSupplier" :options="[ALL_OPTION, ...suppliers]" label="Supplier" clearable
+          outlined dense class="q-mb-md" />
 
-        <q-select v-model="localFilterStatus" :options="['All', ...statuses]" label="Status" clearable outlined dense
-          class="q-mb-md" />
+        <q-select v-model="localFilterStatus" :options="[ALL_OPTION, ...statuses]" label="Status" clearable outlined
+          dense class="q-mb-md" />
       </q-card-section>
 
       <q-card-actions align="right" class="text-primary q-pa-md">
