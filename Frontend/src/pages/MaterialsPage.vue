@@ -817,7 +817,7 @@ function handleApplyFilters(filters: { category: string | null; supplier: string
         <!--MATERIALS TABLE-->
         <q-table class="my-sticky-column-table custom-table-text" flat bordered :rows="store.filteredMaterialRows" 
           :columns="materialColumns" row-key="id" :filter="store.search.searchValue" @row-click="onMaterialRowClick"
-          :pagination="{ rowsPerPage: 5 }" :loading="store.isLoading">
+          :pagination="{ rowsPerPage: 10 }" :rows-per-page-options="[10]" :loading="store.isLoading">
           <template v-slot:loading>
             <q-inner-loading showing color="primary">
               <q-spinner-gears size="50px" color="primary" />

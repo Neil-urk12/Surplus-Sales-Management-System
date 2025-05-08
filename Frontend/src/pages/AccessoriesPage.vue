@@ -372,7 +372,7 @@ onMounted(async () => {
       <!--ACCESSORIES TABLE - Only show when not loading and no errors -->
       <q-table v-if="!pageLoading && !hasApiError" class="my-sticky-column-table custom-table-text" flat bordered 
         :rows="store.filteredAccessoryRows" :columns="columns" row-key="id" :filter="store.search.searchValue"
-        @row-click="onRowClick" :pagination="{ rowsPerPage: 5 }" :loading="store.isLoading">
+        @row-click="onRowClick" :pagination="{ rowsPerPage: 10 }" :rows-per-page-options="[10]" :loading="store.isLoading">
         <template v-slot:loading>
           <q-inner-loading showing color="primary">
             <q-spinner-gears size="50px" color="primary" />

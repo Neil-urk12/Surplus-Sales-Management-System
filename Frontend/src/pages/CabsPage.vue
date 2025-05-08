@@ -445,7 +445,7 @@ onMounted(async () => {
       <template v-else>
         <q-table class="my-sticky-column-table custom-table-text" flat bordered :rows="store.filteredCabRows || []"
           :columns="columns" row-key="id" :filter="store.search.searchValue" @row-click="onRowClick"
-          :filter-method="filterCabs" :pagination="{ rowsPerPage: 5 }">
+          :filter-method="filterCabs" :pagination="{ rowsPerPage: 10 }" :rows-per-page-options="[10]">
           <template v-slot:body-cell-actions="props">
             <q-td :props="props" auto-width :key="props.row.id">
               <q-btn flat round dense color="grey" icon="more_vert" class="action-button"
