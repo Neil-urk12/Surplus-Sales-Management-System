@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, defineAsyncComponent, computed } from 'vue';
 import type { QTableColumn, QTableProps } from 'quasar';
+import { useQuasar } from 'quasar';
 const ProductCardModal = defineAsyncComponent(() => import('src/components/Global/ProductModal.vue'));
 const DeleteDialog = defineAsyncComponent(() => import('src/components/Global/DeleteDialog.vue'));
 const AddAccessoryDialog = defineAsyncComponent(() => import('src/components/accessories/AddAccessoryDialog.vue'));
@@ -14,6 +15,7 @@ import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
 
 const store = useAccessoriesStore();
+const $q = useQuasar();
 const showFilterDialog = ref(false);
 const showAddDialog = ref(false);
 const showEditDialog = ref(false);
@@ -250,27 +252,66 @@ onMounted(async () => {
 <template>
   <div class="q-pa-md page-height">
     <div class="q-pa-sm full-width">
-      <div class="flex row q-my-sm">
-        <div class="flex full-width col">
-          <div class="flex col q-mr-sm">
-            <AdvancedSearch v-model="store.search.searchInput" placeholder="Search accessories"
-              @clear="store.resetFilters" color="primary" :disable="pageLoading" />
-          </div>
-          <div class="flex col">
-            <q-btn outline icon="filter_list" label="Filters" @click="showFilterDialog = true" :disable="pageLoading" />
+
+      <div class="q-mb-md">
+        <div class="flex row items-center justify-between">
+          <div class="col">
+            <div class="text-h5">Accessories</div>
           </div>
         </div>
-
-        <div class="flex row q-gutter-x-sm">
-          <q-btn class="text-white bg-primary" unelevated @click="openAddDialog" :disable="pageLoading">
-            <q-icon name="add" color="white" />
-            Add
-          </q-btn>
-          <div class="flex row">
-            <q-btn dense flat class="bg-primary text-white q-pa-sm" :disable="pageLoading">
-              <q-icon name="download" color="white" />
-              Download CSV
-            </q-btn>
+        <div>
+          <div class="text-caption text-grey q-mt-sm">Manage your inventory items, track stock levels, and monitor product details.</div>
+          <!-- Main Controls Container -->
+          <div
+            class="flex items-center q-mt-sm"
+            :class="$q.screen.lt.md ? 'column q-gutter-y-sm items-stretch' : 'row justify-between'"
+          >
+            <!-- Search + Filters Group -->
+            <div
+              class="flex items-center"
+              :class="$q.screen.lt.md ? 'column full-width q-gutter-y-sm items-stretch' : 'row q-gutter-x-sm'"
+            >
+              <AdvancedSearch
+                v-model="store.search.searchInput"
+                placeholder="Search accessories"
+                @clear="store.resetFilters"
+                color="primary"
+                :disable="pageLoading"
+                :style="$q.screen.lt.md ? { width: '100%' } : { width: '400px' }"
+              />
+              <q-btn
+                outline
+                icon="filter_list"
+                label="Filters"
+                @click="showFilterDialog = true"
+                :disable="pageLoading"
+                :class="{ 'full-width': $q.screen.lt.md }"
+              />
+            </div>
+            <!-- Add + Download CSV Group -->
+            <div
+              class="flex items-center"
+              :class="$q.screen.lt.md ? 'column full-width q-gutter-y-sm items-stretch' : 'row q-gutter-x-sm'"
+            >
+              <q-btn
+                unelevated
+                @click="openAddDialog"
+                :disable="pageLoading"
+                :class="['text-white bg-primary', { 'full-width': $q.screen.lt.md }]"
+              >
+                <q-icon name="add" color="white" />
+                Add
+              </q-btn>
+              <q-btn
+                dense
+                flat
+                :disable="pageLoading"
+                :class="['bg-primary text-white q-pa-sm', { 'full-width': $q.screen.lt.md }]"
+              >
+                <q-icon name="download" color="white" />
+                Download CSV
+              </q-btn>
+            </div>
           </div>
         </div>
       </div>
@@ -329,7 +370,7 @@ onMounted(async () => {
       </div>
 
       <!--ACCESSORIES TABLE - Only show when not loading and no errors -->
-      <q-table v-if="!pageLoading && !hasApiError" class="my-sticky-column-table custom-table-text" flat bordered title="Accessories"
+      <q-table v-if="!pageLoading && !hasApiError" class="my-sticky-column-table custom-table-text" flat bordered 
         :rows="store.filteredAccessoryRows" :columns="columns" row-key="id" :filter="store.search.searchValue"
         @row-click="onRowClick" :pagination="{ rowsPerPage: 5 }" :loading="store.isLoading">
         <template v-slot:loading>

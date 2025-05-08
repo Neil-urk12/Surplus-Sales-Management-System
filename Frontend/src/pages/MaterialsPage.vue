@@ -748,35 +748,74 @@ function handleApplyFilters(filters: { category: string | null; supplier: string
 <template>
   <q-page class="flex inventory-page-padding">
     <div class="q-pa-sm full-width">
-      <!-- Materials Section -->
-      <div class="q-mt-sm">
-        <div class="flex row q-my-sm">
-          <div class="flex full-width col">
-            <div class="flex col q-mr-sm">
-              <AdvancedSearch v-model="store.search.searchInput" placeholder="Search materials"
-                @clear="store.resetFilters" color="primary" />
-            </div>
-            <div class="flex col">
-              <q-btn outline icon="filter_list" label="Filters" @click="showFilterDialog = true" />
-            </div>
+      <!-- Modified Header Structure -->
+      <div class="q-mb-md">
+        <div class="flex row items-center justify-between">
+          <div class="col">
+            <div class="text-h5">Materials</div>
           </div>
-
-          <div class="flex row q-gutter-x-sm">
-            <q-btn class="text-white bg-primary" unelevated @click="openAddDialog">
-              <q-icon name="add" color="white" />
-              Add
-            </q-btn>
-            <div class="flex row">
-              <q-btn dense flat class="bg-primary text-white q-pa-sm">
+        </div>
+        <div>
+          <div class="text-caption text-grey q-mt-sm">Manage your inventory items, track stock levels, and monitor product details.</div>
+          <!-- Main Controls Container -->
+          <div
+            class="flex items-center q-mt-sm"
+            :class="$q.screen.lt.md ? 'column q-gutter-y-sm items-stretch' : 'row justify-between'"
+          >
+            <!-- Search + Filters Group -->
+            <div
+              class="flex items-center"
+              :class="$q.screen.lt.md ? 'column full-width q-gutter-y-sm items-stretch' : 'row q-gutter-x-sm'"
+            >
+              <AdvancedSearch
+                v-model="store.search.searchInput"
+                placeholder="Search materials"
+                @clear="store.resetFilters"
+                color="primary"
+                :disable="store.isLoading"
+                :style="$q.screen.lt.md ? { width: '100%' } : { width: '400px' }"
+              />
+              <q-btn
+                outline
+                icon="filter_list"
+                label="Filters"
+                @click="showFilterDialog = true"
+                :disable="store.isLoading"
+                :class="{ 'full-width': $q.screen.lt.md }"
+              />
+            </div>
+            <!-- Add + Download CSV Group -->
+            <div
+              class="flex items-center"
+              :class="$q.screen.lt.md ? 'column full-width q-gutter-y-sm items-stretch' : 'row q-gutter-x-sm'"
+            >
+              <q-btn
+                unelevated
+                @click="openAddDialog"
+                :disable="store.isLoading"
+                :class="['text-white bg-primary', { 'full-width': $q.screen.lt.md }]"
+              >
+                <q-icon name="add" color="white" />
+                Add
+              </q-btn>
+              <q-btn
+                dense
+                flat
+                :disable="store.isLoading"
+                :class="['bg-primary text-white q-pa-sm', { 'full-width': $q.screen.lt.md }]"
+              >
                 <q-icon name="download" color="white" />
                 Download CSV
               </q-btn>
             </div>
           </div>
         </div>
+      </div>
 
+      <!-- Materials Section -->
+      <div class="q-mt-sm">
         <!--MATERIALS TABLE-->
-        <q-table class="my-sticky-column-table custom-table-text" flat bordered title="Materials" :rows="store.filteredMaterialRows"
+        <q-table class="my-sticky-column-table custom-table-text" flat bordered :rows="store.filteredMaterialRows" 
           :columns="materialColumns" row-key="id" :filter="store.search.searchValue" @row-click="onMaterialRowClick"
           :pagination="{ rowsPerPage: 5 }" :loading="store.isLoading">
           <template v-slot:loading>
