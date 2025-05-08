@@ -4,14 +4,14 @@ import type { QTableColumn, QTableProps } from 'quasar';
 import { useQuasar } from 'quasar';
 import { useMaterialsStore } from 'src/stores/materials';
 import type { MaterialRow, NewMaterialInput } from 'src/stores/materials';
-import type { UpdateMaterialInput, MaterialCategory, MaterialSupplier, MaterialStatus } from 'src/types/materials';
+import type { MaterialCategory, MaterialSupplier, MaterialStatus } from 'src/types/materials';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
 const ProductCardModal = defineAsyncComponent(() => import('src/components/Global/ProductModal.vue'));
 const DeleteDialog = defineAsyncComponent(() => import('src/components/Global/DeleteDialog.vue'));
-const AddMaterialDialog = defineAsyncComponent(() => import('../components/AddMaterialDialog.vue'))
-const EditMaterialDialog = defineAsyncComponent(() => import('../components/EditMaterialDialog.vue'))
-const FilterMaterialDialog = defineAsyncComponent(() => import('../components/FilterMaterialDialog.vue'))
+const AddMaterialDialog = defineAsyncComponent(() => import('src/components/Materials/AddMaterialDialog.vue'));
+const MaterialEditWrapper = defineAsyncComponent(() => import('src/components/Materials/MaterialEditWrapper.vue'));
+const FilterMaterialDialog = defineAsyncComponent(() => import('src/components/Materials/FilterMaterialDialog.vue'));
 const AdvancedSearch = defineAsyncComponent(() => import('src/components/Global/AdvancedSearch.vue'));
 
 const $q = useQuasar();
@@ -119,31 +119,56 @@ function openAddDialog() {
   showAddDialog.value = true
 }
 
-async function addNewMaterial() {
+async function handleAddMaterial(materialData: NewMaterialInput) {
   try {
-    // Validate image URL before proceeding
-    if (!imageUrlValid.value) {
-      operationNotifications.validation.error('Please provide a valid image URL');
-      return;
-    }
-
-    // If image URL is empty, use default (only relevant if image is part of update)
-    if (!newMaterial.value.image) {
-      newMaterial.value.image = defaultImageUrl;
-    }
-
-    // Execute the store action and await its completion
-    const result = await store.addMaterial(newMaterial.value);
-
-    // Only close dialog and show notification after operation successfully completes
+    const result = await store.addMaterial(materialData);
     if (result.success) {
       showAddDialog.value = false;
-      operationNotifications.add.success(`material: ${newMaterial.value.name}`);
+      operationNotifications.add.success(`material: ${materialData.name}`);
     }
   } catch (error) {
     console.error('Error adding material:', error);
     operationNotifications.add.error('material');
   }
+}
+
+// Add a dedicated function to close the edit dialog
+function closeEditDialog() {
+  console.log('closeEditDialog called in MaterialsPage');
+  showEditDialog.value = false;
+  materialToEdit.value = {
+    id: 0,
+    name: '',
+    category: 'Building',
+    supplier: 'Steel Co.',
+    quantity: 0,
+    status: 'Out of Stock',
+    image: ''
+  };
+}
+
+async function handleUpdateMaterial(materialData: NewMaterialInput) {
+  try {
+    console.log('handleUpdateMaterial called in MaterialsPage');
+    if (!materialToEdit.value || !materialToEdit.value.id) {
+      throw new Error('No material selected for update or missing ID');
+    }
+
+    const result = await store.updateMaterial(materialToEdit.value.id, materialData);
+    console.log('Update result:', result);
+    if (result.success) {
+      closeEditDialog(); // Use the dedicated function
+      operationNotifications.update.success(`material: ${materialData.name}`);
+    }
+  } catch (error) {
+    console.error('Error updating material:', error);
+    operationNotifications.update.error('material');
+  }
+}
+
+function editMaterial(material: MaterialRow) {
+  materialToEdit.value = { ...material };
+  showEditDialog.value = true;
 }
 
 // Add watch for quantity changes
@@ -656,71 +681,40 @@ function triggerFileInput() {
   fileInput.value?.click();
 }
 
-// Function to handle edit material
-function editMaterial(material: MaterialRow) {
-  // Deep copy selected material to the dedicated edit ref
-  materialToEdit.value = JSON.parse(JSON.stringify(material));
-  imageUrlValid.value = true; // Reset validation state for the dialog
-  validatingImage.value = false; // Reset validation state
-  showEditDialog.value = true;
-}
-
-// Function to handle update material
-async function updateMaterial() {
-  try {
-    // Validate image URL before proceeding
-    if (!imageUrlValid.value) {
-      operationNotifications.validation.error('Please provide a valid image URL');
-      return;
-    }
-
-    // If image URL is empty, use default (only relevant if image is part of update)
-    if (!materialToEdit.value.image) {
-      materialToEdit.value.image = defaultImageUrl;
-    }
-
-    // Prepare the update payload from materialToEdit
-    const updatePayload: UpdateMaterialInput = {
-      name: materialToEdit.value.name,
-      category: materialToEdit.value.category,
-      supplier: materialToEdit.value.supplier,
-      quantity: materialToEdit.value.quantity,
-      status: materialToEdit.value.status,
-      image: materialToEdit.value.image
-    };
-
-    // Execute the store action and await its completion
-    const result = await store.updateMaterial(materialToEdit.value.id, updatePayload);
-
-    // Only close dialog and show notification after operation successfully completes
-    if (result.success) {
-      showEditDialog.value = false;
-      operationNotifications.update.success(`material: ${materialToEdit.value.name}`);
-    }
-  } catch (error) {
-    console.error('Error updating material:', error);
-    operationNotifications.update.error('material');
-  }
-}
-
 // Add new ref for delete dialog
 const showDeleteDialog = ref(false);
-const materialToDelete = ref<MaterialRow | null>(null);
+const materialToDelete = ref<MaterialRow>({
+  id: 0,
+  name: '',
+  category: 'Building',
+  supplier: 'Steel Co.',
+  quantity: 0,
+  status: 'Out of Stock',
+  image: ''
+});
 
 // Function to handle delete material
 function deleteMaterial(material: MaterialRow) {
-  materialToDelete.value = material;
+  materialToDelete.value = { ...material };
   showDeleteDialog.value = true;
 }
 
 // Function to confirm and execute delete
 async function confirmDelete() {
   try {
-    if (!materialToDelete.value) return;
+    if (!materialToDelete.value || materialToDelete.value.id === 0) return;
 
     await store.deleteMaterial(materialToDelete.value.id);
     showDeleteDialog.value = false;
-    materialToDelete.value = null;
+    materialToDelete.value = {
+      id: 0,
+      name: '',
+      category: 'Building',
+      supplier: 'Steel Co.',
+      quantity: 0,
+      status: 'Out of Stock',
+      image: ''
+    };
     operationNotifications.delete.success('material');
   } catch (error) {
     console.error('Error deleting material:', error);
@@ -866,60 +860,52 @@ function handleApplyFilters(filters: { category: string | null; supplier: string
           @addItem="addMaterialToCart" />
 
         <!-- Add Material Dialog -->
-        <AddMaterialDialog v-model="showAddDialog" @add="addNewMaterial" :disable="!imageUrlValid || validatingImage">
-          <q-input v-model="capitalizedName" label="Material Name" dense outlined
-            :rules="[val => !!val || 'Field is required']" />
-          <q-select v-model="newMaterial.category" label="Category" :options="categories" dense outlined
-            :rules="[val => !!val || 'Field is required']" />
-          <q-select v-model="newMaterial.supplier" label="Supplier" :options="suppliers" dense outlined
-            :rules="[val => !!val || 'Field is required']" />
-          <q-input v-model.number="newMaterial.quantity" label="Quantity" type="number" dense outlined
-            :rules="[val => val >= 0 || 'Quantity cannot be negative']" />
-          <q-input v-model="newMaterial.status" label="Status" dense outlined readonly />
-          <!-- Enhanced Image Input Section -->
-          <div class="column q-gutter-y-sm">
-            <div class="row items-center q-gutter-x-sm">
-              <q-input v-model="newMaterial.image" label="Image URL" dense outlined class="col"
-                :rules="[val => imageUrlValid || 'Invalid image URL']" :loading="validatingImage"
-                @blur="validateImageUrl(newMaterial.image)" clearable @clear="removeImage">
-                <template v-slot:prepend>
-                  <q-icon name="link" />
-                </template>
-                <template v-slot:append>
-                  <q-icon v-if="imageUrlValid && newMaterial.image && newMaterial.image !== defaultImageUrl"
-                    name="check_circle" color="positive" />
-                  <q-icon v-else-if="!imageUrlValid" name="error" color="negative" />
-                </template>
-              </q-input>
-              <q-btn icon="upload_file" flat round dense @click="triggerFileInput" title="Upload Image" />
+        <AddMaterialDialog
+          v-model="showAddDialog"
+          :categories="categories"
+          :suppliers="suppliers"
+          :default-image-url="defaultImageUrl"
+          :material-name="capitalizedName"
+          @add-material="handleAddMaterial"
+        />
+
+        <!-- Image Upload Zone (hidden but functional) -->
+        <div class="hidden">
+          <input
+            ref="fileInput"
+            type="file"
+            accept="image/jpeg,image/png,image/gif"
+            @change="handleFileSelect"
+          />
+          <div 
+            class="upload-container q-pa-md" 
+            :class="{ dragging: isDragging }"
+            @click="triggerFileInput"
+            @dragover.prevent="isDragging = true"
+            @dragleave="handleDragLeave"
+            @drop="handleDrop"
+          >
+            <div v-if="isUploadingImage" class="text-center">
+              <q-spinner color="primary" size="3em" />
+              <div class="q-mt-sm">Uploading image...</div>
             </div>
-            <div class="upload-container q-pa-md" :class="{ 'dragging': isDragging }" @dragover.prevent
-              @dragenter.prevent="isDragging = true" @dragleave.prevent="handleDragLeave" @drop.prevent="handleDrop">
-              <div class="text-center">
-                <q-icon name="cloud_upload" size="lg" color="grey-7" />
-                <p class="q-mt-sm text-grey-7">Drag & drop an image here, or click upload icon</p>
+            <div v-else-if="previewUrl" class="text-center">
+              <img :src="previewUrl" class="preview-image" />
+              <div class="q-mt-sm">
+                <q-btn flat color="negative" size="sm" icon="delete" @click="removeImage">
+                  Remove Image
+                </q-btn>
               </div>
-              <input ref="fileInput" type="file" accept="image/png, image/jpeg, image/gif, image/webp"
-                @change="handleFileSelect" style="display: none;" />
             </div>
-            <!-- Image Preview and Remove Button -->
-            <div v-if="newMaterial.image && imageUrlValid"
-              class="row items-center justify-center q-mt-sm relative-position">
-              <q-img :src="newMaterial.image" spinner-color="primary"
-                style="max-height: 150px; max-width: 100%; border-radius: 4px;" alt="Image Preview"
-                @error="imageUrlValid = false">
-                <template v-slot:error>
-                  <div class="absolute-full flex flex-center bg-negative text-white">
-                    Cannot load image
-                  </div>
-                </template>
-              </q-img>
-              <q-btn icon="close" flat round dense color="negative" size="sm"
-                class="absolute-top-right q-ma-xs bg-white" @click="removeImage"
-                style="z-index: 1; border-radius: 50%;" />
+            <div v-else class="text-center">
+              <q-icon name="upload_file" size="3em" color="grey-7" />
+              <div class="text-subtitle1 q-mt-sm">Drop image here or click to upload</div>
+              <div class="text-caption text-grey q-mt-xs">
+                Supports: JPG, PNG, GIF (max 5MB)
+              </div>
             </div>
           </div>
-        </AddMaterialDialog>
+        </div>
 
         <!-- Filter Dialog -->
         <FilterMaterialDialog v-model="showFilterDialog" :categories="categories" :suppliers="suppliers"
@@ -929,65 +915,21 @@ function handleApplyFilters(filters: { category: string | null; supplier: string
           @apply-filters="handleApplyFilters" @reset-filters="store.resetFilters" />
 
         <!-- Edit Material Dialog -->
-        <EditMaterialDialog v-model="showEditDialog" @update="updateMaterial"
-          :disable="!imageUrlValid || validatingImage">
-          <q-input v-model="materialToEdit.name" label="Material Name" dense outlined
-            :rules="[val => !!val || 'Field is required']" />
-          <q-select v-model="materialToEdit.category" label="Category" :options="categories" dense outlined
-            :rules="[val => !!val || 'Field is required']" />
-          <q-select v-model="materialToEdit.supplier" label="Supplier" :options="suppliers" dense outlined
-            :rules="[val => !!val || 'Field is required']" />
-          <q-input v-model.number="materialToEdit.quantity" label="Quantity" type="number" dense outlined
-            :rules="[val => val >= 0 || 'Quantity cannot be negative']" />
-          <q-select v-model="materialToEdit.status" label="Status" :options="statuses" dense outlined
-            :rules="[val => !!val || 'Field is required']" />
-          <!-- Enhanced Image Input Section -->
-          <div class="column q-gutter-y-sm">
-            <div class="row items-center q-gutter-x-sm">
-              <q-input v-model="materialToEdit.image" label="Image URL (Optional)" dense outlined class="col"
-                :rules="[val => imageUrlValid || 'Invalid image URL']" :loading="validatingImage"
-                @blur="validateImageUrl(materialToEdit.image)" clearable @clear="removeImage">
-                <template v-slot:prepend>
-                  <q-icon name="link" />
-                </template>
-                <template v-slot:append>
-                  <q-icon v-if="imageUrlValid && materialToEdit.image && materialToEdit.image !== defaultImageUrl"
-                    name="check_circle" color="positive" />
-                  <q-icon v-else-if="!imageUrlValid" name="error" color="negative" />
-                </template>
-              </q-input>
-              <q-btn icon="upload_file" flat round dense @click="triggerFileInput" title="Upload Image" />
-            </div>
-            <div class="upload-container q-pa-md" :class="{ 'dragging': isDragging }" @dragover.prevent
-              @dragenter.prevent="isDragging = true" @dragleave.prevent="handleDragLeave" @drop.prevent="handleDrop">
-              <div class="text-center">
-                <q-icon name="cloud_upload" size="lg" color="grey-7" />
-                <p class="q-mt-sm text-grey-7">Drag & drop an image here, or click upload icon</p>
-              </div>
-              <input ref="fileInput" type="file" accept="image/png, image/jpeg, image/gif, image/webp"
-                @change="handleFileSelect" style="display: none;" />
-            </div>
-            <!-- Image Preview and Remove Button -->
-            <div v-if="materialToEdit.image && imageUrlValid"
-              class="row items-center justify-center q-mt-sm relative-position">
-              <q-img :src="materialToEdit.image" spinner-color="primary"
-                style="max-height: 150px; max-width: 100%; border-radius: 4px;" alt="Image Preview"
-                @error="imageUrlValid = false">
-                <template v-slot:error>
-                  <div class="absolute-full flex flex-center bg-negative text-white">
-                    Cannot load image
-                  </div>
-                </template>
-              </q-img>
-              <q-btn icon="close" flat round dense color="negative" size="sm"
-                class="absolute-top-right q-ma-xs bg-white" @click="removeImage"
-                style="z-index: 1; border-radius: 50%;" />
-            </div>
-          </div>
-        </EditMaterialDialog>
+        <MaterialEditWrapper
+          v-model:open="showEditDialog"
+          :material-data="materialToEdit"
+          :categories="categories"
+          :suppliers="suppliers"
+          :default-image-url="defaultImageUrl"
+          @update-material="handleUpdateMaterial"
+        />
 
-        <DeleteDialog v-model="showDeleteDialog" itemType="material" :itemName="materialToDelete?.name || ''"
-          @confirm-delete="confirmDelete" />
+        <DeleteDialog 
+          v-model="showDeleteDialog" 
+          itemType="material" 
+          :itemName="materialToDelete.name" 
+          @confirm-delete="confirmDelete" 
+        />
       </div>
     </div>
   </q-page>
