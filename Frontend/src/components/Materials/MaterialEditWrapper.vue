@@ -52,11 +52,10 @@ function handleUpdateMaterial(materialData: NewMaterialInput) {
   // Basic validation to ensure required fields are present
   if (!materialData || 
       !materialData.name || 
-      !materialData.description || 
       !materialData.category || 
       !materialData.supplier || 
-      materialData.price === undefined || 
-      materialData.quantity === undefined) {
+      materialData.quantity === undefined || 
+      !materialData.image) {
     console.error('Invalid material data provided:', materialData);
     return;
   }

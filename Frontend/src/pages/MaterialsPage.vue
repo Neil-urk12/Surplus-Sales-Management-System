@@ -462,7 +462,8 @@ function handleApplyFilters(filters: { category: string | null; supplier: string
         <!-- Image Upload Zone (hidden but functional) -->
         <div class="hidden">
           <ImageUploader 
-            v-model="showEditDialog ? materialToEdit.image : newMaterial.image"
+            :model-value="showEditDialog ? materialToEdit.image : newMaterial.image"
+            @update:model-value="val => showEditDialog ? materialToEdit.image = val : newMaterial.image = val"
             :default-image-url="defaultImageUrl"
           />
         </div>
