@@ -321,6 +321,8 @@ async function handleConfirmSell(payload: {
       await errorHandler.recoverFromInventoryError([
         async () => { await store.initializeCabs(); },
         async () => { await accessoriesStore.initializeAccessories(); }
+        async () => { await store.initializeCabs(); },
+        async () => { await accessoriesStore.initializeAccessories(); }
       ]);
     }
   } finally {

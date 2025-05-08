@@ -85,27 +85,28 @@ export const errorHandler = {
         error: unknown,
         operation: 'add' | 'update' | 'delete' | 'fetch',
         itemType: string
-    ): void {
-        const { message } = this.handle(error, `${operation} ${itemType}`);
+    ): { message: string; type: ErrorType } {
+        const result = this.handle(error, `${operation} ${itemType}`);
 
         switch (operation) {
             case 'add':
-                operationNotifications.add.error(message);
+                operationNotifications.add.error(result.message);
                 break;
             case 'update':
-                operationNotifications.update.error(message);
+                operationNotifications.update.error(result.message);
                 break;
             case 'delete':
-                operationNotifications.delete.error(message);
+                operationNotifications.delete.error(result.message);
                 break;
             case 'fetch':
                 Notify.create({
                     type: 'negative',
-                    message: `Failed to fetch ${itemType}: ${message}`,
+                    message: `Failed to fetch ${itemType}: ${result.message}`,
                     timeout: 3000
                 });
                 break;
         }
+        return result;
     },
 
     // Recovery methods for specific error types

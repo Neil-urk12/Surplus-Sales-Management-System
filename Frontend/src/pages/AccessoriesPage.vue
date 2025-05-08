@@ -9,6 +9,7 @@ const AdvancedSearch = defineAsyncComponent(() => import('src/components/Global/
 const FilterDialog = defineAsyncComponent(() => import('src/components/Global/FilterDialog.vue'));
 import { useAccessoriesStore } from 'src/stores/accessories';
 import type { AccessoryRow, NewAccessoryInput, AccessoryMakeInput, AccessoryColorInput, AccessoryStatus } from 'src/types/accessories';
+import type { AccessoryRow, NewAccessoryInput, AccessoryMakeInput, AccessoryColorInput, AccessoryStatus } from 'src/types/accessories';
 import { getDefaultImage } from 'src/config/defaultImages';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
