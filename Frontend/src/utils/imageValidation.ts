@@ -1,4 +1,5 @@
 export const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+export const DEFAULT_MAX_DIMENSION = 4096; // Default maximum dimension
 
 // Valid image MIME types
 export const VALID_IMAGE_TYPES = [
@@ -20,7 +21,9 @@ interface ImageValidationResult {
  * @param base64String The base64 image string to validate
  * @returns Validation result with sanitized data if valid
  */
-export function validateAndSanitizeBase64Image(base64String: string): ImageValidationResult {
+export function validateAndSanitizeBase64Image(
+  base64String: string
+): ImageValidationResult {
   // Check if the string is empty
   if (!base64String) {
     return { isValid: false, error: 'No image data provided' };
@@ -77,6 +80,45 @@ export function validateAndSanitizeBase64Image(base64String: string): ImageValid
       error: 'Invalid base64 encoding'
     };
   }
+}
+
+/**
+ * Asynchronously validates image dimensions from a base64 string
+ * @param base64String The base64 image string to validate
+ * @param maxDimension The maximum allowed dimension (width/height) for the image
+ * @returns Promise resolving to validation result
+ */
+export async function validateImageDimensions(
+  base64String: string,
+  maxDimension: number = DEFAULT_MAX_DIMENSION
+): Promise<ImageValidationResult> {
+  if (!maxDimension) {
+    return { isValid: true };
+  }
+  
+  return new Promise((resolve) => {
+    const img = new Image();
+    
+    img.onload = () => {
+      if (img.width > maxDimension || img.height > maxDimension) {
+        resolve({
+          isValid: false,
+          error: `Image dimensions exceed maximum limit of ${maxDimension}px`
+        });
+      } else {
+        resolve({ isValid: true });
+      }
+    };
+    
+    img.onerror = () => {
+      resolve({
+        isValid: false,
+        error: 'Failed to load image for dimension validation'
+      });
+    };
+    
+    img.src = base64String;
+  });
 }
 
 /**
