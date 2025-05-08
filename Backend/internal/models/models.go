@@ -14,14 +14,14 @@ type User struct {
 }
 
 type Customer struct {
-	ID             string
-	Name           string
-	Email          string
-	Phone          string
-	Address        string
-	DateRegistered string
-	CreatedAt      string
-	UpdatedAt      string
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Email          string `json:"email"`
+	Phone          string `json:"phone"`
+	Address        string `json:"address"`
+	DateRegistered string `json:"dateRegistered"`
+	CreatedAt      string `json:"createdAt"`
+	UpdatedAt      string `json:"updatedAt"`
 }
 
 type Sale struct {
