@@ -15,6 +15,7 @@ import { api } from 'boot/axios'
 import { useAuthStore } from 'src/stores/auth'
 import { AxiosError } from 'axios';
 import { useSearch } from 'src/utils/useSearch';
+import { operationNotifications } from 'src/utils/notifications';
 
 export type { MaterialRow, NewMaterialInput } from 'src/types/materials'
 
@@ -179,7 +180,7 @@ export const useMaterialsStore = defineStore('materials', () => {
       })
 
       materialRows.value.push(response.data)
-
+      operationNotifications.add.success(`material: ${material.name}`);
       return { success: true, id: response.data.id }
     } catch (error: unknown) {
       console.error('Error adding material:', error)
@@ -258,7 +259,7 @@ export const useMaterialsStore = defineStore('materials', () => {
 
       const index = materialRows.value.indexOf(existingMaterial);
       materialRows.value.splice(index, 1);
-
+      operationNotifications.delete.success('material');
       return { success: true };
     } catch (error: unknown) {
       console.error('Error deleting material:', error);
@@ -312,7 +313,7 @@ export const useMaterialsStore = defineStore('materials', () => {
       });
 
       materialRows.value[index] = response.data;
-
+      operationNotifications.update.success(`material: ${materialUpdate.name}`);
       return { success: true };
     } catch (error: unknown) {
       console.error('Error updating material:', error);

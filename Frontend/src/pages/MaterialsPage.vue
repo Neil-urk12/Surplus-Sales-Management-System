@@ -144,7 +144,6 @@ async function handleAddMaterial(materialData: NewMaterialInput) {
     const result = await store.addMaterial(materialData);
     if (result.success) {
       showAddDialog.value = false;
-      operationNotifications.add.success(`material: ${materialData.name}`);
     }
   } catch (error) {
     console.error('Error adding material:', error);
@@ -202,7 +201,6 @@ async function handleUpdateMaterial(materialData: UpdateMaterialInput) {
     console.log('Update result:', result);
     if (result.success) {
       closeEditDialog(); // Use the dedicated function
-      operationNotifications.update.success(`material: ${materialData.name}`);
     }
   } catch (error) {
     console.error('Error updating material:', error);
