@@ -8,7 +8,7 @@ const EditAccessoryDialog = defineAsyncComponent(() => import('src/components/ac
 const AdvancedSearch = defineAsyncComponent(() => import('src/components/Global/AdvancedSearch.vue'));
 const FilterDialog = defineAsyncComponent(() => import('src/components/Global/FilterDialog.vue'));
 import { useAccessoriesStore } from 'src/stores/accessories';
-import type { AccessoryRow, NewAccessoryInput } from 'src/types/accessories';
+import type { AccessoryRow, NewAccessoryInput, AccessoryMakeInput, AccessoryColorInput, AccessoryStatus } from 'src/types/accessories';
 import { getDefaultImage } from 'src/config/defaultImages';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
@@ -214,19 +214,19 @@ async function confirmDelete() {
 function handleApplyFilters(filters: Record<string, string | null>) {
   try {
     // Convert null values to empty strings for the store
-    store.filterMake = filters.make === null ? '' : filters.make;
-    store.filterColor = filters.color === null ? '' : filters.color;
-    store.filterStatus = filters.status === null ? '' : filters.status;
+    store.filterMake = filters.make ? filters.make as AccessoryMakeInput : '';
+    store.filterColor = filters.color ? filters.color as AccessoryColorInput : '';
+    store.filterStatus = filters.status ? filters.status as AccessoryStatus : '';
 
     // Get count of active filters for notification message
     const activeFilterCount = Object.values(filters).filter(value => value !== null).length;
 
     // Show appropriate notification based on if filters were applied or cleared
     if (activeFilterCount > 0) {
-      operationNotifications.filters.success(`Applied ${activeFilterCount} filter${activeFilterCount !== 1 ? 's' : ''}`);
+      operationNotifications.filters.success();
     } else {
       // If all filters were cleared, consider resetting search as well
-      operationNotifications.filters.success('All filters cleared');
+      operationNotifications.filters.success();
     }
 
     // Close the filter dialog

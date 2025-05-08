@@ -319,8 +319,8 @@ async function handleConfirmSell(payload: {
 
     if (type === 'inventory') {
       await errorHandler.recoverFromInventoryError([
-        () => store.initializeCabs(),
-        () => accessoriesStore.initializeAccessories()
+        async () => { await store.initializeCabs(); },
+        async () => { await accessoriesStore.initializeAccessories(); }
       ]);
     }
   } finally {
@@ -342,7 +342,7 @@ function handleDownloadCsv() {
   exportToCsv(store.filteredCabRows, 'cabs-inventory', csvColumns);
 }
 
-function filterCabs(rows: CabsRow[], terms: string) {
+function filterCabs(rows: readonly CabsRow[], terms: string): CabsRow[] {
   return rows.filter(row => {
     const searchTerms = terms.toLowerCase();
     return (

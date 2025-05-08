@@ -49,7 +49,7 @@ const emit = defineEmits<{
 // Local state for filters within the dialog
 const localFilterCategory = ref<string | null>(props.initialFilterCategory);
 const localFilterSupplier = ref<string | null>(props.initialFilterSupplier);
-const localFilterStatus = ref<MaterialStatus | null>(props.initialFilterStatus);
+const localFilterStatus = ref<MaterialStatus | typeof ALL_OPTION | null>(props.initialFilterStatus);
 
 // Watch props to update local state if dialog is reopened with different initial values
 watch(() => [props.initialFilterCategory, props.initialFilterSupplier, props.initialFilterStatus], () => {

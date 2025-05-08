@@ -43,7 +43,7 @@ const localFilters = ref<Record<string, string | null>>({});
 function initLocalFilters() {
     const newFilters: Record<string, string | null> = {};
     Object.keys(props.filterData).forEach(key => {
-        newFilters[key] = props.filterData[key].value;
+        newFilters[key] = props.filterData[key]!.value;
     });
     localFilters.value = newFilters;
 }
@@ -57,7 +57,6 @@ watch(() => props.filterData, () => {
 }, {
     deep: true,
     immediate: true,
-    key: 'filter-dialog-data-changes'
 });
 
 function apply() {
