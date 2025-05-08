@@ -141,7 +141,7 @@ export const useMaterialsStore = defineStore('materials', () => {
    * @returns {MaterialRow[]} The filtered array of material rows.
    */
   const filteredMaterialRows = computed(() => {
-    return materialRows.value.filter(row => {
+    const filtered = materialRows.value.filter(row => {
       const matchesCategory = !filterCategory.value || row.category === filterCategory.value
       const matchesSupplier = !filterSupplier.value || row.supplier === filterSupplier.value
       const matchesStatus = !filterStatus.value || row.status === filterStatus.value
@@ -152,6 +152,9 @@ export const useMaterialsStore = defineStore('materials', () => {
 
       return matchesCategory && matchesSupplier && matchesStatus && matchesSearch
     })
+    
+    // Sort by ID to ensure items are in order with new items (highest IDs) at the end
+    return filtered.sort((a, b) => a.id - b.id)
   })
 
   /**
@@ -179,6 +182,18 @@ export const useMaterialsStore = defineStore('materials', () => {
         }
       })
 
+      // Find the highest ID to ensure new materials are always at the end
+      // and to avoid reusing deleted IDs
+      const maxId = materialRows.value.length > 0
+        ? Math.max(...materialRows.value.map(m => m.id))
+        : 0;
+      
+      // If the response doesn't include an ID, assign a new one
+      if (!response.data.id) {
+        response.data.id = maxId + 1;
+      }
+
+      // Add to the end of the array
       materialRows.value.push(response.data)
       operationNotifications.add.success(`material: ${material.name}`);
       return { success: true, id: response.data.id }
@@ -257,8 +272,12 @@ export const useMaterialsStore = defineStore('materials', () => {
         }
       });
 
-      const index = materialRows.value.indexOf(existingMaterial);
-      materialRows.value.splice(index, 1);
+      // Remove the material from the local state without affecting other IDs
+      const index = materialRows.value.findIndex(m => m.id === id);
+      if (index !== -1) {
+        materialRows.value.splice(index, 1);
+      }
+      
       operationNotifications.delete.success('material');
       return { success: true };
     } catch (error: unknown) {

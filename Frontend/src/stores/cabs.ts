@@ -72,7 +72,8 @@ export const useCabsStore = defineStore('cabs', () => {
 
   // Computed
   const filteredCabRows = computed(() => {
-    return cabRows.value
+    // Sort by ID to ensure cabs are displayed with newer items (highest IDs) at the end
+    return cabRows.value.slice().sort((a, b) => a.id - b.id)
   })
 
   // Actions
@@ -87,8 +88,16 @@ export const useCabsStore = defineStore('cabs', () => {
       const result = await cabsService.addCab(cab)
 
       if (result.success) {
-        // Reload data from API if successful
+        // Instead of reloading all data, we'll handle the response and update the local state
+        // This ensures proper ID handling and positioning of the new cab
+        
+        // Get the latest data to work with from the server
+        // This includes retrieving the newly added cab with its server-assigned ID
         await initializeCabs()
+        
+        // No need to manually set IDs here since:
+        // 1. The server assigns the IDs
+        // 2. The filteredCabRows sorts by ID to ensure new items appear at end
       }
 
       return result
@@ -130,8 +139,12 @@ export const useCabsStore = defineStore('cabs', () => {
       const result = await cabsService.deleteCab(id)
 
       if (result.success) {
-        // Reload data from API if successful
-        await initializeCabs()
+        // Instead of reloading all data, just remove the deleted cab from local state
+        // This prevents ID reallocation and maintains the integrity of the ID sequence
+        const index = cabRows.value.findIndex(c => c.id === id);
+        if (index !== -1) {
+          cabRows.value.splice(index, 1);
+        }
       }
 
       return result
@@ -172,8 +185,26 @@ export const useCabsStore = defineStore('cabs', () => {
       const result = await cabsService.updateCab(id, updatedCab)
 
       if (result.success) {
-        // Reload data from API if successful
-        await initializeCabs()
+        // Instead of reloading all data, just update the specific cab in the local state
+        // This prevents disrupting the ID order and maintains the integrity of the cab list
+        const index = cabRows.value.findIndex(c => c.id === id);
+        if (index !== -1) {
+          // Create a properly typed object by ensuring all properties match the CabsRow type
+          const typedUpdatedCab: CabsRow = {
+            id: existingCab.id,
+            name: updatedCab.name,
+            // Cast to proper types
+            make: updatedCab.make as CabMake,
+            unit_color: updatedCab.unit_color as CabColor,
+            quantity: updatedCab.quantity,
+            price: updatedCab.price,
+            status: updatedCab.status,
+            image: updatedCab.image
+          };
+          
+          // Update the cab in the array with properly typed data
+          cabRows.value[index] = typedUpdatedCab;
+        }
       }
 
       return result

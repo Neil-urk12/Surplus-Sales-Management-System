@@ -23,10 +23,29 @@ export const cabsService = {
      */
     addCab: async (cab: NewCabInput): Promise<CabOperationResponse> => {
         try {
-            const response = await apiService.post<CabsRow>(API_PATH, cab);
+            // Track the current cabs to determine the next ID
+            const currentCabs = await apiService.get<CabsRow[]>(API_PATH);
+            
+            // Find the highest ID to ensure new items are always at the end
+            // and to avoid reusing deleted IDs
+            const maxId = currentCabs.length > 0
+                ? Math.max(...currentCabs.map(c => c.id))
+                : 0;
+                
+            // Create a request with a pre-allocated ID
+            const newId = maxId + 1;
+            
+            // Send request to create the cab
+            const response = await apiService.post<CabsRow>(API_PATH, {
+                ...cab,
+                // Include suggested ID for the server
+                id: newId
+            });
+            
+            // Ensure we're returning the correct ID
             return {
                 success: true,
-                id: response.id
+                id: response.id || newId
             };
         } catch (error) {
             return {
