@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { uid } from 'quasar';
-import type { Customer, Sale, ExtendedSaleItem } from '../types/models';
+import type { Customer } from '../types/customerTypes.ts';
+import type { Sale, ExtendedSaleItem } from '../types/models';
 
 // Define an extended Sale type that includes its items
 export interface SaleWithItems extends Sale {
@@ -22,42 +23,9 @@ export interface CabPurchaseDetails {
   }>;
 }
 
-const initialCustomers: Customer[] = [
-  {
-    id: 'CUST001',
-    fullName: 'Alice Wonderland Store',
-    email: 'alice.w.store@example.com',
-    phone: '111-222-3333',
-    address: '123 Fantasy Lane, Wonderland',
-    dateRegistered: new Date().toISOString(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'CUST002',
-    fullName: 'Bob The Builder Store',
-    email: 'bob.b.store@example.com',
-    phone: '444-555-6666',
-    address: '456 Construction Ave, Builderville',
-    dateRegistered: new Date(Date.now() - 86400000 * 5).toISOString(),
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-  },
-  {
-    id: 'CUST003',
-    fullName: 'Charlie Chaplin Store',
-    email: 'charlie.c.store@example.com',
-    phone: '777-888-9999',
-    address: '789 Silent Film St, Hollywood',
-    dateRegistered: new Date(Date.now() - 86400000 * 10).toISOString(),
-    createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 10).toISOString(),
-  },
-];
-
 export const useCustomerStore = defineStore('customer', () => {
-  // --- State --- 
-  const customers = ref<Customer[]>(initialCustomers);
+  // --- State ---
+  const customers = ref<Customer[]>([]);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
 
@@ -89,7 +57,8 @@ export const useCustomerStore = defineStore('customer', () => {
     try {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 500));
-      console.log('Fetched customers (simulated)');
+      // This will be replaced by an API call
+      console.log('Fetched customers (simulated, to be replaced by API)');
     } catch (err) {
       error.value = 'Failed to fetch customers.';
       console.error(err);
@@ -112,7 +81,7 @@ export const useCustomerStore = defineStore('customer', () => {
         updatedAt: currentDate,
       };
       await new Promise(resolve => setTimeout(resolve, 300));
-      customers.value.push(newCustomer); 
+      customers.value.push(newCustomer);
     } catch (err) {
       error.value = 'Failed to add customer.';
       console.error(err);
@@ -126,20 +95,20 @@ export const useCustomerStore = defineStore('customer', () => {
     isLoading.value = true;
     error.value = null;
     try {
-       await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 300));
       const index = customers.value.findIndex(c => c.id === customerId);
       if (index !== -1) {
-        const originalCustomer = customers.value[index]; 
+        const originalCustomer = customers.value[index];
         if (originalCustomer) {
           const updatedCustomer: Customer = {
-              id: originalCustomer.id, 
-              fullName: customerData.fullName,
-              email: customerData.email,
-              phone: customerData.phone,
-              address: customerData.address,
-              dateRegistered: originalCustomer.dateRegistered,
-              createdAt: originalCustomer.createdAt,
-              updatedAt: new Date().toISOString(),
+            id: originalCustomer.id,
+            fullName: customerData.fullName,
+            email: customerData.email,
+            phone: customerData.phone,
+            address: customerData.address,
+            dateRegistered: originalCustomer.dateRegistered,
+            createdAt: originalCustomer.createdAt,
+            updatedAt: new Date().toISOString(),
           };
           customers.value[index] = updatedCustomer;
         } else {
@@ -160,8 +129,8 @@ export const useCustomerStore = defineStore('customer', () => {
     isLoading.value = true;
     error.value = null;
     try {
-        // await api.delete(`/customers/${customerId}`);
-        customers.value = customers.value.filter(c => c.id !== customerId);
+      // await api.delete(`/customers/${customerId}`);
+      customers.value = customers.value.filter(c => c.id !== customerId);
     } catch (err) {
       error.value = 'Failed to delete customer.';
       console.error(err);
@@ -177,10 +146,10 @@ export const useCustomerStore = defineStore('customer', () => {
     console.log(`Fetching history for customer ${customerId}...`);
     try {
       await new Promise(resolve => setTimeout(resolve, 800));
-      
+
       // Get existing history from state or initialize
       let historyData = customerPurchaseHistory.value[customerId] || [];
-      
+
       // If no history exists yet, add dummy data for testing
       if (historyData.length === 0) {
         if (customerId === customers.value[0]?.id) {
@@ -196,31 +165,31 @@ export const useCustomerStore = defineStore('customer', () => {
               updatedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
               multiCabId: '',
               items: [
-                { 
-                  id: uid(), 
-                  saleId: sale1Id, 
-                  itemType: 'Accessory', 
-                  multiCabId: '', 
-                  accessoryId: 'ACC001', 
-                  materialId: '', 
-                  quantity: 2, 
-                  unitPrice: 50.00, 
-                  subtotal: 100.00, 
-                  createdAt: new Date().toISOString(), 
+                {
+                  id: uid(),
+                  saleId: sale1Id,
+                  itemType: 'Accessory',
+                  multiCabId: '',
+                  accessoryId: 'ACC001',
+                  materialId: '',
+                  quantity: 2,
+                  unitPrice: 50.00,
+                  subtotal: 100.00,
+                  createdAt: new Date().toISOString(),
                   updatedAt: new Date().toISOString(),
                   name: 'Side Mirror'
                 },
-                { 
-                  id: uid(), 
-                  saleId: sale1Id, 
-                  itemType: 'Material', 
-                  multiCabId: '', 
-                  accessoryId: '', 
-                  materialId: 'MAT005', 
-                  quantity: 5, 
-                  unitPrice: 10.15, 
-                  subtotal: 50.75, 
-                  createdAt: new Date().toISOString(), 
+                {
+                  id: uid(),
+                  saleId: sale1Id,
+                  itemType: 'Material',
+                  multiCabId: '',
+                  accessoryId: '',
+                  materialId: 'MAT005',
+                  quantity: 5,
+                  unitPrice: 10.15,
+                  subtotal: 50.75,
+                  createdAt: new Date().toISOString(),
                   updatedAt: new Date().toISOString(),
                   name: 'Paint Material'
                 },
@@ -240,17 +209,17 @@ export const useCustomerStore = defineStore('customer', () => {
               updatedAt: new Date(Date.now() - 86400000 * 8).toISOString(),
               multiCabId: '',
               items: [
-                { 
-                  id: uid(), 
-                  saleId: sale2Id, 
-                  itemType: 'MultiCab', 
-                  multiCabId: 'MC001', 
-                  accessoryId: '', 
-                  materialId: '', 
-                  quantity: 1, 
-                  unitPrice: 25000.00, 
-                  subtotal: 25000.00, 
-                  createdAt: new Date().toISOString(), 
+                {
+                  id: uid(),
+                  saleId: sale2Id,
+                  itemType: 'MultiCab',
+                  multiCabId: 'MC001',
+                  accessoryId: '',
+                  materialId: '',
+                  quantity: 1,
+                  unitPrice: 25000.00,
+                  subtotal: 25000.00,
+                  createdAt: new Date().toISOString(),
                   updatedAt: new Date().toISOString(),
                   name: 'Suzuki Multicab'
                 },
