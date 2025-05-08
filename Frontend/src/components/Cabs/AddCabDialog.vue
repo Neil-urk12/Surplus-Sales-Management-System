@@ -72,12 +72,10 @@ const capitalizedName = computed({
 watch(() => newCab.value.quantity, (newQuantity) => {
     if (newQuantity === 0) {
         newCab.value.status = 'Out of Stock';
-    } else if (newQuantity <= 2) {
+    } else if (newQuantity <= 7) {
         newCab.value.status = 'Low Stock';
-    } else if (newQuantity <= 5) {
-        newCab.value.status = 'In Stock';
     } else {
-        newCab.value.status = 'Available';
+        newCab.value.status = 'In Stock';
     }
 });
 

@@ -74,16 +74,26 @@ const capitalizedName = computed({
     }
 });
 
+const statusTextColorClass = computed(() => {
+  switch (localCabData.value.status) {
+    case 'Out of Stock':
+    case 'Low Stock':
+      return 'text-red font-bold';
+    case 'In Stock':
+      return 'text-green font-bold';
+    default:
+      return 'text-grey';
+  }
+});
+
 // --- Watchers --- 
 watch(() => localCabData.value.quantity, (newQuantity) => {
     if (newQuantity === 0) {
         localCabData.value.status = 'Out of Stock';
-    } else if (newQuantity <= 2) {
+    } else if (newQuantity <= 7) { // Updated logic: 1-7 is Low Stock
         localCabData.value.status = 'Low Stock';
-    } else if (newQuantity <= 5) {
+    } else { // Updated logic: >7 is In Stock
         localCabData.value.status = 'In Stock';
-    } else {
-        localCabData.value.status = 'Available';
     }
 });
 
@@ -464,7 +474,7 @@ function handleDrop(event: DragEvent) {
                     </div>
                     <div class="row q-col-gutter-sm">
                         <div class="col-12">
-                            <q-input v-model="localCabData.status" label="Status" dense outlined readonly>
+                            <q-input v-model="localCabData.status" label="Status" dense outlined readonly :input-class="statusTextColorClass">
                                 <template v-slot:prepend>
                                     <q-icon name="info" />
                                 </template>

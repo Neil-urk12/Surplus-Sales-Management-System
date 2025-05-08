@@ -208,11 +208,15 @@ function sellCab(cab: CabsRow) {
 
 function calculateNewCabState(currentQuantity: number, soldQuantity: number): { newQuantity: number; newStatus: CabStatus } {
   const newQuantity = currentQuantity - soldQuantity;
-  let newStatus: CabStatus = 'Available';
+  let newStatus: CabStatus;
 
-  if (newQuantity === 0) newStatus = 'Out of Stock';
-  else if (newQuantity <= 2) newStatus = 'Low Stock';
-  else if (newQuantity <= 5) newStatus = 'In Stock';
+  if (newQuantity === 0) {
+    newStatus = 'Out of Stock';
+  } else if (newQuantity <= 7) {
+    newStatus = 'Low Stock';
+  } else {
+    newStatus = 'In Stock';
+  }
 
   return { newQuantity, newStatus };
 }
@@ -371,31 +375,66 @@ onMounted(async () => {
 <template>
   <q-page class="flex q-pa-md">
     <div class="q-pa-sm full-width">
-      <div class="flex row q-my-sm">
-        <div class="flex full-width col">
-          <div class="flex col q-mr-sm">
-            <AdvancedSearch v-model="store.search.searchInput" placeholder="Search cabs" @clear="store.resetFilters"
-              color="primary" />
-          </div>
-          <div class="flex col">
-            <q-btn outline icon="filter_list" label="Filters" @click="showFilterDialog = true" />
+      <div class="q-mb-md">
+        <div class="flex row items-center justify-between">
+          <div class="col">
+            <div class="text-h5">Cabs</div>
           </div>
         </div>
-
-        <div class="flex row q-gutter-x-sm">
-          <q-btn class="text-white bg-primary" unelevated @click="openAddDialog">
-            <q-icon name="add" color="white" />
-            Add
-          </q-btn>
-          <div class="flex row">
-            <q-btn dense flat class="bg-primary text-white q-pa-sm" @click="handleDownloadCsv">
-              <q-icon name="download" color="white" />
-              Download CSV
-            </q-btn>
+        <div>
+          <div class="text-caption text-grey q-mt-sm">Manage your inventory items, track stock levels, and monitor product details.</div>
+          <div
+            class="flex items-center q-mt-sm"
+            :class="$q.screen.lt.md ? 'column q-gutter-y-sm items-stretch' : 'row justify-between'"
+          >
+            <div
+              class="flex items-center"
+              :class="$q.screen.lt.md ? 'column full-width q-gutter-y-sm items-stretch' : 'row q-gutter-x-sm'"
+            >
+              <AdvancedSearch
+                v-model="store.search.searchInput"
+                placeholder="Search cabs"
+                @clear="handleResetFilters" 
+                color="primary"
+                :disable="store.isLoading"
+                :style="$q.screen.lt.md ? { width: '100%' } : { width: '400px' }"
+              />
+              <q-btn
+                outline
+                icon="filter_list"
+                label="Filters"
+                @click="showFilterDialog = true"
+                :disable="store.isLoading"
+                :class="{ 'full-width': $q.screen.lt.md }"
+              />
+            </div>
+            <div
+              class="flex items-center"
+              :class="$q.screen.lt.md ? 'column full-width q-gutter-y-sm items-stretch' : 'row q-gutter-x-sm'"
+            >
+              <q-btn
+                unelevated
+                @click="openAddDialog"
+                :disable="store.isLoading"
+                :class="['text-white bg-primary', { 'full-width': $q.screen.lt.md }]"
+              >
+                <q-icon name="add" color="white" />
+                Add
+              </q-btn>
+              <q-btn
+                dense
+                flat
+                @click="handleDownloadCsv"
+                :disable="store.isLoading"
+                :class="['bg-primary text-white q-pa-sm', { 'full-width': $q.screen.lt.md }]"
+              >
+                <q-icon name="download" color="white" />
+                Download CSV
+              </q-btn>
+            </div>
           </div>
         </div>
       </div>
-
 
       <template v-if="store.isLoading">
         <q-inner-loading showing color="primary">
@@ -403,11 +442,10 @@ onMounted(async () => {
         </q-inner-loading>
       </template>
 
-
       <template v-else>
-        <q-table class="my-sticky-column-table" flat bordered title="Cabs" :rows="store.filteredCabRows || []"
+        <q-table class="my-sticky-column-table custom-table-text" flat bordered :rows="store.filteredCabRows || []"
           :columns="columns" row-key="id" :filter="store.search.searchValue" @row-click="onRowClick"
-          :filter-method="filterCabs" :pagination="{ rowsPerPage: 5 }">
+          :filter-method="filterCabs" :pagination="{ rowsPerPage: 10 }" :rows-per-page-options="[10]">
           <template v-slot:body-cell-actions="props">
             <q-td :props="props" auto-width :key="props.row.id">
               <q-btn flat round dense color="grey" icon="more_vert" class="action-button"
@@ -446,6 +484,11 @@ onMounted(async () => {
               </q-btn>
             </q-td>
           </template>
+          <template v-slot:body-cell-status="props">
+            <q-td :props="props">
+              <q-badge :color="props.row.status === 'In Stock' ? 'green' : (props.row.status === 'Out of Stock' || props.row.status === 'Low Stock' ? 'red' : 'grey')" :label="props.row.status" />
+            </q-td>
+          </template>
         </q-table>
       </template>
 
@@ -462,13 +505,11 @@ onMounted(async () => {
         :initial-filter-status="store.filterStatus === '' ? null : store.filterStatus"
         @apply-filters="handleApplyFilters" @reset-filters="handleResetFilters" />
 
-
       <EditCabDialog v-if="cabToEdit" v-model="showEditDialog" :cab-data="cabToEdit" :makes="makes" :colors="colors"
         :default-image-url="defaultImageUrl" @update-cab="handleUpdateCab" />
 
       <DeleteDialog v-model="showDeleteDialog" item-type="cab" :item-name="cabToDelete?.name || 'this cab'"
         @confirm-delete="handleConfirmDelete" />
-
 
       <SellCabDialog v-if="cabToSell" v-model="showSellDialog" :cab-to-sell="cabToSell"
         :accessories="accessoriesStore.accessoryRows" :customer-store="customerStore"
@@ -548,5 +589,16 @@ onMounted(async () => {
 
 .hidden
   display: none
+
+// Custom styles for table text
+.custom-table-text
+  td,
+  th
+    font-size: 1.05em
+    font-weight: 500
+
+    .q-badge
+      font-size: 1em 
+      font-weight: 600 
 
 </style>

@@ -80,7 +80,7 @@ export const useAccessoriesStore = defineStore('accessories', () => {
   // Available options
   const makes: AccessoryMake[] = ['Generic', 'OEM', 'Aftermarket', 'Custom']
   const colors: AccessoryColor[] = ['Black', 'White', 'Silver', 'Chrome', 'Custom']
-  const statuses: AccessoryStatus[] = ['In Stock', 'Low Stock', 'Out of Stock', 'Available']
+  const statuses: AccessoryStatus[] = ['In Stock', 'Low Stock', 'Out of Stock']
 
   // Computed
   const filteredAccessoryRows = computed(() => {

@@ -132,7 +132,7 @@ export const useMaterialsStore = defineStore('materials', () => {
    * Array of available material statuses.
    * @type {MaterialStatus[]}
    */
-  const statuses: MaterialStatus[] = ['In Stock', 'Low Stock', 'Out of Stock', 'Available']
+  const statuses: MaterialStatus[] = ['In Stock', 'Low Stock', 'Out of Stock']
 
   /**
    * Computed property that returns the material rows filtered based on
@@ -211,10 +211,8 @@ export const useMaterialsStore = defineStore('materials', () => {
         material.status = 'Out of Stock'
       } else if (quantity <= 10) {
         material.status = 'Low Stock'
-      } else if (quantity <= 50) {
-        material.status = 'In Stock'
       } else {
-        material.status = 'Available'
+        material.status = 'In Stock'
       }
     }
   }

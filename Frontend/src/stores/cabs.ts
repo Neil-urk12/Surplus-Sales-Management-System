@@ -29,7 +29,7 @@ export const useCabsStore = defineStore('cabs', () => {
   // Available options
   const makes: CabMake[] = ['Mazda', 'Porsche', 'Toyota', 'Nissan', 'Ford']
   const colors: CabColor[] = ['Black', 'White', 'Silver', 'Red', 'Blue']
-  const statuses: CabStatus[] = ['In Stock', 'Low Stock', 'Out of Stock', 'Available']
+  const statuses: CabStatus[] = ['In Stock', 'Low Stock', 'Out of Stock']
 
   // Setup search with the composable
   const search = useSearch({
@@ -104,15 +104,15 @@ export const useCabsStore = defineStore('cabs', () => {
 
   function updateCabStatus(id: number, quantity: number) {
     // This function will be used locally after API operations to update status
-    let newStatus: CabStatus = 'Available'
+    let newStatus: CabStatus;
     if (quantity === 0) {
-      newStatus = 'Out of Stock'
-    } else if (quantity <= 2) {
-      newStatus = 'Low Stock'
-    } else if (quantity <= 5) {
-      newStatus = 'In Stock'
+      newStatus = 'Out of Stock';
+    } else if (quantity <= 7) {
+      newStatus = 'Low Stock';
+    } else { // quantity > 7
+      newStatus = 'In Stock';
     }
-    return newStatus
+    return newStatus;
   }
 
   async function resetFilters() {
