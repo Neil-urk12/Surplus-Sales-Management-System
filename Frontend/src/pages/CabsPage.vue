@@ -320,7 +320,7 @@ async function handleConfirmSell(payload: {
     if (error instanceof AppError && error.type === 'inventory') {
       await errorHandler.recoverFromInventoryError([
         async () => { await store.initializeCabs(); },
-        async () => { await accessoriesStore.initializeAccessories(); }
+        async () => { await accessoriesStore.initializeAccessories(); },
         async () => { await store.initializeCabs(); },
         async () => { await accessoriesStore.initializeAccessories(); }
       ]);
