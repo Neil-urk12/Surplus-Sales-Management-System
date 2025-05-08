@@ -182,18 +182,7 @@ export const useMaterialsStore = defineStore('materials', () => {
         }
       })
 
-      // Find the highest ID to ensure new materials are always at the end
-      // and to avoid reusing deleted IDs
-      const maxId = materialRows.value.length > 0
-        ? Math.max(...materialRows.value.map(m => m.id))
-        : 0;
-      
-      // If the response doesn't include an ID, assign a new one
-      if (!response.data.id) {
-        response.data.id = maxId + 1;
-      }
-
-      // Add to the end of the array
+      // Add the material returned from the server (with server-generated ID)
       materialRows.value.push(response.data)
       operationNotifications.add.success(`material: ${material.name}`);
       return { success: true, id: response.data.id }

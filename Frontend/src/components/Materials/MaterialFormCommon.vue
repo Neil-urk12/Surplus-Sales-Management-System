@@ -2,7 +2,7 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import type { PropType } from 'vue';
 import type { NewMaterialInput, MaterialCategoryInput, MaterialSupplierInput, MaterialStatus } from 'src/types/materials';
-import { validateAndSanitizeBase64Image, validateImageDimensions, MAX_IMAGE_SIZE, DEFAULT_MAX_DIMENSION } from '../../utils/imageValidation';
+import { validateFileUpload, MAX_IMAGE_SIZE, DEFAULT_MAX_DIMENSION } from '../../utils/imageValidation';
 
 const props = defineProps({
   materialData: {
@@ -44,16 +44,18 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const previewUrl = ref<string>(props.materialData.image || props.defaultImageUrl);
 const isUploadingImage = ref(false);
 const isDragging = ref(false);
-const localQuantity = ref(props.materialData.quantity);
+const localQuantity = ref(props.materialData.quantity ?? 0);
+const isPreviewBlobUrl = ref(false);
 let currentAbortController: AbortController | null = null;
 
 // For debouncing
 let dragLeaveTimer: number | null = null;
+let quantityUpdateTimer: number | null = null;
 
 // Watch for changes in the localQuantity
 watch(localQuantity, (newVal) => {
   // Update the materialData quantity
-  const numValue = typeof newVal === 'string' ? Number(newVal) || 0 : newVal;
+  const numValue = typeof newVal === 'string' ? (Number.isFinite(Number(newVal)) ? Number(newVal) : 0) : newVal;
   const updatedData = { ...props.materialData, quantity: numValue };
   
   // Update status based on quantity
@@ -70,7 +72,7 @@ watch(localQuantity, (newVal) => {
 
 // Watch for external changes to materialData.quantity
 watch(() => props.materialData.quantity, (newVal) => {
-  localQuantity.value = newVal;
+  localQuantity.value = newVal ?? 0;
 }, { immediate: true });
 
 // --- Computed --- 
@@ -106,6 +108,16 @@ const status = computed({
   set: (value: MaterialStatus) => updateField('status', value)
 });
 
+// Computed for button disable condition
+const isSubmitDisabled = computed(() => {
+  return !props.materialData.name || 
+         !props.materialData.category || 
+         !props.materialData.supplier || 
+         props.materialData.quantity < 0 || 
+         !imageUrlValid.value || 
+         isUploadingImage.value;
+});
+
 // Watch for changes in the material data
 watch(() => props.materialData, () => {
   previewUrl.value = props.materialData.image || props.defaultImageUrl;
@@ -118,7 +130,7 @@ onBeforeUnmount(() => {
     currentAbortController = null;
   }
   // Cleanup any object URLs to prevent memory leaks
-  if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
+  if (isPreviewBlobUrl.value && previewUrl.value && previewUrl.value.startsWith('blob:')) {
     try {
       URL.revokeObjectURL(previewUrl.value);
     } catch (error) {
@@ -131,6 +143,11 @@ onBeforeUnmount(() => {
     clearTimeout(dragLeaveTimer);
     dragLeaveTimer = null;
   }
+  
+  if (quantityUpdateTimer !== null) {
+    clearTimeout(quantityUpdateTimer);
+    quantityUpdateTimer = null;
+  }
 });
 
 // --- Functions ---
@@ -139,8 +156,17 @@ function handleQuantityInput(event: Event) {
   const input = event.target as HTMLInputElement;
   const value = input.value;
   
-  // Update local quantity ref
-  localQuantity.value = value === '' ? 0 : Number(value);
+  // Clear any existing debounce timer
+  if (quantityUpdateTimer !== null) {
+    clearTimeout(quantityUpdateTimer);
+  }
+  
+  // Debounce the update
+  quantityUpdateTimer = window.setTimeout(() => {
+    // Update local quantity ref
+    localQuantity.value = value === '' ? 0 : Number(value);
+    quantityUpdateTimer = null;
+  }, 300);
 }
 
 function handleQuantityBlur(event: Event) {
@@ -148,8 +174,14 @@ function handleQuantityBlur(event: Event) {
   const input = event.target as HTMLInputElement;
   const value = input.value;
   
+  // Clear any pending debounce timer
+  if (quantityUpdateTimer !== null) {
+    clearTimeout(quantityUpdateTimer);
+    quantityUpdateTimer = null;
+  }
+  
   // Ensure the quantity is updated in the materialData
-  const numValue = value === '' ? 0 : Number(value);
+  const numValue = value === '' ? 0 : (Number.isFinite(Number(value)) ? Number(value) : 0);
   
   // Find the appropriate status
   let newStatus: MaterialStatus;
@@ -173,7 +205,7 @@ function handleQuantityBlur(event: Event) {
 }
 
 function clearImageInput() {
-  if (previewUrl.value && previewUrl.value !== props.defaultImageUrl) {
+  if (isPreviewBlobUrl.value && previewUrl.value && previewUrl.value.startsWith('blob:')) {
     try {
       URL.revokeObjectURL(previewUrl.value);
     } catch (error) {
@@ -181,6 +213,7 @@ function clearImageInput() {
     }
   }
   previewUrl.value = props.defaultImageUrl;
+  isPreviewBlobUrl.value = false;
   
   const updatedData = { ...props.materialData, image: props.defaultImageUrl };
   emit('update:materialData', updatedData);
@@ -226,61 +259,62 @@ function updateField<T extends keyof NewMaterialInput>(field: T, value: NewMater
 }
 
 // --- Image Handling --- 
+function validateAndProcessImage(file: File): Promise<{success: boolean, result?: string, error?: string}> {
+  return validateFileUpload(file, {
+    maxFileSize: MAX_FILE_SIZE,
+    maxDimension: MAX_DIMENSION
+  })
+    .then(result => {
+      if (result.isValid && result.sanitizedData) {
+        return {
+          success: true,
+          result: result.sanitizedData
+        };
+      } else {
+        return {
+          success: false,
+          error: result.error || 'Invalid image'
+        };
+      }
+    })
+    .catch(error => {
+      console.error('Error processing image:', error);
+      return {
+        success: false,
+        error: 'Error processing image'
+      };
+    });
+}
+
 function handleFile(file: File) {
-  if (!file.type.startsWith('image/')) {
-    emit('validation-error', 'Please select an image file');
-    return;
-  }
-
-  if (file.size > MAX_FILE_SIZE) {
-    emit('validation-error', 'Image size must be less than 5MB');
-    return;
-  }
-
   isUploadingImage.value = true;
 
-  try {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const result = e.target?.result as string;
-      if (result) {
-        const validationResult = validateAndSanitizeBase64Image(result);
-        if (validationResult.isValid) {
-          // Validate image dimensions
-          const dimensionResult = await validateImageDimensions(validationResult.sanitizedData!, MAX_DIMENSION);
-          if (dimensionResult.isValid) {
-            const updatedData = { 
-              ...props.materialData, 
-              image: validationResult.sanitizedData! 
-            };
-            emit('update:materialData', updatedData);
-            previewUrl.value = validationResult.sanitizedData!;
-            imageUrlValid.value = true;
-          } else {
-            emit('validation-error', dimensionResult.error || 'Image dimensions exceed limits');
-            clearImageInput();
-          }
-        } else {
-          emit('validation-error', validationResult.error || 'Invalid image data');
-          clearImageInput();
-        }
+  void validateAndProcessImage(file)
+    .then(response => {
+      if (response.success && response.result) {
+        isPreviewBlobUrl.value = response.result.startsWith('blob:');
+        const updatedData = { 
+          ...props.materialData, 
+          image: response.result 
+        };
+        emit('update:materialData', updatedData);
+        previewUrl.value = response.result;
+        imageUrlValid.value = true;
+      } else {
+        emit('validation-error', response.error || 'Invalid image');
+        clearImageInput();
       }
+    })
+    .finally(() => {
       isUploadingImage.value = false;
-    };
-    reader.readAsDataURL(file);
-  } catch (error) {
-    console.error('Error processing image:', error);
-    emit('validation-error', 'Error processing image');
-    clearImageInput();
-    isUploadingImage.value = false;
-  }
+    });
 }
 
 function handleFileSelect(event: Event) {
   const input = event.target as HTMLInputElement;
   if (input.files && input.files[0]) {
     const file = input.files[0];
-    handleFile(file);
+    void handleFile(file);
   }
   if (input) {
     input.value = '';
@@ -297,6 +331,15 @@ function removeImage() {
 
 // --- Drag & Drop --- 
 function handleDragLeave(event: DragEvent) {
+  // Improve drag leave detection by checking related target
+  const related = event.relatedTarget as Node | null;
+  const container = event.currentTarget as HTMLElement;
+  
+  // If the related target is a child of the container, don't set isDragging to false
+  if (related && container.contains(related)) {
+    return;
+  }
+  
   // Clear any existing timer
   if (dragLeaveTimer !== null) {
     clearTimeout(dragLeaveTimer);
@@ -304,7 +347,7 @@ function handleDragLeave(event: DragEvent) {
   
   // Set a new timer for debouncing
   dragLeaveTimer = window.setTimeout(() => {
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const rect = container.getBoundingClientRect();
     const x = event.clientX;
     const y = event.clientY;
     if (x <= rect.left || x >= rect.right || y <= rect.top || y >= rect.bottom) {
@@ -319,7 +362,7 @@ function handleDrop(event: DragEvent) {
   isDragging.value = false;
   if (event.dataTransfer?.files && event.dataTransfer.files[0]) {
     const file = event.dataTransfer.files[0];
-    handleFile(file);
+    void handleFile(file);
   }
 }
 </script>
@@ -456,20 +499,10 @@ function handleDrop(event: DragEvent) {
     <div class="row justify-end q-gutter-sm q-mt-md">
       <q-btn flat label="Cancel" @click="handleCancel" />
       <slot name="submitButton" 
-            :disabled="!props.materialData.name || 
-                      !props.materialData.category || 
-                      !props.materialData.supplier || 
-                      props.materialData.quantity < 0 || 
-                      !imageUrlValid || 
-                      isUploadingImage"
+            :disabled="isSubmitDisabled"
             :loading="isProcessing">
         <q-btn unelevated color="primary" label="Submit" type="submit" :loading="isProcessing"
-          :disable="!props.materialData.name || 
-                  !props.materialData.category || 
-                  !props.materialData.supplier || 
-                  props.materialData.quantity < 0 || 
-                  !imageUrlValid || 
-                  isUploadingImage" />
+          :disable="isSubmitDisabled" />
       </slot>
     </div>
   </q-form>

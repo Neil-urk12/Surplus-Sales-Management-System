@@ -138,7 +138,7 @@ export const useCabsStore = defineStore('cabs', () => {
       isLoading.value = true
       const result = await cabsService.deleteCab(id)
 
-      if (result.success) {
+      if (result.success && cabRows.value) {
         // Instead of reloading all data, just remove the deleted cab from local state
         // This prevents ID reallocation and maintains the integrity of the ID sequence
         const index = cabRows.value.findIndex(c => c.id === id);
@@ -182,6 +182,21 @@ export const useCabsStore = defineStore('cabs', () => {
         image: cab.image ?? existingCab.image
       }
 
+      // Validate make and unit_color before proceeding
+      if (updatedCab.make && !makes.includes(updatedCab.make)) {
+        return {
+          success: false,
+          error: `Invalid make value: ${updatedCab.make}`
+        }
+      }
+
+      if (updatedCab.unit_color && !colors.includes(updatedCab.unit_color)) {
+        return {
+          success: false,
+          error: `Invalid color value: ${updatedCab.unit_color}`
+        }
+      }
+
       const result = await cabsService.updateCab(id, updatedCab)
 
       if (result.success) {
@@ -193,7 +208,7 @@ export const useCabsStore = defineStore('cabs', () => {
           const typedUpdatedCab: CabsRow = {
             id: existingCab.id,
             name: updatedCab.name,
-            // Cast to proper types
+            // Cast to proper types (now safe after validation)
             make: updatedCab.make as CabMake,
             unit_color: updatedCab.unit_color as CabColor,
             quantity: updatedCab.quantity,
