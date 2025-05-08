@@ -208,11 +208,15 @@ function sellCab(cab: CabsRow) {
 
 function calculateNewCabState(currentQuantity: number, soldQuantity: number): { newQuantity: number; newStatus: CabStatus } {
   const newQuantity = currentQuantity - soldQuantity;
-  let newStatus: CabStatus = 'Available';
+  let newStatus: CabStatus;
 
-  if (newQuantity === 0) newStatus = 'Out of Stock';
-  else if (newQuantity <= 2) newStatus = 'Low Stock';
-  else if (newQuantity <= 5) newStatus = 'In Stock';
+  if (newQuantity === 0) {
+    newStatus = 'Out of Stock';
+  } else if (newQuantity <= 7) {
+    newStatus = 'Low Stock';
+  } else {
+    newStatus = 'In Stock';
+  }
 
   return { newQuantity, newStatus };
 }
@@ -405,7 +409,7 @@ onMounted(async () => {
 
 
       <template v-else>
-        <q-table class="my-sticky-column-table" flat bordered title="Cabs" :rows="store.filteredCabRows || []"
+        <q-table class="my-sticky-column-table custom-table-text" flat bordered title="Cabs" :rows="store.filteredCabRows || []"
           :columns="columns" row-key="id" :filter="store.search.searchValue" @row-click="onRowClick"
           :filter-method="filterCabs" :pagination="{ rowsPerPage: 5 }">
           <template v-slot:body-cell-actions="props">
@@ -444,6 +448,11 @@ onMounted(async () => {
                   </q-list>
                 </q-menu>
               </q-btn>
+            </q-td>
+          </template>
+          <template v-slot:body-cell-status="props">
+            <q-td :props="props">
+              <q-badge :color="props.row.status === 'In Stock' ? 'green' : (props.row.status === 'Out of Stock' || props.row.status === 'Low Stock' ? 'red' : 'grey')" :label="props.row.status" />
             </q-td>
           </template>
         </q-table>
@@ -548,5 +557,16 @@ onMounted(async () => {
 
 .hidden
   display: none
+
+// Custom styles for table text
+.custom-table-text
+  td,
+  th
+    font-size: 1.05em
+    font-weight: 500
+
+    .q-badge
+      font-size: 1em 
+      font-weight: 600 
 
 </style>

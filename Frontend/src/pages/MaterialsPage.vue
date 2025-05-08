@@ -152,10 +152,19 @@ watch(() => newMaterial.value.quantity, (newQuantity) => {
     newMaterial.value.status = 'Out of Stock';
   } else if (newQuantity <= 10) {
     newMaterial.value.status = 'Low Stock';
-  } else if (newQuantity <= 50) {
-    newMaterial.value.status = 'In Stock';
   } else {
-    newMaterial.value.status = 'Available';
+    newMaterial.value.status = 'In Stock';
+  }
+});
+
+// Watcher for materialToEdit quantity
+watch(() => materialToEdit.value.quantity, (newQuantity) => {
+  if (newQuantity === 0) {
+    materialToEdit.value.status = 'Out of Stock';
+  } else if (newQuantity <= 10) {
+    materialToEdit.value.status = 'Low Stock';
+  } else {
+    materialToEdit.value.status = 'In Stock';
   }
 });
 
@@ -767,13 +776,18 @@ function handleApplyFilters(filters: { category: string | null; supplier: string
         </div>
 
         <!--MATERIALS TABLE-->
-        <q-table class="my-sticky-column-table" flat bordered title="Materials" :rows="store.filteredMaterialRows"
+        <q-table class="my-sticky-column-table custom-table-text" flat bordered title="Materials" :rows="store.filteredMaterialRows"
           :columns="materialColumns" row-key="id" :filter="store.search.searchValue" @row-click="onMaterialRowClick"
           :pagination="{ rowsPerPage: 5 }" :loading="store.isLoading">
           <template v-slot:loading>
             <q-inner-loading showing color="primary">
               <q-spinner-gears size="50px" color="primary" />
             </q-inner-loading>
+          </template>
+          <template v-slot:body-cell-status="props">
+            <q-td :props="props">
+              <q-badge :color="props.row.status === 'In Stock' ? 'green' : (props.row.status === 'Out of Stock' || props.row.status === 'Low Stock' ? 'red' : 'grey')" :label="props.row.status" />
+            </q-td>
           </template>
           <template v-slot:body-cell-actions="props">
             <q-td :props="props" auto-width>
@@ -996,4 +1010,14 @@ function handleApplyFilters(filters: { category: string | null; supplier: string
 
 .action-menu
   z-index: 1001 !important
+
+.custom-table-text
+  td,
+  th
+    font-size: 1.15em
+    font-weight: 400
+
+    .q-badge
+      font-size: 0.9em
+      font-weight: 600
 </style>

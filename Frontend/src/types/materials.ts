@@ -11,7 +11,7 @@ export type MaterialSupplier = 'Steel Co.' | 'Construction Supplies Inc.' | 'Woo
 /**
  * Available inventory status values
  */
-export type MaterialStatus = 'In Stock' | 'Low Stock' | 'Out of Stock' | 'Available';
+export type MaterialStatus = 'In Stock' | 'Low Stock' | 'Out of Stock';
 
 /**
  * Form input types that allow empty values
@@ -25,22 +25,22 @@ export type MaterialSupplierInput = MaterialSupplier | '';
 export interface MaterialRow {
   /** Unique identifier for the material */
   id: number;
-  
+
   /** Name of the material */
   name: string;
-  
+
   /** Category of the material */
   category: MaterialCategory;
-  
+
   /** Supplier of the material */
   supplier: MaterialSupplier;
-  
+
   /** Number of units available in inventory */
   quantity: number;
-  
+
   /** Current inventory status */
   status: MaterialStatus;
-  
+
   /** URL or base64 string of the material image */
   image: string;
 }

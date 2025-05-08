@@ -329,7 +329,7 @@ onMounted(async () => {
       </div>
 
       <!--ACCESSORIES TABLE - Only show when not loading and no errors -->
-      <q-table v-if="!pageLoading && !hasApiError" class="my-sticky-column-table" flat bordered title="Accessories"
+      <q-table v-if="!pageLoading && !hasApiError" class="my-sticky-column-table custom-table-text" flat bordered title="Accessories"
         :rows="store.filteredAccessoryRows" :columns="columns" row-key="id" :filter="store.search.searchValue"
         @row-click="onRowClick" :pagination="{ rowsPerPage: 5 }" :loading="store.isLoading">
         <template v-slot:loading>
@@ -337,6 +337,11 @@ onMounted(async () => {
             <q-spinner-gears size="50px" color="primary" />
             <div class="q-mt-sm text-primary">Loading data...</div>
           </q-inner-loading>
+        </template>
+        <template v-slot:body-cell-status="props">
+          <q-td :props="props">
+            <q-badge :color="props.row.status === 'In Stock' ? 'green' : (props.row.status === 'Out of Stock' || props.row.status === 'Low Stock' ? 'red' : 'grey')" :label="props.row.status" />
+          </q-td>
         </template>
         <template v-slot:body-cell-actions="props">
           <q-td :props="props" auto-width :key="props.row.id">
@@ -469,4 +474,14 @@ onMounted(async () => {
   z-index: 1001 !important
 .page-height
   height: 100vh
+
+.custom-table-text
+  td,
+  th
+    font-size: 1.15em
+    font-weight: 400
+
+    .q-badge
+      font-size: 0.9em
+      font-weight: 600
 </style>

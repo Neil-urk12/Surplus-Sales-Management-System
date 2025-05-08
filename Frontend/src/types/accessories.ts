@@ -5,7 +5,7 @@ export type AccessoryMake = 'Generic' | 'OEM' | 'Aftermarket' | 'Custom';
 export type AccessoryColor = 'Black' | 'White' | 'Silver' | 'Chrome' | 'Custom';
 
 // Available accessory statuses
-export type AccessoryStatus = 'In Stock' | 'Low Stock' | 'Out of Stock' | 'Available';
+export type AccessoryStatus = 'In Stock' | 'Low Stock' | 'Out of Stock';
 
 // Input types that allow empty strings for form handling
 export type AccessoryMakeInput = AccessoryMake | '';
