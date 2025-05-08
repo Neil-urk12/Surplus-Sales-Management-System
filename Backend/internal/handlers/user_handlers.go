@@ -679,6 +679,15 @@ func (h *UserHandler) UpdatePassword(c *fiber.Ctx) error {
 		})
 	}
 
+	// IsActive check
+	if !user.IsActive {
+		log.Printf("UpdatePassword: Attempt to update password for inactive user %s", id)
+		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
+			Error:      "Account is inactive",
+			StatusCode: fiber.StatusForbidden,
+		})
+	}
+
 	// Verify current password
 	_, err = h.userRepo.VerifyPassword(user.Email, input.CurrentPassword)
 	if err != nil {

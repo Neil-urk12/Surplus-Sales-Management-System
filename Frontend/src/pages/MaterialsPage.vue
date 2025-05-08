@@ -4,7 +4,7 @@ import type { QTableColumn, QTableProps } from 'quasar';
 import { useQuasar } from 'quasar';
 import { useMaterialsStore } from 'src/stores/materials';
 import type { MaterialRow, NewMaterialInput } from 'src/stores/materials';
-import type { UpdateMaterialInput } from 'src/types/materials';
+import type { UpdateMaterialInput, MaterialCategory, MaterialSupplier, MaterialStatus } from 'src/types/materials';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
 const ProductCardModal = defineAsyncComponent(() => import('src/components/Global/ProductModal.vue'));
@@ -728,9 +728,9 @@ onMounted(async () => {
 });
 
 function handleApplyFilters(filters: { category: string | null; supplier: string | null; status: string | null }) {
-  store.filterCategory = filters.category === null ? '' : filters.category;
-  store.filterSupplier = filters.supplier === null ? '' : filters.supplier;
-  store.filterStatus = filters.status === null ? '' : filters.status;
+  store.filterCategory = filters.category === null ? '' : filters.category as MaterialCategory;
+  store.filterSupplier = filters.supplier === null ? '' : filters.supplier as MaterialSupplier;
+  store.filterStatus = filters.status === null ? '' : filters.status as MaterialStatus;
   operationNotifications.filters.success();
   showFilterDialog.value = false;
 }
