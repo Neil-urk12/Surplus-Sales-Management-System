@@ -522,7 +522,16 @@ func TestUserHandler_UpdateUser_InactiveUser(t *testing.T) {
 	inactiveUser.IsActive = false
 
 	// Setup expectations
-	mockRepo.On("GetByID", inactiveUser.Id).Return(inactiveUser, nil)
+	mockRepo.On("GetByID", inactiveUser.Id).Return(&models.User{
+		Id:        inactiveUser.Id,
+		FullName:  inactiveUser.FullName,
+		Email:     inactiveUser.Email,
+		Password:  inactiveUser.Password, // Will be hashed in reality
+		Role:      inactiveUser.Role,
+		CreatedAt: inactiveUser.CreatedAt,
+		UpdatedAt: inactiveUser.UpdatedAt,
+		IsActive:  false, // Explicitly false for this test case
+	}, nil)
 	// Add the Update expectation, as admin/staff *can* update role/isActive for inactive users
 	mockRepo.On("Update", mock.MatchedBy(func(u *models.User) bool {
 		return u.Id == inactiveUser.Id && u.Role == "user" && u.IsActive == true // Example: activating the user
@@ -663,16 +672,26 @@ func TestUserHandler_UpdatePassword(t *testing.T) {
 	// Setup
 	app, handler, mockRepo := setupTest()
 
-	// Setup route
-	app.Put("/users/:id/password", handler.UpdatePassword)
-
 	// Create test user
 	user := createTestUser()
 
+	// Setup middleware to simulate authenticated user
+	app.Use(func(c *fiber.Ctx) error {
+		// For this test, simulate the user updating their own password
+		if c.Path() == "/users/"+user.Id+"/password" {
+			c.Locals("user_id", user.Id)
+			c.Locals("role", user.Role) // Use the role from the test user
+		}
+		return c.Next()
+	})
+
+	// Setup route
+	app.Put("/users/:id/password", handler.UpdatePassword)
+
 	// Setup expectations
-	mockRepo.On("GetByID", user.Id).Return(user, nil)
-	mockRepo.On("VerifyPassword", user.Email, "current_password").Return(user, nil)
-	mockRepo.On("UpdatePassword", user.Id, "new_password").Return(nil)
+	mockRepo.On("GetByID", user.Id).Return(user, nil).Once()
+	mockRepo.On("VerifyPassword", user.Email, "current_password").Return(user, nil).Once()
+	mockRepo.On("UpdatePassword", user.Id, "new_password").Return(nil).Once()
 
 	// Create request body
 	reqBody := map[string]string{
@@ -707,15 +726,35 @@ func TestUserHandler_UpdatePassword_InactiveUser(t *testing.T) {
 	// Setup
 	app, handler, mockRepo := setupTest()
 
-	// Setup route
-	app.Put("/users/:id/password", handler.UpdatePassword)
-
 	// Create inactive test user
 	inactiveUser := createTestUser()
 	inactiveUser.IsActive = false
 
+	// Setup middleware to simulate authenticated user
+	app.Use(func(c *fiber.Ctx) error {
+		// For this test, simulate the user attempting to update their own password
+		if c.Path() == "/users/"+inactiveUser.Id+"/password" {
+			c.Locals("user_id", inactiveUser.Id)
+			c.Locals("role", inactiveUser.Role) // Use the role from the test user
+		}
+		return c.Next()
+	})
+
+	// Setup route
+	app.Put("/users/:id/password", handler.UpdatePassword)
+
 	// Setup expectations
-	mockRepo.On("GetByID", inactiveUser.Id).Return(inactiveUser, nil)
+	// Only GetByID should be called before the active check
+	mockRepo.On("GetByID", inactiveUser.Id).Return(&models.User{
+		Id:        inactiveUser.Id,
+		FullName:  inactiveUser.FullName,
+		Email:     inactiveUser.Email,
+		Password:  inactiveUser.Password, // Will be hashed in reality
+		Role:      inactiveUser.Role,
+		CreatedAt: inactiveUser.CreatedAt,
+		UpdatedAt: inactiveUser.UpdatedAt,
+		IsActive:  false, // Explicitly false for this test case
+	}, nil).Once()
 
 	// Create request body
 	reqBody := map[string]string{
@@ -733,14 +772,14 @@ func TestUserHandler_UpdatePassword_InactiveUser(t *testing.T) {
 
 	// Assert
 	assert.NoError(t, err)
-	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode) // Expect Forbidden due to inactive user
 
 	// Verify response body
 	var result map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&result)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "Account is inactive", result["error"])
+	assert.Equal(t, "Account is inactive", result["error"]) // Expect inactive account error
 
 	// Verify expectations
 	mockRepo.AssertExpectations(t)
@@ -750,15 +789,27 @@ func TestUserHandler_UpdatePassword_IncorrectCurrentPassword(t *testing.T) {
 	// Setup
 	app, handler, mockRepo := setupTest()
 
+	// Create test user (defaults to active)
+	user := createTestUser()
+
+	// Setup middleware to simulate authenticated user
+	app.Use(func(c *fiber.Ctx) error {
+		if c.Path() == "/users/"+user.Id+"/password" {
+			c.Locals("user_id", user.Id)
+			c.Locals("role", user.Role)
+		}
+		return c.Next()
+	})
+
 	// Setup route
 	app.Put("/users/:id/password", handler.UpdatePassword)
 
 	// Create test user
-	user := createTestUser()
+	// user := createTestUser() // Moved user creation up
 
 	// Setup expectations
-	mockRepo.On("GetByID", user.Id).Return(user, nil)
-	mockRepo.On("VerifyPassword", user.Email, "wrong_password").Return(nil, errors.New("invalid password"))
+	mockRepo.On("GetByID", user.Id).Return(user, nil).Once()
+	mockRepo.On("VerifyPassword", user.Email, "wrong_password").Return(nil, errors.New("invalid password")).Once()
 
 	// Create request body
 	reqBody := map[string]string{
