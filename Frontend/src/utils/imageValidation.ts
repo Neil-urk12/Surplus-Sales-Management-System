@@ -19,12 +19,10 @@ interface ImageValidationResult {
 /**
  * Validates and sanitizes a base64 image string
  * @param base64String The base64 image string to validate
- * @param maxDimension The maximum allowed dimension (width/height) for the image
  * @returns Validation result with sanitized data if valid
  */
 export function validateAndSanitizeBase64Image(
-  base64String: string,
-  maxDimension: number = DEFAULT_MAX_DIMENSION
+  base64String: string
 ): ImageValidationResult {
   // Check if the string is empty
   if (!base64String) {
@@ -70,22 +68,6 @@ export function validateAndSanitizeBase64Image(
       return { isValid: false, error: 'Invalid base64 encoding' };
     }
 
-    // Check image dimensions if it's not an SVG
-    if (mimeType !== 'image/svg+xml') {
-      const img = new Image();
-      img.src = base64String;
-      
-      // Add a comment acknowledging this parameter is used for validation
-      // but note that this is a synchronous implementation that doesn't
-      // actually validate dimensions here
-      // For future implementation: Use maxDimension to validate image dimensions
-      console.log(`Validating image with max dimension: ${maxDimension}px`);
-      
-      // This is a synchronous check but doesn't actually validate dimensions
-      // In a production app, you'd want an async version that loads the image first
-      // For now, we'll apply dimension validation on the client side in handleFile
-    }
-
     // If we got here, the base64 data appears valid
     // Return the original data to avoid potential corruption from re-encoding
     return {
@@ -98,6 +80,45 @@ export function validateAndSanitizeBase64Image(
       error: 'Invalid base64 encoding'
     };
   }
+}
+
+/**
+ * Asynchronously validates image dimensions from a base64 string
+ * @param base64String The base64 image string to validate
+ * @param maxDimension The maximum allowed dimension (width/height) for the image
+ * @returns Promise resolving to validation result
+ */
+export async function validateImageDimensions(
+  base64String: string,
+  maxDimension: number = DEFAULT_MAX_DIMENSION
+): Promise<ImageValidationResult> {
+  if (!maxDimension) {
+    return { isValid: true };
+  }
+  
+  return new Promise((resolve) => {
+    const img = new Image();
+    
+    img.onload = () => {
+      if (img.width > maxDimension || img.height > maxDimension) {
+        resolve({
+          isValid: false,
+          error: `Image dimensions exceed maximum limit of ${maxDimension}px`
+        });
+      } else {
+        resolve({ isValid: true });
+      }
+    };
+    
+    img.onerror = () => {
+      resolve({
+        isValid: false,
+        error: 'Failed to load image for dimension validation'
+      });
+    };
+    
+    img.src = base64String;
+  });
 }
 
 /**

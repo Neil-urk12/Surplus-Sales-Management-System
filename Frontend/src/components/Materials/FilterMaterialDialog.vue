@@ -42,7 +42,7 @@ watch(() => [props.initialFilterCategory, props.initialFilterSupplier, props.ini
     localFilterCategory.value = props.initialFilterCategory;
     localFilterSupplier.value = props.initialFilterSupplier;
     localFilterStatus.value = props.initialFilterStatus;
-});
+}, { deep: true });
 
 function apply() {
     emit('apply-filters', {

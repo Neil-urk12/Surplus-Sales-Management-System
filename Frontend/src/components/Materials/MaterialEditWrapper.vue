@@ -48,10 +48,22 @@ watch(() => dialogOpen.value, (newValue) => {
 
 function handleUpdateMaterial(materialData: NewMaterialInput) {
   console.log('MaterialEditWrapper - handleUpdateMaterial called');
+  
+  // Basic validation to ensure required fields are present
+  if (!materialData || 
+      !materialData.name || 
+      !materialData.description || 
+      !materialData.category || 
+      !materialData.supplier || 
+      materialData.price === undefined || 
+      materialData.quantity === undefined) {
+    console.error('Invalid material data provided:', materialData);
+    return;
+  }
+  
   emit('update-material', materialData);
   // Close the dialog immediately on successful material update
   dialogOpen.value = false;
-  emit('update:open', false);
 }
 </script>
 

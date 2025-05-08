@@ -2,7 +2,7 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import type { NewMaterialInput } from 'src/types/materials';
 import type { PropType } from 'vue';
-import { validateAndSanitizeBase64Image } from '../../utils/imageValidation';
+import { validateAndSanitizeBase64Image, validateImageDimensions } from '../../utils/imageValidation';
 import { operationNotifications } from '../../utils/notifications';
 
 const props = defineProps({
@@ -49,6 +49,9 @@ const isUploadingImage = ref(false);
 const isDragging = ref(false);
 let currentAbortController: AbortController | null = null;
 
+// For debouncing
+let dragLeaveTimer: number | null = null;
+
 // --- Computed --- 
 const capitalizedName = computed({
     get: () => newMaterial.value.name,
@@ -87,7 +90,17 @@ onBeforeUnmount(() => {
     }
     // Cleanup any object URLs to prevent memory leaks
     if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
-        URL.revokeObjectURL(previewUrl.value);
+        try {
+            URL.revokeObjectURL(previewUrl.value);
+        } catch (error) {
+            console.error('Error revoking object URL:', error);
+        }
+    }
+    
+    // Clear any pending timers
+    if (dragLeaveTimer !== null) {
+        clearTimeout(dragLeaveTimer);
+        dragLeaveTimer = null;
     }
 });
 
@@ -104,7 +117,7 @@ function resetForm() {
     clearImageInput();
 }
 
-function handleAddNewMaterial() {
+async function handleAddNewMaterial() {
     if (!newMaterial.value.name) {
         operationNotifications.validation.error('Please enter a material name');
         return;
@@ -126,11 +139,19 @@ function handleAddNewMaterial() {
 
     // Full sanitization right before sending to backend
     if (newMaterial.value.image.startsWith('data:image/')) {
-        const sanitizationResult = validateAndSanitizeBase64Image(newMaterial.value.image, MAX_DIMENSION);
+        const sanitizationResult = validateAndSanitizeBase64Image(newMaterial.value.image);
         if (!sanitizationResult.isValid) {
             operationNotifications.validation.error(sanitizationResult.error || 'Invalid image data');
             return;
         }
+        
+        // Validate image dimensions
+        const dimensionResult = await validateImageDimensions(sanitizationResult.sanitizedData!, MAX_DIMENSION);
+        if (!dimensionResult.isValid) {
+            operationNotifications.validation.error(dimensionResult.error || 'Image dimensions exceed limits');
+            return;
+        }
+        
         newMaterial.value.image = sanitizationResult.sanitizedData!;
     }
 
@@ -157,33 +178,44 @@ function handleFile(file: File) {
 
     try {
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             const result = e.target?.result as string;
             if (result) {
-                const validationResult = validateAndSanitizeBase64Image(result, MAX_DIMENSION);
+                const validationResult = validateAndSanitizeBase64Image(result);
                 if (validationResult.isValid) {
-                    newMaterial.value.image = validationResult.sanitizedData!;
-                    previewUrl.value = validationResult.sanitizedData!;
-                    imageUrlValid.value = true;
+                    // Validate image dimensions
+                    const dimensionResult = await validateImageDimensions(validationResult.sanitizedData!, MAX_DIMENSION);
+                    if (dimensionResult.isValid) {
+                        newMaterial.value.image = validationResult.sanitizedData!;
+                        previewUrl.value = validationResult.sanitizedData!;
+                        imageUrlValid.value = true;
+                    } else {
+                        operationNotifications.validation.error(dimensionResult.error || 'Image dimensions exceed limits');
+                        clearImageInput();
+                    }
                 } else {
                     operationNotifications.validation.error(validationResult.error || 'Invalid image data');
                     clearImageInput();
                 }
             }
+            isUploadingImage.value = false;
         };
         reader.readAsDataURL(file);
     } catch (error) {
         console.error('Error processing image:', error);
         operationNotifications.validation.error('Error processing image');
         clearImageInput();
-    } finally {
         isUploadingImage.value = false;
     }
 }
 
 function clearImageInput() {
     if (previewUrl.value && previewUrl.value !== props.defaultImageUrl) {
-        URL.revokeObjectURL(previewUrl.value);
+        try {
+            URL.revokeObjectURL(previewUrl.value);
+        } catch (error) {
+            console.error('Error revoking object URL:', error);
+        }
     }
     previewUrl.value = props.defaultImageUrl;
     newMaterial.value.image = props.defaultImageUrl;
@@ -202,6 +234,7 @@ function handleFileSelect(event: Event) {
     }
     if (input) {
         input.value = '';
+        clearImageInput(); // Clear image state if user selects the same image again
     }
 }
 
@@ -211,12 +244,21 @@ function triggerFileInput() {
 
 // --- Drag & Drop --- 
 function handleDragLeave(event: DragEvent) {
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = event.clientX;
-    const y = event.clientY;
-    if (x <= rect.left || x >= rect.right || y <= rect.top || y >= rect.bottom) {
-        isDragging.value = false;
+    // Clear any existing timer
+    if (dragLeaveTimer !== null) {
+        clearTimeout(dragLeaveTimer);
     }
+    
+    // Set a new timer for debouncing
+    dragLeaveTimer = window.setTimeout(() => {
+        const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+        const x = event.clientX;
+        const y = event.clientY;
+        if (x <= rect.left || x >= rect.right || y <= rect.top || y >= rect.bottom) {
+            isDragging.value = false;
+        }
+        dragLeaveTimer = null;
+    }, 100); // 100ms debounce time
 }
 
 function handleDrop(event: DragEvent) {

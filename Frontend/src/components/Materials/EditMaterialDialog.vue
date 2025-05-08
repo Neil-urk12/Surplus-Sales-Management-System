@@ -3,7 +3,7 @@ import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { useQuasar } from 'quasar';
 import type { PropType } from 'vue';
 import type { MaterialRow, NewMaterialInput } from 'src/types/materials';
-import { validateAndSanitizeBase64Image } from '../../utils/imageValidation';
+import { validateAndSanitizeBase64Image, validateImageDimensions } from '../../utils/imageValidation';
 import { operationNotifications } from '../../utils/notifications';
 
 const props = defineProps({
@@ -88,7 +88,7 @@ watch(() => props.modelValue, (newValue) => {
 });
 
 // Watch for changes in materialData
-watch(() => props.materialData, (newMaterial) => {
+watch(() => props.materialData, async (newMaterial) => {
     console.log('materialData changed:', newMaterial);
     if (newMaterial) {
         // Reset local state based on the new material data
@@ -110,8 +110,21 @@ watch(() => props.materialData, (newMaterial) => {
         if (initialImage.startsWith('data:image/')) {
             const validationResult = validateAndSanitizeBase64Image(initialImage);
             if (validationResult.isValid) {
-                previewUrl.value = initialImage;
-                imageUrlValid.value = true;
+                // Check dimensions
+                const dimensionResult = await validateImageDimensions(initialImage);
+                if (dimensionResult.isValid) {
+                    previewUrl.value = initialImage;
+                    imageUrlValid.value = true;
+                } else {
+                    previewUrl.value = props.defaultImageUrl;
+                    localMaterialData.value.image = props.defaultImageUrl;
+                    imageUrlValid.value = false;
+                    $q.notify({
+                        type: 'negative',
+                        message: dimensionResult.error || 'Image dimensions exceed limits',
+                        position: 'top'
+                    });
+                }
             } else {
                 previewUrl.value = props.defaultImageUrl;
                 localMaterialData.value.image = props.defaultImageUrl;
@@ -226,6 +239,18 @@ async function validateImageUrl(url: string): Promise<boolean> {
         if (blob.size > MAX_FILE_SIZE) {
             throw new Error('Image too large');
         }
+        
+        // Create a temporary URL to validate dimensions
+        const blobUrl = URL.createObjectURL(blob);
+        try {
+            const dimensionResult = await validateImageDimensions(blobUrl);
+            if (!dimensionResult.isValid) {
+                throw new Error(dimensionResult.error || 'Image dimensions exceed limits');
+            }
+        } finally {
+            URL.revokeObjectURL(blobUrl);
+        }
+        
         imageUrlValid.value = true;
         previewUrl.value = url;
         return true;
@@ -236,6 +261,11 @@ async function validateImageUrl(url: string): Promise<boolean> {
         }
         imageUrlValid.value = false;
         previewUrl.value = props.defaultImageUrl;
+        $q.notify({
+            type: 'negative',
+            message: error instanceof Error ? error.message : 'Failed to validate image',
+            position: 'top'
+        });
         return false;
     } finally {
         validatingImage.value = false;
@@ -260,26 +290,33 @@ function handleFile(file: File) {
 
     try {
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             const result = e.target?.result as string;
             if (result) {
                 const validationResult = validateAndSanitizeBase64Image(result);
                 if (validationResult.isValid) {
-                    localMaterialData.value.image = validationResult.sanitizedData!;
-                    previewUrl.value = validationResult.sanitizedData!;
-                    imageUrlValid.value = true;
+                    // Validate dimensions
+                    const dimensionResult = await validateImageDimensions(validationResult.sanitizedData!);
+                    if (dimensionResult.isValid) {
+                        localMaterialData.value.image = validationResult.sanitizedData!;
+                        previewUrl.value = validationResult.sanitizedData!;
+                        imageUrlValid.value = true;
+                    } else {
+                        operationNotifications.validation.error(dimensionResult.error || 'Image dimensions exceed limits');
+                        clearImageInput();
+                    }
                 } else {
                     operationNotifications.validation.error(validationResult.error || 'Invalid image data');
                     clearImageInput();
                 }
             }
+            isUploadingImage.value = false;
         };
         reader.readAsDataURL(file);
     } catch (error) {
         console.error('Error processing image:', error);
         operationNotifications.validation.error('Error processing image');
         clearImageInput();
-    } finally {
         isUploadingImage.value = false;
     }
 }
