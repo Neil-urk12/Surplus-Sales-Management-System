@@ -33,9 +33,9 @@
               <q-menu anchor="bottom right" self="top right">
                 <q-list style="min-width: 350px">
                   <q-item-label header class="row items-center justify-between">
-                    <span>System Alerts</span>
+                    <span>{{ alertMessages.sections.systemAlerts }}</span>
                     <q-btn flat round dense icon="done_all" size="sm" @click="markAllAsRead" v-if="systemAlerts.length">
-                      <q-tooltip>Mark all as read</q-tooltip>
+                      <q-tooltip>{{ alertMessages.actions.markAllAsRead }}</q-tooltip>
                     </q-btn>
                   </q-item-label>
                   <q-separator />
@@ -44,7 +44,7 @@
                       <!-- Unread Notifications Section -->
                       <div>
                         <q-item-label header class="text-primary q-px-md">
-                          Unread Notifications
+                          {{ alertMessages.sections.unreadNotifications }}
                         </q-item-label>
 
                         <template v-if="unreadAlerts.length > 0">
@@ -81,7 +81,7 @@
                                 :color="getAlertColor(alert.severity)"
                                 @click.stop="markAlertAsRead(alert.id)"
                               >
-                                <q-tooltip>Mark as read</q-tooltip>
+                                <q-tooltip>{{ alertMessages.actions.markAsRead }}</q-tooltip>
                               </q-btn>
                             </q-item-section>
                           </q-item>
@@ -89,7 +89,7 @@
 
                         <q-item v-else>
                           <q-item-section class="text-center text-grey q-py-sm">
-                            <div>No unread notifications</div>
+                            <div>{{ alertMessages.empty.noUnreadNotifications }}</div>
                           </q-item-section>
                         </q-item>
                       </div>
@@ -99,7 +99,7 @@
                       <!-- Read Notifications Section -->
                       <div>
                         <q-item-label header class="text-grey q-px-md q-pt-md">
-                          Read Notifications
+                          {{ alertMessages.sections.readNotifications }}
                         </q-item-label>
 
                         <template v-if="readAlerts.length > 0">
@@ -130,7 +130,7 @@
 
                         <q-item v-else>
                           <q-item-section class="text-center text-grey q-py-sm">
-                            <div>No read notifications</div>
+                            <div>{{ alertMessages.empty.noReadNotifications }}</div>
                           </q-item-section>
                         </q-item>
 
@@ -143,7 +143,7 @@
                         >
                           <q-item-section class="text-center">
                             <q-item-label>
-                              View all {{ allReadAlerts.length }} read notifications
+                              {{ alertMessages.actions.viewAll(allReadAlerts.length) }}
                             </q-item-label>
                           </q-item-section>
                         </q-item>
@@ -153,7 +153,7 @@
                   <q-item v-else>
                     <q-item-section class="text-center text-grey q-py-md flex content-center row">
                       <q-icon class="col" name="notifications_none" size="48px" color="grey-4" />
-                      <div class="q-mt-sm col">No active notifications</div>
+                      <div class="q-mt-sm col">{{ alertMessages.empty.noActiveNotifications }}</div>
                     </q-item-section>
                   </q-item>
                 </q-list>
@@ -244,6 +244,7 @@ const MenuItems = defineAsyncComponent(() => import('../components/SideMenuItems
 import type { menuItemsProps } from '../types/menu-items'
 import type { AlertSeverity } from '../components/dashboard/AlertsPanel.vue';
 import { alertsService, type InventoryAlert } from '../services/alertsService';
+import { alertMessages } from '../constants/uiMessages';
 
 const menuItemsList: menuItemsProps[] = [
   {
@@ -620,7 +621,7 @@ function showAllReadAlerts() {
 
   // Show dialog with all read notifications
   $q.dialog({
-    title: 'All Read Notifications',
+    title: alertMessages.sections.readNotifications,
     message: `<div class="q-pa-md">${alertsList}</div>`,
     html: true,
     style: 'width: 500px; max-width: 80vw',
