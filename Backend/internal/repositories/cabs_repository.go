@@ -9,6 +9,10 @@ import (
 	"time"
 )
 
+// DefaultImageURL is already defined in other repositories, but we're including it here for completeness
+// For a production app, consider moving this to a common constants package
+const DefaultImageURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQU0N_pZ1FmfWhbnKjb-rlqcfOO65_PRLhvTg&s"
+
 // CabsRepository defines the interface for cab data operations.
 type CabsRepository interface {
 	GetCabs(filters map[string]interface{}) ([]models.MultiCab, error)
@@ -68,6 +72,7 @@ func (r *cabsRepository) GetCabs(filters map[string]interface{}) ([]models.Multi
 	for rows.Next() {
 		var cab models.MultiCab
 		var createdAt, updatedAt time.Time
+		var imageSQL sql.NullString
 
 		if err := rows.Scan(
 			&cab.ID,
@@ -77,7 +82,7 @@ func (r *cabsRepository) GetCabs(filters map[string]interface{}) ([]models.Multi
 			&cab.Price,
 			&cab.Status,
 			&cab.UnitColor,
-			&cab.Image,
+			&imageSQL,
 			&createdAt,
 			&updatedAt,
 		); err != nil {
@@ -87,6 +92,14 @@ func (r *cabsRepository) GetCabs(filters map[string]interface{}) ([]models.Multi
 
 		cab.CreatedAt = createdAt
 		cab.UpdatedAt = updatedAt
+		
+		// Handle NULL image values with default image
+		if imageSQL.Valid && imageSQL.String != "" {
+			cab.Image = imageSQL.String
+		} else {
+			cab.Image = DefaultImageURL
+		}
+		
 		cabs = append(cabs, cab)
 	}
 
@@ -105,6 +118,7 @@ func (r *cabsRepository) GetCabByID(id int) (*models.MultiCab, error) {
 
 	var cab models.MultiCab
 	var createdAt, updatedAt time.Time
+	var imageSQL sql.NullString
 
 	if err := row.Scan(
 		&cab.ID,
@@ -114,7 +128,7 @@ func (r *cabsRepository) GetCabByID(id int) (*models.MultiCab, error) {
 		&cab.Price,
 		&cab.Status,
 		&cab.UnitColor,
-		&cab.Image,
+		&imageSQL,
 		&createdAt,
 		&updatedAt,
 	); err != nil {
@@ -127,6 +141,14 @@ func (r *cabsRepository) GetCabByID(id int) (*models.MultiCab, error) {
 
 	cab.CreatedAt = createdAt
 	cab.UpdatedAt = updatedAt
+	
+	// Handle NULL image values with default image
+	if imageSQL.Valid && imageSQL.String != "" {
+		cab.Image = imageSQL.String
+	} else {
+		cab.Image = DefaultImageURL
+	}
+	
 	return &cab, nil
 }
 
@@ -141,6 +163,14 @@ func (r *cabsRepository) AddCab(cab models.MultiCab) (*models.MultiCab, error) {
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	now := time.Now()
+	
+	var imageValue interface{}
+	if cab.Image == "" || cab.Image == DefaultImageURL {
+		imageValue = nil // Use NULL if image is empty or default
+	} else {
+		imageValue = cab.Image
+	}
+	
 	result, err := r.DB.Exec(
 		query,
 		cab.Name,
@@ -149,7 +179,7 @@ func (r *cabsRepository) AddCab(cab models.MultiCab) (*models.MultiCab, error) {
 		cab.Price,
 		cab.Status,
 		cab.UnitColor,
-		cab.Image,
+		imageValue,
 		now,
 		now,
 	)
@@ -170,6 +200,11 @@ func (r *cabsRepository) AddCab(cab models.MultiCab) (*models.MultiCab, error) {
 	cab.ID = int(id)
 	cab.CreatedAt = now
 	cab.UpdatedAt = now
+	
+	// Ensure image is set to default if it was empty
+	if cab.Image == "" {
+		cab.Image = DefaultImageURL
+	}
 
 	return &cab, nil
 }
@@ -191,6 +226,14 @@ func (r *cabsRepository) UpdateCab(id int, cab models.MultiCab) (*models.MultiCa
               WHERE id = ?`
 
 	now := time.Now()
+	
+	var imageValue interface{}
+	if cab.Image == "" || cab.Image == DefaultImageURL {
+		imageValue = nil // Use NULL if image is empty or default
+	} else {
+		imageValue = cab.Image
+	}
+	
 	_, err = r.DB.Exec(
 		query,
 		cab.Name,
@@ -199,7 +242,7 @@ func (r *cabsRepository) UpdateCab(id int, cab models.MultiCab) (*models.MultiCa
 		cab.Price,
 		cab.Status,
 		cab.UnitColor,
-		cab.Image,
+		imageValue,
 		now,
 		id,
 	)
@@ -213,6 +256,11 @@ func (r *cabsRepository) UpdateCab(id int, cab models.MultiCab) (*models.MultiCa
 	cab.ID = id
 	cab.CreatedAt = existingCab.CreatedAt
 	cab.UpdatedAt = now
+	
+	// Ensure image is set to default if it was empty
+	if cab.Image == "" {
+		cab.Image = DefaultImageURL
+	}
 
 	return &cab, nil
 }

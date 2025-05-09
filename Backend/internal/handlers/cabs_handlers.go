@@ -149,6 +149,11 @@ func (h *CabsHandlers) AddCab(c *fiber.Ctx) error {
 	}
 	// ID should not be provided by the client for Add operations
 	cab.ID = 0
+	
+	// Handle empty or null image with default image URL
+	if cab.Image == "null" || cab.Image == "" {
+		cab.Image = repositories.DefaultImageURL
+	}
 
 	// Call repository to add the new cab
 	addedCab, err := h.Repo.AddCab(cab)
@@ -214,6 +219,11 @@ func (h *CabsHandlers) UpdateCab(c *fiber.Ctx) error {
 
 	// ID from payload is usually ignored in PUT, path parameter 'id' is authoritative
 	updatedCabData.ID = id
+	
+	// Handle empty or null image with default image URL
+	if updatedCabData.Image == "null" || updatedCabData.Image == "" {
+		updatedCabData.Image = repositories.DefaultImageURL
+	}
 
 	// Call repository to update the cab
 	resultCab, err := h.Repo.UpdateCab(id, updatedCabData)

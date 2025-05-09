@@ -142,6 +142,11 @@ func (h *MaterialHandlers) CreateMaterialHandler(c *fiber.Ctx) error {
 		})
 	}
 
+	// Handle empty or null image by using default from repository
+	if newMaterial.Image == "null" || newMaterial.Image == "" {
+		newMaterial.Image = repositories.DefaultImageURL
+	}
+
 	id, err := h.Repo.Create(&newMaterial)
 	if err != nil {
 		log.Printf("Error creating material: %v", err)
@@ -206,6 +211,11 @@ func (h *MaterialHandlers) UpdateMaterialHandler(c *fiber.Ctx) error {
 			Error:      "Missing required material fields",
 			StatusCode: fiber.StatusBadRequest,
 		})
+	}
+
+	// Handle empty or null image by using default from repository
+	if updatedMaterial.Image == "null" || updatedMaterial.Image == "" {
+		updatedMaterial.Image = repositories.DefaultImageURL
 	}
 
 	err = h.Repo.Update(&updatedMaterial)
