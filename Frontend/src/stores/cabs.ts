@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
+import { v4 as uuidv4 } from 'uuid'
 import type {
   CabsRow,
   NewCabInput,
@@ -16,6 +17,18 @@ import { useSearch } from 'src/utils/useSearch'
 import { useDashboardStore } from 'src/stores/dashboardStore'
 
 export type { CabsRow } from 'src/types/cabs'
+
+// Activity message constants for better maintainability and localization
+const ACTIVITY_MESSAGES = {
+  CAB_ADDED_TITLE: 'New Car Added',
+  CAB_ADDED_DESCRIPTION: (name: string, quantity: number) => `Added ${quantity || 1} units of ${name || 'unnamed car'}`,
+  CAB_REMOVED_TITLE: 'Car Removed from Inventory',
+  CAB_REMOVED_DESCRIPTION: (name: string, id: number) => `Removed ${name || 'unnamed car'} (ID: ${id}) from inventory`,
+  CAB_UPDATED_TITLE: 'Car Updated',
+}
+
+// Small tolerance for floating point comparisons
+const NUMERIC_TOLERANCE = 0.000001
 
 export const useCabsStore = defineStore('cabs', () => {
   // State
@@ -42,6 +55,11 @@ export const useCabsStore = defineStore('cabs', () => {
       void initializeCabs()
     }
   })
+
+  // Helper function to get cab details by ID
+  function getCabDetailsById(id: number): CabsRow | undefined {
+    return cabRows.value.find(c => c.id === id)
+  }
 
   // Initialize data
   async function initializeCabs() {
@@ -78,6 +96,23 @@ export const useCabsStore = defineStore('cabs', () => {
     return cabRows.value.slice().sort((a, b) => a.id - b.id)
   })
 
+  // Helper function to add activity to dashboard store
+  function addDashboardActivity(activity: {
+    title: string;
+    description: string;
+    icon: string;
+    color: string;
+  }) {
+    dashboardStore?.addActivity({
+      id: uuidv4(), // Use UUID for guaranteed uniqueness
+      title: activity.title,
+      description: activity.description,
+      timestamp: new Date(),
+      icon: activity.icon,
+      color: activity.color
+    })
+  }
+
   // Actions
   async function addCab(cab: NewCabInput): Promise<CabOperationResponse> {
     try {
@@ -85,6 +120,15 @@ export const useCabsStore = defineStore('cabs', () => {
       // Validate required fields
       if (!cab.make || !cab.unit_color) {
         throw new Error('Make and color are required');
+      }
+
+      // Validate name and price if provided
+      if (cab.name === '') {
+        throw new Error('Name cannot be empty if provided');
+      }
+      
+      if (cab.price !== undefined && cab.price < 0) {
+        throw new Error('Price cannot be negative');
       }
 
       const result = await cabsService.addCab(cab)
@@ -102,11 +146,9 @@ export const useCabsStore = defineStore('cabs', () => {
         // 2. The filteredCabRows sorts by ID to ensure new items appear at end
         
         // Add activity for new cab
-        dashboardStore.addActivity({
-          id: Date.now().toString(),
-          title: 'New Car Added',
-          description: `Added ${cab.quantity || 1} units of ${cab.name}`,
-          timestamp: new Date(),
+        addDashboardActivity({
+          title: ACTIVITY_MESSAGES.CAB_ADDED_TITLE,
+          description: ACTIVITY_MESSAGES.CAB_ADDED_DESCRIPTION(cab.name || '', cab.quantity || 1),
           icon: 'directions_car',
           color: 'info'
         });
@@ -150,7 +192,14 @@ export const useCabsStore = defineStore('cabs', () => {
       isLoading.value = true
       
       // Store the cab details before deletion for the activity record
-      const cabToDelete = cabRows.value.find(c => c.id === id);
+      const cabToDelete = getCabDetailsById(id);
+      
+      if (!cabToDelete) {
+        return {
+          success: false,
+          error: `Cab with ID ${id} not found`
+        }
+      }
       
       const result = await cabsService.deleteCab(id)
 
@@ -163,16 +212,12 @@ export const useCabsStore = defineStore('cabs', () => {
         }
         
         // Add activity for deleted cab
-        if (cabToDelete) {
-          dashboardStore.addActivity({
-            id: Date.now().toString(),
-            title: 'Car Removed',
-            description: `Removed ${cabToDelete.name} from inventory`,
-            timestamp: new Date(),
-            icon: 'delete',
-            color: 'negative'
-          });
-        }
+        addDashboardActivity({
+          title: ACTIVITY_MESSAGES.CAB_REMOVED_TITLE,
+          description: ACTIVITY_MESSAGES.CAB_REMOVED_DESCRIPTION(cabToDelete.name, cabToDelete.id),
+          icon: 'delete',
+          color: 'negative'
+        });
       }
 
       return result
@@ -186,12 +231,17 @@ export const useCabsStore = defineStore('cabs', () => {
     }
   }
 
+  // Helper function to compare numbers with tolerance for floating point issues
+  function isNumberEqual(a: number, b: number): boolean {
+    return Math.abs(a - b) < NUMERIC_TOLERANCE;
+  }
+
   async function updateCab(id: number, cab: UpdateCabInput): Promise<CabOperationResponse> {
     try {
       isLoading.value = true
 
       // Get the existing cab to merge with updates
-      const existingCab = cabRows.value.find(c => c.id === id)
+      const existingCab = getCabDetailsById(id)
       if (!existingCab) {
         return {
           success: false,
@@ -266,18 +316,16 @@ export const useCabsStore = defineStore('cabs', () => {
             changes.push(`renamed to ${updatedCab.name}`);
           }
           
-          if (updatedCab.price !== originalCab.price) {
+          if (!isNumberEqual(updatedCab.price, originalCab.price)) {
             changes.push(`price updated to $${updatedCab.price}`);
           }
           
           // Only add activity if there were actual changes
           if (changes.length > 0) {
             // Add activity record
-            dashboardStore.addActivity({
-              id: Date.now().toString(),
-              title: 'Car Updated',
-              description: `${originalCab.name}: ${changes.join(', ')}`,
-              timestamp: new Date(),
+            addDashboardActivity({
+              title: ACTIVITY_MESSAGES.CAB_UPDATED_TITLE,
+              description: `${originalCab.name} (ID: ${originalCab.id}): ${changes.join(', ')}`,
               icon: 'edit',
               color: 'info'
             });
@@ -324,6 +372,7 @@ export const useCabsStore = defineStore('cabs', () => {
     updateCab,
     deleteCab,
     resetFilters,
-    updateCabStatus
+    updateCabStatus,
+    getCabDetailsById
   }
 }) 

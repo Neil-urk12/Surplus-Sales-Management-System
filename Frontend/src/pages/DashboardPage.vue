@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, defineAsyncComponent } from 'vue';
+import { ref, onMounted, computed, defineAsyncComponent, watchEffect } from 'vue';
 import { useQuasar } from 'quasar';
 import { useDashboardStore } from '../stores/dashboardStore';
 
@@ -13,10 +13,50 @@ const dashboardStore = useDashboardStore();
 // Local state for UI controls
 const timePeriod = ref<'weekly' | 'monthly' | 'yearly'>('monthly');
 const chartType = ref<'line' | 'bar' | 'area'>('line');
+// Add last refresh timestamp to prevent excessive refreshes
+const lastRefreshTimestamp = ref(Date.now());
+// Add last clear timestamp for rate limiting
+const lastClearTimestamp = ref(0);
+// Add confirmation text for data clearing
+const confirmationText = ref('');
+const requiredConfirmation = 'DELETE';
+// Add a flag to control debug logging in development mode only
+const isDev = process.env.NODE_ENV === 'development';
 
-// Add this computed property
+// Define proper interfaces for chart data
+interface ChartDataset {
+  label: string;
+  data: number[];
+  borderColor?: string;
+  backgroundColor?: string[];
+  tension?: number;
+  fill?: boolean;
+}
+
+interface ChartData {
+  labels: string[];
+  datasets: ChartDataset[];
+}
+
+// Helper function to validate ChartData structure
+function isValidChartData(data: unknown): boolean {
+  if (!data || typeof data !== 'object') return false;
+  
+  const chartData = data as Partial<ChartData>;
+  
+  return !!chartData && 
+         Array.isArray(chartData.labels) &&
+         Array.isArray(chartData.datasets) &&
+         chartData.datasets.length > 0 &&
+         chartData.datasets.every((dataset: Partial<ChartDataset>) => 
+           typeof dataset.label === 'string' && 
+           Array.isArray(dataset.data)
+         );
+}
+
+// Add this computed property as readonly
 const currentSalesTrendData = computed(() => {
-  console.log('Computing current sales trend data for period:', timePeriod.value);
+  if (isDev) console.log('Computing current sales trend data for period:', timePeriod.value);
   let data;
   switch (timePeriod.value) {
     case 'weekly':
@@ -30,89 +70,111 @@ const currentSalesTrendData = computed(() => {
       data = dashboardStore.salesTrendData;
       break;
   }
-  console.log('Returning data:', data);
+  if (isDev) console.log('Returning data:', data);
   return data;
 });
 
 onMounted(() => {
-  // Don't reset chart data on mount, just refresh dashboard data
-  // dashboardStore.resetChartData(); // Removing this line
-  
   // Refresh general dashboard data (inventories, etc.)
   void dashboardStore.refreshDashboardData();
   
-  // Log the total sales value for debugging
-  console.log('Total sales value on mount:', dashboardStore.totalSales);
-  console.log('Monthly sales trend data on mount:', dashboardStore.salesTrendData);
+  if (isDev) {
+    console.log('Total sales value on mount:', dashboardStore.totalSales);
+    console.log('Monthly sales trend data on mount:', dashboardStore.salesTrendData);
+  }
 });
 
-// Add watch for timePeriod changes - no longer needed to fetch data as it's already in the store
-watch(
-  () => timePeriod.value,
-  (newValue) => {
-    console.log('Time period changed to:', newValue);
+// Replace multiple watches with a single watchEffect
+watchEffect(() => {
+  if (isDev) {
+    console.log('Time period:', timePeriod.value);
+    console.log('Total sales:', dashboardStore.totalSales);
+    console.log('Sales trend data:', dashboardStore.salesTrendData);
   }
-);
+});
 
-// Add watch for totalSales changes
-watch(
-  () => dashboardStore.totalSales,
-  (newValue) => {
-    console.log('Total sales changed to:', newValue);
+// Improved page activation handler with throttling
+function activated() {
+  const now = Date.now();
+  // Only refresh if at least 2 seconds have passed since last refresh
+  if (now - lastRefreshTimestamp.value < 2000) {
+    if (isDev) console.log('Skipping refresh, too soon since last refresh');
+    return;
   }
-);
-
-// Add watch for salesTrendData changes
-watch(
-  () => dashboardStore.salesTrendData,
-  (newData) => {
-    console.log('Sales trend data changed:', newData);
-  },
-  { deep: true }
-);
-
-// Function to force refresh data when page is activated
-function onPageActivated() {
-  console.log('Dashboard page activated - refreshing data');
+  
+  if (isDev) console.log('Dashboard page activated - refreshing data');
+  lastRefreshTimestamp.value = now;
   
   try {
-    // Force refresh from localStorage
+    // Force refresh dashboard data first
+    void dashboardStore.refreshDashboardData();
+    
+    // Force refresh from localStorage with validation
     const monthlySalesData = JSON.parse(localStorage.getItem('monthlySalesTrendData') || '{}');
     const weeklySalesData = JSON.parse(localStorage.getItem('weeklySalesTrendData') || '{}');
     const yearlySalesData = JSON.parse(localStorage.getItem('yearlySalesTrendData') || '{}');
     
     // Check if data is valid before assigning
-    if (monthlySalesData && monthlySalesData.labels && monthlySalesData.datasets) {
+    if (isValidChartData(monthlySalesData)) {
       dashboardStore.$patch({ salesTrendData: monthlySalesData });
+    } else if (isDev) {
+      console.warn('Invalid monthly sales data in localStorage, reinitializing with defaults');
+      const defaultData = dashboardStore.resetChartData();
+      dashboardStore.$patch({ salesTrendData: defaultData });
     }
     
-    if (weeklySalesData && weeklySalesData.labels && weeklySalesData.datasets) {
+    if (isValidChartData(weeklySalesData)) {
       dashboardStore.$patch({ weeklySalesTrendData: weeklySalesData });
+    } else if (isDev) {
+      console.warn('Invalid weekly sales data in localStorage, reinitializing with defaults');
+      const defaultData = dashboardStore.resetChartData();
+      dashboardStore.$patch({ weeklySalesTrendData: defaultData });
     }
     
-    if (yearlySalesData && yearlySalesData.labels && yearlySalesData.datasets) {
+    if (isValidChartData(yearlySalesData)) {
       dashboardStore.$patch({ yearlySalesTrendData: yearlySalesData });
+    } else if (isDev) {
+      console.warn('Invalid yearly sales data in localStorage, reinitializing with defaults');
+      const defaultData = dashboardStore.resetChartData();
+      dashboardStore.$patch({ yearlySalesTrendData: defaultData });
     }
+
+    // Use a more reliable approach to force chart re-render
+    // First change the period to something different
+    const currentPeriod = timePeriod.value;
+    timePeriod.value = currentPeriod === 'monthly' ? 'weekly' : 'monthly';
     
-    // Force the computed property to recalculate
-    setTimeout(() => {
-      const period = timePeriod.value;
-      timePeriod.value = period === 'monthly' ? 'weekly' : 'monthly';
+    // Wait for the next animation frame to ensure the DOM has updated
+    requestAnimationFrame(() => {
+      // Then change it back to original value
+      timePeriod.value = currentPeriod;
+      
+      // And force chart type to refresh as well
+      const currentType = chartType.value;
+      chartType.value = currentType === 'line' ? 'bar' : 'line';
+      
+      // Give it a moment to process
       setTimeout(() => {
-        timePeriod.value = period;
-      }, 5);
-    }, 5);
+        chartType.value = currentType;
+      }, 50);
+    });
   } catch (error) {
     console.error('Error refreshing dashboard data:', error);
+    $q.notify({
+      type: 'negative',
+      message: 'Error refreshing dashboard data',
+      position: 'top',
+      timeout: 2000
+    });
   }
 }
 
-// Format total sales correctly
+// Format total sales correctly - made readonly
 const formattedTotalSales = computed(() => {
   return dashboardStore.formatCurrency(dashboardStore.totalSales);
 });
 
-// Create a simplified trend view from the monthly sales data
+// Create a simplified trend view from the monthly sales data - made readonly
 const calculatedSalesTrend = computed(() => {
   const monthlyData = dashboardStore.salesTrendData;
   if (!monthlyData || !monthlyData.datasets || !monthlyData.datasets[2] || !monthlyData.datasets[2].data) {
@@ -134,68 +196,125 @@ const calculatedSalesTrend = computed(() => {
   return result;
 });
 
-const refreshAll = async () => {
+// Renamed from refreshAll to refreshDashboardData for clarity
+const refreshDashboardData = async () => {
   try {
-    console.log('Refreshing all dashboard data...');
+    if (isDev) console.log('Refreshing all dashboard data...');
+    lastRefreshTimestamp.value = Date.now();
     
     // First refresh general dashboard data
     await dashboardStore.refreshDashboardData();
     
     // Explicitly log the current sales data to verify it's being retrieved correctly
-    console.log('Current sales data after refresh:');
-    console.log('- Monthly:', dashboardStore.salesTrendData);
-    console.log('- Weekly:', dashboardStore.weeklySalesTrendData);
-    console.log('- Yearly:', dashboardStore.yearlySalesTrendData);
+    if (isDev) {
+      console.log('Current sales data after refresh:');
+      console.log('- Monthly:', dashboardStore.salesTrendData);
+      console.log('- Weekly:', dashboardStore.weeklySalesTrendData);
+      console.log('- Yearly:', dashboardStore.yearlySalesTrendData);
+    }
     
-    // Force currentSalesTrendData to refresh
-    const period = timePeriod.value;
+    // Force currentSalesTrendData to refresh using a more reliable approach
+    const currentPeriod = timePeriod.value;
     timePeriod.value = 'monthly';
-    setTimeout(() => {
-      timePeriod.value = period;
-    }, 5);
+    requestAnimationFrame(() => {
+      timePeriod.value = currentPeriod;
+    });
     
   } catch (error) {
     console.error('Failed to refresh dashboard:', error);
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to refresh dashboard data',
+      position: 'top',
+      timeout: 2000
+    });
   }
 };
+
+// Computed property to check if the confirmation text is valid
+const isConfirmationValid = computed(() => {
+  return confirmationText.value === requiredConfirmation;
+});
 
 // Add a new state for the confirmation dialog
 const showClearDataConfirmation = ref(false);
 
-// Add a method to clear all data
+// Add a method to clear all data with improved error handling and rate limiting
 const clearAllData = () => {
-  console.log('Clearing all sales data...');
+  if (isDev) console.log('Clearing all sales data...');
   
-  // Use the store's clearAllSalesData method
-  const result = dashboardStore.clearAllSalesData();
+  // Add rate limiting - only allow one clear operation every 60 seconds
+  const now = Date.now();
+  const timeSinceLastClear = now - lastClearTimestamp.value;
+  const minTimeBetweenClears = 60 * 1000; // 60 seconds
   
-  if (result) {
-    // Show success notification
+  if (timeSinceLastClear < minTimeBetweenClears) {
+    const waitTimeSeconds = Math.ceil((minTimeBetweenClears - timeSinceLastClear) / 1000);
     $q.notify({
-      type: 'positive',
-      message: 'All sales data has been reset to zero',
+      type: 'warning',
+      message: `Please wait ${waitTimeSeconds} seconds before attempting to clear data again`,
       position: 'top',
-      timeout: 2000
+      timeout: 3000
     });
-    
-    // Reset local state
-    timePeriod.value = 'monthly';
-    chartType.value = 'line';
-    
-    // Force refresh
-    setTimeout(() => {
-      timePeriod.value = 'weekly';
-      setTimeout(() => {
-        timePeriod.value = 'monthly';
-      }, 10);
-    }, 10);
-  } else {
-    // Show error notification
+    return;
+  }
+  
+  // Verify text confirmation
+  if (confirmationText.value !== requiredConfirmation) {
     $q.notify({
       type: 'negative',
-      message: 'Failed to clear sales data',
+      message: `Please type "${requiredConfirmation}" to confirm data deletion`,
       position: 'top',
-      timeout: 2000
+      timeout: 3000
+    });
+    return;
+  }
+  
+  try {
+    // Update last clear timestamp
+    lastClearTimestamp.value = now;
+    
+    // Use the store's clearAllSalesData method
+    const result = dashboardStore.clearAllSalesData();
+    
+    if (result) {
+      // Show success notification
+      $q.notify({
+        type: 'positive',
+        message: 'All sales data has been reset to zero',
+        position: 'top',
+        timeout: 2000
+      });
+      
+      // Reset local state
+      timePeriod.value = 'monthly';
+      chartType.value = 'line';
+      lastRefreshTimestamp.value = Date.now();
+      confirmationText.value = ''; // Clear confirmation text
+      
+      // Force refresh using requestAnimationFrame for better timing
+      requestAnimationFrame(() => {
+        timePeriod.value = 'weekly';
+        requestAnimationFrame(() => {
+          timePeriod.value = 'monthly';
+        });
+      });
+    } else {
+      // Show error notification
+      $q.notify({
+        type: 'negative',
+        message: 'Failed to clear sales data',
+        position: 'top',
+        timeout: 2000
+      });
+    }
+  } catch (error) {
+    console.error('Error clearing sales data:', error);
+    $q.notify({
+      type: 'negative',
+      message: 'Error clearing sales data: ' + (error instanceof Error ? error.message : String(error)),
+      position: 'top',
+      timeout: 3000
     });
   }
 };
@@ -203,7 +322,7 @@ const clearAllData = () => {
 </script>
 
 <template>
-  <q-page class="q-pa-md" @activated="onPageActivated">
+  <q-page class="q-pa-md" @activated="activated">
     <div class="q-px-lg">
       <div class="row items-center q-mb-md">
         <div class="col">
@@ -216,7 +335,7 @@ const clearAllData = () => {
               :class="[
                 $q.dark.isActive ? 'bg-white text-black' : 'bg-primary text-white'
               ]" 
-              @click="refreshAll" 
+              @click="refreshDashboardData" 
               :loading="dashboardStore.isLoading"
             >
               <q-icon :name="'refresh'" :color="$q.dark.isActive ? 'black' : 'white'" />
@@ -246,6 +365,18 @@ const clearAllData = () => {
             This will permanently remove all historical sales data and reset all charts to zero.
             This action cannot be undone.
           </q-card-section>
+          
+          <q-card-section>
+            <p class="text-caption q-mb-sm">To confirm, please type "{{ requiredConfirmation }}" below:</p>
+            <q-input 
+              v-model="confirmationText" 
+              label="Confirmation" 
+              outlined 
+              dense
+              autofocus
+              :color="isConfirmationValid ? 'positive' : 'negative'"
+            />
+          </q-card-section>
 
           <q-card-actions align="right">
             <q-btn flat label="Cancel" color="primary" v-close-popup />
@@ -254,7 +385,8 @@ const clearAllData = () => {
               label="Clear All Data" 
               color="negative" 
               @click="clearAllData" 
-              v-close-popup 
+              :disabled="!isConfirmationValid"
+              v-close-popup="isConfirmationValid" 
             />
           </q-card-actions>
         </q-card>

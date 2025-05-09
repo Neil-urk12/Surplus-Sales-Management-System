@@ -53,6 +53,14 @@ function getValidatedImage(image: string | null | undefined): string {
   return image || defaultImageUrl;
 }
 
+// Utility function for formatting currency
+function formatCurrency(value: number): string {
+  return `₱ ${value.toLocaleString('en-PH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })}`;
+}
+
 const columns: QTableColumn[] = [
   { name: 'id', align: 'center', label: 'ID', field: 'id', sortable: true },
   {
@@ -66,11 +74,8 @@ const columns: QTableColumn[] = [
   { name: 'make', label: 'Make', field: 'make' },
   { name: 'quantity', label: 'Quantity', field: 'quantity', sortable: true },
   {
-    name: 'price', label: 'Price', field: 'price', sortable: true, format: (val: number) =>
-      `₱ ${val.toLocaleString('en-PH', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      })}`
+    name: 'price', label: 'Price', field: 'price', sortable: true, 
+    format: (val: number) => formatCurrency(val)
   },
   { name: 'status', label: 'Status', field: 'status' },
   { name: 'color', label: 'Color', field: 'unit_color' },
@@ -225,6 +230,12 @@ function calculateNewCabState(currentQuantity: number, soldQuantity: number): { 
 
 async function updateAccessoryStock(accessories: Array<{ id: number; quantity: number }>) {
   const updatePromises = accessories.map(async (acc) => {
+    // Validate that quantity is non-negative
+    if (acc.quantity < 0) {
+      const errorMessage = `Invalid negative quantity for accessory ID ${acc.id}`;
+      throw new AppError(errorMessage, 'validation', errorMessage, 'warning');
+    }
+    
     const accessory = accessoriesStore.accessoryRows.find(a => a.id === acc.id);
     if (accessory && accessory.quantity >= acc.quantity) {
       await accessoriesStore.updateAccessory(acc.id, {
@@ -249,13 +260,35 @@ async function processCabSale(
   soldQuantity: number,
   accessories: Array<{ id: number; name: string; price: number; quantity: number; unitPrice: number }>
 ): Promise<void> {
-  if (soldQuantity <= 0 || soldQuantity > cab.quantity) {
+  // Validate that quantity is positive and not more than available stock
+  if (soldQuantity <= 0) {
     throw new AppError(
-      `Invalid quantity: ${soldQuantity} for cab with available quantity: ${cab.quantity}`,
+      `Invalid quantity: ${soldQuantity}. Quantity must be positive`,
       'validation',
-      'Invalid quantity or not enough stock',
+      'Invalid quantity. Must be positive',
       'warning'
     );
+  }
+  
+  if (soldQuantity > cab.quantity) {
+    throw new AppError(
+      `Not enough stock: requested ${soldQuantity}, available ${cab.quantity}`,
+      'validation',
+      'Not enough stock available',
+      'warning'
+    );
+  }
+
+  // Validate that all accessory quantities are non-negative
+  for (const acc of accessories) {
+    if (acc.quantity < 0) {
+      throw new AppError(
+        `Invalid quantity for accessory ${acc.name}: ${acc.quantity}`,
+        'validation',
+        'Accessory quantities must be non-negative',
+        'warning'
+      );
+    }
   }
 
   const { newQuantity, newStatus } = calculateNewCabState(cab.quantity, soldQuantity);
@@ -305,15 +338,6 @@ async function processCabSale(
   const customer = customerStore.customers.find(c => c.id === customerId);
   const customerName = customer ? customer.fullName : 'a customer';
   
-  // Log the total sales value before recording the sale
-  console.log('Current totalSales before recording:', dashboardStore.totalSales);
-  console.log('About to record cab sale:', {
-    itemName: cab.name,
-    amount: cabTotal,
-    type: 'cab',
-    customerName
-  });
-  
   // Record the cab sale in the dashboard
   dashboardStore.recordSale({
     itemName: cab.name,
@@ -323,10 +347,6 @@ async function processCabSale(
     customerName
   });
   
-  // Log the total sales value after recording the cab sale
-  console.log('totalSales after cab sale:', dashboardStore.totalSales);
-  console.log('Cab quantity sold and recorded in trend data:', soldQuantity);
-  
   // If accessories were sold, record them separately
   if (accessoriesTotal > 0) {
     // Create a concatenated name for multiple accessories
@@ -334,14 +354,6 @@ async function processCabSale(
     
     // Calculate total quantity of accessories
     const totalAccessoryQuantity = accessories.reduce((total, acc) => total + acc.quantity, 0);
-    
-    console.log('About to record accessories sale:', {
-      itemName: accessoryNames,
-      amount: accessoriesTotal,
-      quantity: totalAccessoryQuantity,
-      type: 'accessory',
-      customerName
-    });
     
     // Record the accessories sale
     dashboardStore.recordSale({
@@ -351,13 +363,7 @@ async function processCabSale(
       type: 'accessory',
       customerName
     });
-    
-    // Log the total sales value after recording the accessories sale
-    console.log('totalSales after accessories sale:', dashboardStore.totalSales);
   }
-  
-  // Log the final total sales value
-  console.log('Final totalSales after all sales recorded:', dashboardStore.totalSales);
 }
 
 async function handleConfirmSell(payload: {
@@ -373,6 +379,16 @@ async function handleConfirmSell(payload: {
   }
 
   try {
+    // Validate quantity is positive
+    if (payload.quantity <= 0) {
+      throw new AppError(
+        'Quantity must be greater than zero',
+        'validation',
+        'Invalid quantity. Please enter a positive number.',
+        'warning'
+      );
+    }
+    
     await processCabSale(
       cabToSell.value,
       payload.customerId,
@@ -385,12 +401,8 @@ async function handleConfirmSell(payload: {
     const accessoriesTotal = payload.accessories.reduce((total, acc) => total + (acc.price * acc.quantity), 0);
     const totalAmount = cabTotal + accessoriesTotal;
     
-    // Format the price for display
-    const formattedTotal = new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0
-    }).format(totalAmount);
+    // Format the price for display using the reusable function
+    const formattedTotal = formatCurrency(totalAmount);
 
     showSellDialog.value = false;
     operationNotifications.update.success(`Sold ${payload.quantity} ${cabToSell.value.name} for ${formattedTotal}`);

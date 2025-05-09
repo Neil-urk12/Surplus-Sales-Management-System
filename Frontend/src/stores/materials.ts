@@ -16,11 +16,49 @@ import { useAuthStore } from 'src/stores/auth'
 import { useDashboardStore } from 'src/stores/dashboardStore'
 import { AxiosError } from 'axios';
 import type { QTableProps } from 'quasar'
+import { v4 as uuidv4 } from 'uuid'
 
 export type { MaterialRow, NewMaterialInput } from 'src/types/materials'
 
 /** Default number of rows to display per page in the materials table */
 const DEFAULT_ROWS_PER_PAGE = 10
+
+// Activity constants
+const ACTIVITY = {
+  INVENTORY_ADDED: 'Inventory Added',
+  INVENTORY_UPDATED: 'Inventory Updated',
+  INVENTORY_REMOVED: 'Inventory Removed'
+}
+
+// Icon constants
+const ICON = {
+  INVENTORY: 'inventory_2',
+  EDIT: 'edit',
+  DELETE: 'delete'
+}
+
+// Color constants
+const COLOR = {
+  INFO: 'info',
+  NEGATIVE: 'negative'
+}
+
+/**
+ * Sanitizes a string to prevent XSS vulnerabilities
+ * @param {string} str - String to sanitize
+ * @returns {string} Sanitized string
+ */
+function sanitizeString(str: string | number): string {
+  if (typeof str !== 'string') {
+    str = String(str);
+  }
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 /**
  * Pinia store for managing material data.
@@ -133,6 +171,24 @@ export const useMaterialsStore = defineStore('materials', () => {
   })
 
   /**
+   * Records a material activity in the dashboard.
+   * @param {string} title - Activity title
+   * @param {string} description - Activity description
+   * @param {string} icon - Icon for the activity
+   * @param {string} color - Color for the activity
+   */
+  function trackMaterialActivity(title: string, description: string, icon: string, color: string) {
+    dashboardStore.addActivity({
+      id: uuidv4(),
+      title: title,
+      description: description,
+      timestamp: new Date(),
+      icon: icon,
+      color: color
+    });
+  }
+
+  /**
    * Adds a new material by making an API call.
    * Requires an authentication token.
    * Adds the newly created material to the local store upon success.
@@ -160,15 +216,13 @@ export const useMaterialsStore = defineStore('materials', () => {
       // Add the material returned from the server (with server-generated ID)
       materialRows.value.push(response.data)
       
-      // Add activity record
-      dashboardStore.addActivity({
-        id: Date.now().toString(),
-        title: 'Inventory Added',
-        description: `Added ${material.quantity} units of ${material.name}`,
-        timestamp: new Date(),
-        icon: 'inventory_2',
-        color: 'info'
-      });
+      // Add activity record with sanitized values
+      trackMaterialActivity(
+        ACTIVITY.INVENTORY_ADDED,
+        `Added ${sanitizeString(material.quantity)} units of ${sanitizeString(material.name)}`,
+        ICON.INVENTORY,
+        COLOR.INFO
+      );
       
       return { success: true, id: response.data.id }
     } catch (error: unknown) {
@@ -231,7 +285,7 @@ export const useMaterialsStore = defineStore('materials', () => {
       return { success: false, error: 'Authentication required.' }
     }
 
-    const existingMaterial = materialRows.value.find(m => m.id === id);
+    const existingMaterial: MaterialRow | undefined = materialRows.value.find(m => m.id === id);
     if (!existingMaterial) {
       console.warn(`Material with ID ${id} not found locally for deletion.`);
       return { success: false, error: 'Material not found locally.' };
@@ -250,15 +304,13 @@ export const useMaterialsStore = defineStore('materials', () => {
         materialRows.value.splice(index, 1);
       }
       
-      // Add activity record
-      dashboardStore.addActivity({
-        id: Date.now().toString(),
-        title: 'Inventory Removed',
-        description: `Removed ${existingMaterial.name} from inventory`,
-        timestamp: new Date(),
-        icon: 'delete',
-        color: 'negative'
-      });
+      // Add activity record with sanitized values
+      trackMaterialActivity(
+        ACTIVITY.INVENTORY_REMOVED,
+        `Removed ${sanitizeString(existingMaterial.name)} from inventory`,
+        ICON.DELETE,
+        COLOR.NEGATIVE
+      );
 
       return { success: true };
     } catch (error: unknown) {
@@ -280,6 +332,37 @@ export const useMaterialsStore = defineStore('materials', () => {
   }
 
   /**
+   * Tracks changes between the original material and the update.
+   * Creates a descriptive message about what changed.
+   * @param {MaterialRow} existingMaterial - The original material data
+   * @param {UpdateMaterialInput} materialUpdate - The updated material data
+   * @returns {string[]} Array of change descriptions
+   */
+  function trackMaterialChanges(existingMaterial: MaterialRow, materialUpdate: UpdateMaterialInput): string[] {
+    const changes: string[] = [];
+    
+    if (materialUpdate.quantity !== undefined && existingMaterial.quantity !== undefined) {
+      const oldQuantity = Number(existingMaterial.quantity);
+      const newQuantity = Number(materialUpdate.quantity);
+      
+      if (newQuantity !== oldQuantity) {
+        const difference = newQuantity - oldQuantity;
+        if (difference > 0) {
+          changes.push(`added ${sanitizeString(difference)} units`);
+        } else if (difference < 0) {
+          changes.push(`removed ${sanitizeString(-difference)} units`);
+        }
+      }
+    }
+    
+    if (materialUpdate.name !== undefined && materialUpdate.name !== existingMaterial.name) {
+      changes.push(`renamed to ${sanitizeString(materialUpdate.name)}`);
+    }
+    
+    return changes;
+  }
+
+  /**
    * Updates an existing material by making an API call.
    * Requires an authentication token.
    * Updates the material in the local store upon success.
@@ -295,7 +378,7 @@ export const useMaterialsStore = defineStore('materials', () => {
       return { success: false, error: 'Authentication required.' }
     }
 
-    const existingMaterial = materialRows.value.find(m => m.id === id);
+    const existingMaterial: MaterialRow | undefined = materialRows.value.find(m => m.id === id);
     if (!existingMaterial) {
       console.warn(`Material with ID ${id} not found locally for update.`);
       return { success: false, error: 'Material not found locally.' };
@@ -314,32 +397,16 @@ export const useMaterialsStore = defineStore('materials', () => {
 
       materialRows.value[index] = response.data;
       
-      // Create a descriptive message about what changed
-      const changes: string[] = [];
-      if (materialUpdate.quantity !== undefined && materialUpdate.quantity !== existingMaterial.quantity) {
-        const difference = materialUpdate.quantity - existingMaterial.quantity;
-        if (difference > 0) {
-          changes.push(`added ${difference} units`);
-        } else if (difference < 0) {
-          changes.push(`removed ${Math.abs(difference)} units`);
-        }
-      }
+      // Track changes and add activity record if there were changes
+      const changes = trackMaterialChanges(existingMaterial, materialUpdate);
       
-      if (materialUpdate.name !== undefined && materialUpdate.name !== existingMaterial.name) {
-        changes.push(`renamed to ${materialUpdate.name}`);
-      }
-      
-      // Only add activity if there were actual changes
       if (changes.length > 0) {
-        // Add activity record
-        dashboardStore.addActivity({
-          id: Date.now().toString(),
-          title: 'Inventory Updated',
-          description: `${existingMaterial.name}: ${changes.join(', ')}`,
-          timestamp: new Date(),
-          icon: 'edit',
-          color: 'info'
-        });
+        trackMaterialActivity(
+          ACTIVITY.INVENTORY_UPDATED,
+          `${sanitizeString(existingMaterial.name)}: ${changes.join(', ')}`,
+          ICON.EDIT,
+          COLOR.INFO
+        );
       }
       
       return { success: true };

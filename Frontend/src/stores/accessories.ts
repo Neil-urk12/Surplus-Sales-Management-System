@@ -15,6 +15,7 @@ import { accessoriesApi } from 'src/services/accessoriesApi'
 import axios from 'axios'
 import { useSearch } from 'src/utils/useSearch'
 import { useDashboardStore } from 'src/stores/dashboardStore'
+import { v4 as uuidv4 } from 'uuid'
 
 export type { AccessoryRow } from 'src/types/accessories'
 
@@ -31,18 +32,12 @@ export const useAccessoriesStore = defineStore('accessories', () => {
       isLoading.value = true
       apiError.value = null
       
-      console.log('Initializing accessories, calling API...');
-      
       // Replace with API call using our service
       const accessories = await accessoriesApi.getAllAccessories()
-      console.log('API response received:', accessories);
       accessoryRows.value = accessories
-      console.log('Accessories loaded successfully, count:', accessories.length);
     } catch (error: unknown) {
-      console.error('Error initializing accessories:', error);
       if (axios.isAxiosError(error)) { // Axios specific error handling
         apiError.value = `Failed to load accessories: ${error.response?.status} - ${error.response?.data?.message || 'Unknown error'}`;
-        console.log('Axios error details:', error.response);
       } else if (error instanceof Error) {
         apiError.value = `Failed to load accessories: ${error.message}`;
       } else {
@@ -103,6 +98,31 @@ export const useAccessoriesStore = defineStore('accessories', () => {
     })
   })
 
+  // Helper function to create activity records
+  function createActivityRecord(activity: {
+    title: string;
+    description: string;
+    icon: string;
+    color: string;
+  }) {
+    dashboardStore.addActivity({
+      id: uuidv4(),
+      title: activity.title,
+      description: activity.description,
+      timestamp: new Date(),
+      icon: activity.icon,
+      color: activity.color
+    });
+  }
+
+  // Format price using Intl.NumberFormat
+  function formatPrice(price: number): string {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(price);
+  }
+
   // Actions
   async function addAccessory(accessory: NewAccessoryInput): Promise<AccessoryOperationResponse> {
     try {
@@ -127,11 +147,9 @@ export const useAccessoriesStore = defineStore('accessories', () => {
         accessoryRows.value.push(result.data);
         
         // Add activity record
-        dashboardStore.addActivity({
-          id: Date.now().toString(),
+        createActivityRecord({
           title: 'Accessory Added',
           description: `Added ${accessory.quantity || 1} units of ${accessory.name}`,
-          timestamp: new Date(),
           icon: 'build',
           color: 'info'
         });
@@ -168,29 +186,27 @@ export const useAccessoriesStore = defineStore('accessories', () => {
       isLoading.value = true
       apiError.value = null
       
-      // Store the accessory details before deletion for the activity record
-      const accessoryToDelete = accessoryRows.value.find(a => a.id === id);
-
       // Call the API service to delete the accessory
       const result = await accessoriesApi.deleteAccessory(id)
 
       if (result.success) {
-        // Update local state
+        // If deletion was successful, find the accessory details from local state
         const index = accessoryRows.value.findIndex(a => a.id === id);
         if (index !== -1) {
+          const deletedAccessory = accessoryRows.value[index];
+          
+          // Remove from local state
           accessoryRows.value.splice(index, 1);
-        }
-        
-        // Add activity record if we have the deleted accessory details
-        if (accessoryToDelete) {
-          dashboardStore.addActivity({
-            id: Date.now().toString(),
-            title: 'Accessory Removed',
-            description: `Removed ${accessoryToDelete.name} from inventory`,
-            timestamp: new Date(),
-            icon: 'delete',
-            color: 'negative'
-          });
+          
+          // Add activity record with the accessory details
+          if (deletedAccessory) {
+            createActivityRecord({
+              title: 'Accessory Removed',
+              description: `Removed ${deletedAccessory.name} from inventory`,
+              icon: 'delete',
+              color: 'negative'
+            });
+          }
         }
         
         return result;
@@ -200,7 +216,6 @@ export const useAccessoriesStore = defineStore('accessories', () => {
 
       return result
     } catch (error) {
-      console.error('Error in store.deleteAccessory:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred while deleting accessory'
       apiError.value = errorMessage
       return {
@@ -217,9 +232,22 @@ export const useAccessoriesStore = defineStore('accessories', () => {
       isLoading.value = true
       apiError.value = null
       
+      // Validate input
+      if (!accessoryUpdatePayload) {
+        const errMessage = 'Update payload is required';
+        apiError.value = errMessage;
+        return {
+          success: false,
+          error: errMessage
+        };
+      }
+      
       // Get the existing accessory to compare later for activity recording
+      let originalAccessory = null;
       const existingAccessory = accessoryRows.value.find(a => a.id === id);
-      const originalAccessory = existingAccessory ? JSON.parse(JSON.stringify(existingAccessory)) : null;
+      if (existingAccessory) {
+        originalAccessory = JSON.parse(JSON.stringify(existingAccessory));
+      }
 
       // Call the API service to update the accessory
       const result = await accessoriesApi.updateAccessory(id, accessoryUpdatePayload)
@@ -232,8 +260,9 @@ export const useAccessoriesStore = defineStore('accessories', () => {
           
           // If we have the original accessory data, create an activity record
           if (originalAccessory) {
-            // Create a descriptive message about what changed
             const changes: string[] = [];
+            
+            // Build changes description
             if (accessoryUpdatePayload.quantity !== undefined && accessoryUpdatePayload.quantity !== originalAccessory.quantity) {
               const difference = accessoryUpdatePayload.quantity - originalAccessory.quantity;
               if (difference > 0) {
@@ -248,17 +277,14 @@ export const useAccessoriesStore = defineStore('accessories', () => {
             }
             
             if (accessoryUpdatePayload.price !== undefined && accessoryUpdatePayload.price !== originalAccessory.price) {
-              changes.push(`price updated to $${accessoryUpdatePayload.price}`);
+              changes.push(`price updated to ${formatPrice(accessoryUpdatePayload.price)}`);
             }
             
             // Only add activity if there were actual changes
             if (changes.length > 0) {
-              // Add activity record
-              dashboardStore.addActivity({
-                id: Date.now().toString(),
+              createActivityRecord({
                 title: 'Accessory Updated',
                 description: `${originalAccessory.name}: ${changes.join(', ')}`,
-                timestamp: new Date(),
                 icon: 'edit',
                 color: 'info'
               });

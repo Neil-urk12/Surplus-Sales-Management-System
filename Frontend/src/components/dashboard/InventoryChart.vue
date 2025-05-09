@@ -60,15 +60,21 @@ const createChart = () => {
 };
 
 onMounted(() => {
-  createChart();
+  setTimeout(() => {
+    createChart();
+  }, 50);
 });
 
 watch(() => props.chartData, () => {
-  createChart();
+  setTimeout(() => {
+    createChart();
+  }, 50);
 }, { deep: true });
 
 watch(() => props.isDark, () => {
-  createChart();
+  setTimeout(() => {
+    createChart();
+  }, 50);
 });
 </script>
 

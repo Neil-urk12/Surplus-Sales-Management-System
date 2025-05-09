@@ -409,8 +409,11 @@ const monthlySalesData = computed(() => {
     monthlySales[index]++;
     monthlyRevenue[index] += sale.totalPrice;
     
-    // Add random accessory quantities (1-3 per sale)
-    monthlyAccessories[index] += Math.floor(Math.random() * 3) + 1;
+    // Generate deterministic accessory count based on sale ID
+    // This creates reproducible data instead of using Math.random()
+    const saleIdNumber = parseInt(sale.id.replace(/\D/g, '')) || 0;
+    const accessoryCount = (saleIdNumber % 3) + 1; // Generates 1-3 accessories consistently for the same sale
+    monthlyAccessories[index] += accessoryCount;
   });
 
   return {

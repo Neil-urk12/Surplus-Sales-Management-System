@@ -256,6 +256,9 @@ export const useDashboardStore = defineStore('dashboard', () => {
     localStorage.setItem('monthlySalesTrendData', JSON.stringify(salesTrendData.value));
     localStorage.setItem('weeklySalesTrendData', JSON.stringify(weeklySalesTrendData.value));
     localStorage.setItem('yearlySalesTrendData', JSON.stringify(yearlySalesTrendData.value));
+    
+    // Return the monthly data for immediate use
+    return salesTrendData.value;
   }
   
   // Activities tracking
@@ -367,7 +370,14 @@ export const useDashboardStore = defineStore('dashboard', () => {
       // Get current date information
       const now = new Date();
       const currentMonth = now.getMonth();
-      const currentWeek = Math.ceil(now.getDate() / 7); // Approximate week in month (1-4)
+      
+      // More robust method for calculating week within the month
+      // This uses ISO week but then normalizes to 1-4 for our data structure
+      const dayOfMonth = now.getDate();
+      const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      // Calculate week as a position within the month (1-4)
+      const currentWeek = Math.min(4, Math.ceil(dayOfMonth / (totalDaysInMonth / 4)));
+      
       const currentYear = now.getFullYear();
       
       console.log(`Current date info: Month: ${currentMonth}, Week: ${currentWeek}, Year: ${currentYear}`);
@@ -555,9 +565,18 @@ export const useDashboardStore = defineStore('dashboard', () => {
   /**
    * Completely clears all sales data and resets to empty charts.
    * This should only be used when you want to start fresh with no historical data.
+   * @param {boolean} confirmed - Whether the operation is confirmed by the user
+   * @returns {boolean} - Whether the operation was successful
    */
-  function clearAllSalesData() {
+  function clearAllSalesData(confirmed = false) {
     try {
+      // Check if the operation is confirmed
+      if (!confirmed) {
+        console.warn('Clear all sales data operation was not confirmed. No data was deleted.');
+        // Return false to indicate that the operation was not executed
+        return false;
+      }
+      
       // Reset total sales to 0
       totalSales.value = 0;
       localStorage.removeItem('totalSales');
