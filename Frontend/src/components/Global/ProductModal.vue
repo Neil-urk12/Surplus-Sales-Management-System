@@ -91,10 +91,6 @@ function close() {
   isOpen.value = false
 }
 
-function addItem() {
-  emit('addItem')
-  close()
-}
 </script>
 
 
@@ -146,10 +142,6 @@ function addItem() {
                 </div>
               </div>
             </q-card-section>
-            <!-- Action buttons -->
-            <q-card-actions align="right" class="q-pa-none">
-              <q-btn color="primary" label="ADD" style="width: 30%;" @click="addItem" />
-            </q-card-actions>
           </div>
         </div>
       </q-card-section>
