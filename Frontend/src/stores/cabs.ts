@@ -12,6 +12,7 @@ import type {
   CabColorInput
 } from 'src/types/cabs'
 import { cabsService } from 'src/services/cabsService'
+import { useSearch } from 'src/utils/useSearch'
 
 export type { CabsRow } from 'src/types/cabs'
 
@@ -19,6 +20,26 @@ export const useCabsStore = defineStore('cabs', () => {
   // State
   const cabRows = ref<CabsRow[]>([])
   const isLoading = ref(false)
+
+  // Use input types that allow empty strings for filters
+  const filterMake = ref<CabMakeInput>('')
+  const filterColor = ref<CabColorInput>('')
+  const filterStatus = ref<CabStatus | ''>('')
+
+  // Available options
+  const makes: CabMake[] = ['Mazda', 'Porsche', 'Toyota', 'Nissan', 'Ford']
+  const colors: CabColor[] = ['Black', 'White', 'Silver', 'Red', 'Blue']
+  const statuses: CabStatus[] = ['In Stock', 'Low Stock', 'Out of Stock']
+
+  // Setup search with the composable
+  const search = useSearch({
+    debounceTime: 300,
+    onSearch: () => {
+      // Only trigger API reload if we're doing server-side filtering
+      // If using client-side filtering exclusively, you could comment this out
+      void initializeCabs()
+    }
+  })
 
   // Initialize data
   async function initializeCabs() {
@@ -29,52 +50,30 @@ export const useCabsStore = defineStore('cabs', () => {
       if (filterMake.value) filters.make = filterMake.value
       if (filterColor.value) filters.unit_color = filterColor.value
       if (filterStatus.value) filters.status = filterStatus.value
-      if (cabSearch.value) filters.search = cabSearch.value
+
+      // Only include search if it has a non-empty value
+      if (search.searchValue.value.trim()) {
+        filters.search = search.searchValue.value.trim()
+      }
 
       const cabs = await cabsService.getCabs(filters)
       cabRows.value = cabs
+      return { success: true }
     } catch (error) {
       console.error('Error initializing cabs:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      }
     } finally {
       isLoading.value = false
     }
   }
 
-  // Search with debounce
-  const rawCabSearch = ref('')
-  const cabSearch = ref('')
-  let debounceTimeout: ReturnType<typeof setTimeout> | null = null
-
-  // Debounce function to update cabSearch after typing stops
-  function updateCabSearch(value: string) {
-    if (debounceTimeout) {
-      clearTimeout(debounceTimeout)
-    }
-
-    debounceTimeout = setTimeout(() => {
-      cabSearch.value = value
-      void initializeCabs()
-    }, 300)
-  }
-
-  // Watch for changes in rawCabSearch
-  watch(rawCabSearch, (newValue) => {
-    updateCabSearch(newValue)
-  })
-
-  // Use input types that allow empty strings for filters
-  const filterMake = ref<CabMakeInput>('')
-  const filterColor = ref<CabColorInput>('')
-  const filterStatus = ref<CabStatus | ''>('')
-
-  // Available options
-  const makes: CabMake[] = ['Mazda', 'Porsche', 'Toyota', 'Nissan', 'Ford']
-  const colors: CabColor[] = ['Black', 'White', 'Silver', 'Red', 'Blue']
-  const statuses: CabStatus[] = ['In Stock', 'Low Stock', 'Out of Stock', 'Available']
-
   // Computed
   const filteredCabRows = computed(() => {
-    return cabRows.value
+    // Sort by ID to ensure cabs are displayed with newer items (highest IDs) at the end
+    return cabRows.value.slice().sort((a, b) => a.id - b.id)
   })
 
   // Actions
@@ -89,8 +88,16 @@ export const useCabsStore = defineStore('cabs', () => {
       const result = await cabsService.addCab(cab)
 
       if (result.success) {
-        // Reload data from API if successful
+        // Instead of reloading all data, we'll handle the response and update the local state
+        // This ensures proper ID handling and positioning of the new cab
+        
+        // Get the latest data to work with from the server
+        // This includes retrieving the newly added cab with its server-assigned ID
         await initializeCabs()
+        
+        // No need to manually set IDs here since:
+        // 1. The server assigns the IDs
+        // 2. The filteredCabRows sorts by ID to ensure new items appear at end
       }
 
       return result
@@ -106,23 +113,22 @@ export const useCabsStore = defineStore('cabs', () => {
 
   function updateCabStatus(id: number, quantity: number) {
     // This function will be used locally after API operations to update status
-    let newStatus: CabStatus = 'Available'
+    let newStatus: CabStatus;
     if (quantity === 0) {
-      newStatus = 'Out of Stock'
-    } else if (quantity <= 2) {
-      newStatus = 'Low Stock'
-    } else if (quantity <= 5) {
-      newStatus = 'In Stock'
+      newStatus = 'Out of Stock';
+    } else if (quantity <= 7) {
+      newStatus = 'Low Stock';
+    } else { // quantity > 7
+      newStatus = 'In Stock';
     }
-    return newStatus
+    return newStatus;
   }
 
   async function resetFilters() {
     filterMake.value = ''
     filterColor.value = ''
     filterStatus.value = ''
-    rawCabSearch.value = ''
-    cabSearch.value = ''
+    search.clearSearch()
     // Reload data without filters
     await initializeCabs()
   }
@@ -132,9 +138,13 @@ export const useCabsStore = defineStore('cabs', () => {
       isLoading.value = true
       const result = await cabsService.deleteCab(id)
 
-      if (result.success) {
-        // Reload data from API if successful
-        await initializeCabs()
+      if (result.success && cabRows.value) {
+        // Instead of reloading all data, just remove the deleted cab from local state
+        // This prevents ID reallocation and maintains the integrity of the ID sequence
+        const index = cabRows.value.findIndex(c => c.id === id);
+        if (index !== -1) {
+          cabRows.value.splice(index, 1);
+        }
       }
 
       return result
@@ -172,11 +182,44 @@ export const useCabsStore = defineStore('cabs', () => {
         image: cab.image ?? existingCab.image
       }
 
+      // Validate make and unit_color before proceeding
+      if (updatedCab.make && !makes.includes(updatedCab.make)) {
+        return {
+          success: false,
+          error: `Invalid make value: ${updatedCab.make}`
+        }
+      }
+
+      if (updatedCab.unit_color && !colors.includes(updatedCab.unit_color)) {
+        return {
+          success: false,
+          error: `Invalid color value: ${updatedCab.unit_color}`
+        }
+      }
+
       const result = await cabsService.updateCab(id, updatedCab)
 
       if (result.success) {
-        // Reload data from API if successful
-        await initializeCabs()
+        // Instead of reloading all data, just update the specific cab in the local state
+        // This prevents disrupting the ID order and maintains the integrity of the cab list
+        const index = cabRows.value.findIndex(c => c.id === id);
+        if (index !== -1) {
+          // Create a properly typed object by ensuring all properties match the CabsRow type
+          const typedUpdatedCab: CabsRow = {
+            id: existingCab.id,
+            name: updatedCab.name,
+            // Cast to proper types (now safe after validation)
+            make: updatedCab.make as CabMake,
+            unit_color: updatedCab.unit_color as CabColor,
+            quantity: updatedCab.quantity,
+            price: updatedCab.price,
+            status: updatedCab.status,
+            image: updatedCab.image
+          };
+          
+          // Update the cab in the array with properly typed data
+          cabRows.value[index] = typedUpdatedCab;
+        }
       }
 
       return result
@@ -199,8 +242,7 @@ export const useCabsStore = defineStore('cabs', () => {
     // State
     cabRows,
     isLoading,
-    rawCabSearch,
-    cabSearch,
+    search,
     filterMake,
     filterColor,
     filterStatus,

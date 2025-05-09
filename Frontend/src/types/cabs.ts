@@ -11,7 +11,7 @@ export type CabColor = 'Black' | 'White' | 'Silver' | 'Red' | 'Blue';
 /**
  * Available inventory status values
  */
-export type CabStatus = 'In Stock' | 'Low Stock' | 'Out of Stock' | 'Available';
+export type CabStatus = 'In Stock' | 'Low Stock' | 'Out of Stock';
 
 /**
  * Form input types that allow empty values
@@ -25,25 +25,25 @@ export type CabColorInput = CabColor | '';
 export interface CabsRow {
   /** Unique identifier for the cab */
   id: number;
-  
+
   /** Name of the cab model */
   name: string;
-  
+
   /** Manufacturer of the cab */
   make: CabMake;
-  
+
   /** Number of units available in inventory */
   quantity: number;
-  
+
   /** Price in Philippine Peso (PHP) */
   price: number;
-  
+
   /** Current inventory status */
   status: CabStatus;
-  
+
   /** Color of the cab unit */
   unit_color: CabColor;
-  
+
   /** URL or base64 string of the cab image */
   image: string;
 }

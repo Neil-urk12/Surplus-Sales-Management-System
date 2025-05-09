@@ -106,7 +106,7 @@ export const useMaterialsStore = defineStore('materials', () => {
    * Array of available material statuses.
    * @type {MaterialStatus[]}
    */
-  const statuses: MaterialStatus[] = ['In Stock', 'Low Stock', 'Out of Stock', 'Available']
+  const statuses: MaterialStatus[] = ['In Stock', 'Low Stock', 'Out of Stock']
 
   /**
    * Computed property that returns the material rows filtered based on
@@ -141,7 +141,7 @@ export const useMaterialsStore = defineStore('materials', () => {
       return { success: false, error: 'Authentication required.' }
     }
     if (!material.name || !material.category || !material.supplier || material.quantity == null || !material.status) {
-        return { success: false, error: 'Missing required material fields.' };
+      return { success: false, error: 'Missing required material fields.' };
     }
 
     try {
@@ -152,8 +152,8 @@ export const useMaterialsStore = defineStore('materials', () => {
         }
       })
 
+      // Add the material returned from the server (with server-generated ID)
       materialRows.value.push(response.data)
-
       return { success: true, id: response.data.id }
     } catch (error: unknown) {
       console.error('Error adding material:', error)
@@ -185,10 +185,8 @@ export const useMaterialsStore = defineStore('materials', () => {
         material.status = 'Out of Stock'
       } else if (quantity <= 10) {
         material.status = 'Low Stock'
-      } else if (quantity <= 50) {
-        material.status = 'In Stock'
       } else {
-        material.status = 'Available'
+        material.status = 'In Stock'
       }
     }
   }
@@ -287,7 +285,6 @@ export const useMaterialsStore = defineStore('materials', () => {
       });
 
       materialRows.value[index] = response.data;
-
       return { success: true };
     } catch (error: unknown) {
       console.error('Error updating material:', error);

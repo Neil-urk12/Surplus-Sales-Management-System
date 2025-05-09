@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from 'vue';
-import type { PropType } from 'vue';
+
 const GlobalDeleteDialog = defineAsyncComponent(() => import('src/components/Global/DeleteDialog.vue'));
 
 defineProps({
@@ -27,11 +27,6 @@ defineProps({
     iconName: {
         type: String, 
         default: 'warning',
-    },
-    onConfirmDelete: {
-        type: Function as PropType<() => void>,
-        required: true,
-        description: 'Callback function that will be called when deletion is confirmed'
     }
 });
 
@@ -49,11 +44,7 @@ const emit = defineEmits<{
         :confirm-text="confirmText"
         :cancel-text="cancelText"
         :icon-name="iconName"
-        :on-confirm-delete="onConfirmDelete"
         @update:modelValue="(val) => emit('update:modelValue', val)"
-        @confirm-delete="() => {
-            emit('confirm-delete');
-            onConfirmDelete();
-        }"
+        @confirm-delete="() => emit('confirm-delete')"
     />
 </template>
