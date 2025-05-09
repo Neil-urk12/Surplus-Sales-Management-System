@@ -57,55 +57,40 @@ export const useMaterialsStore = defineStore('materials', () => {
    * @type {string}
    */
   const rawMaterialSearch = ref('')
-  /**
-   * Reactive state for the debounced material search value.
-   * This value is updated after a short delay from rawMaterialSearch.
-   * @type {string}
-   */
-  const materialSearch = ref('')
-  /**
-   * Timeout ID for the debounce function.
-   * @type {ReturnType<typeof setTimeout> | null}
-   */
-  let debounceTimeout: ReturnType<typeof setTimeout> | null = null
 
-  /**
-   * Updates the debounced material search value after a delay.
-   * Clears any existing debounce timeout before setting a new one.
-   * @param {string} value - The new search value.
-   */
-  function updateMaterialSearch(value: string) {
-    if (debounceTimeout) {
-      clearTimeout(debounceTimeout)
-    }
-
-    debounceTimeout = setTimeout(() => {
-      materialSearch.value = value
-    }, 300)
-  }
-
-  /**
-   * Watches for changes in rawMaterialSearch and updates materialSearch using debounce.
-   */
+  // Watch for changes in rawMaterialSearch and trigger search with debounce
+  let searchDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
   watch(rawMaterialSearch, (newValue) => {
-    updateMaterialSearch(newValue)
-  })
+    console.log('Search input changed:', newValue);
+    if (searchDebounceTimeout) {
+      clearTimeout(searchDebounceTimeout);
+    }
+    searchDebounceTimeout = setTimeout(() => {
+      console.log('Debounce timer expired, triggering search with query:', newValue);
+      void onRequest({
+        pagination: {
+          ...pagination.value,
+          page: 1 // Reset to first page on new search
+        }
+      });
+    }, 300);
+  });
 
   /**
    * Reactive state for filtering materials by category.
-   * @type {MaterialCategoryInput}
+   * @type {MaterialCategoryInput | 'All'}
    */
-  const filterCategory = ref<MaterialCategoryInput>('')
+  const filterCategory = ref<MaterialCategoryInput | 'All'>('All')
   /**
    * Reactive state for filtering materials by supplier.
-   * @type {MaterialSupplierInput}
+   * @type {MaterialSupplierInput | 'All'}
    */
-  const filterSupplier = ref<MaterialSupplierInput>('')
+  const filterSupplier = ref<MaterialSupplierInput | 'All'>('All')
   /**
    * Reactive state for filtering materials by status.
-   * @type {MaterialStatus | ''}
+   * @type {MaterialStatus | 'All'}
    */
-  const filterStatus = ref<MaterialStatus | ''>('')
+  const filterStatus = ref<MaterialStatus | 'All'>('All')
 
   /**
    * Array of available material categories.
@@ -133,10 +118,10 @@ export const useMaterialsStore = defineStore('materials', () => {
       const matchesCategory = !filterCategory.value || row.category === filterCategory.value
       const matchesSupplier = !filterSupplier.value || row.supplier === filterSupplier.value
       const matchesStatus = !filterStatus.value || row.status === filterStatus.value
-      const matchesSearch = !materialSearch.value ||
-        row.name.toLowerCase().includes(materialSearch.value.toLowerCase()) ||
-        row.category.toLowerCase().includes(materialSearch.value.toLowerCase()) ||
-        row.supplier.toLowerCase().includes(materialSearch.value.toLowerCase())
+      const matchesSearch = !rawMaterialSearch.value ||
+        row.name.toLowerCase().includes(rawMaterialSearch.value.toLowerCase()) ||
+        row.category.toLowerCase().includes(rawMaterialSearch.value.toLowerCase()) ||
+        row.supplier.toLowerCase().includes(rawMaterialSearch.value.toLowerCase())
 
       return matchesCategory && matchesSupplier && matchesStatus && matchesSearch
     })
@@ -212,11 +197,10 @@ export const useMaterialsStore = defineStore('materials', () => {
    * Resets all material filters and search terms to their default empty states.
    */
   function resetFilters() {
-    filterCategory.value = ''
-    filterSupplier.value = ''
-    filterStatus.value = ''
+    filterCategory.value = 'All'
+    filterSupplier.value = 'All'
+    filterStatus.value = 'All'
     rawMaterialSearch.value = ''
-    materialSearch.value = ''
   }
 
   /**
@@ -325,68 +309,108 @@ export const useMaterialsStore = defineStore('materials', () => {
     }
   }
 
-  const pagination = ref<QTableProps['pagination']>({
-    sortBy: 'id',
+  const pagination = ref({
+    sortBy: 'name',
     descending: false,
     page: 1,
     rowsPerPage: 10,
     rowsNumber: 0
-  })
+  });
 
   async function onRequest(props: { pagination: QTableProps['pagination'] }) {
-    if (!props.pagination) return
+    if (!props.pagination) {
+      console.log('No pagination provided, skipping request');
+      return;
+    }
+    if (!authStore.token) {
+      console.error('No auth token found for fetching materials.');
+      return;
+    }
 
-    const { page = 1, rowsPerPage = 10 } = props.pagination
+    const { page = 1, rowsPerPage = 10 } = props.pagination;
+    const params = {
+      page,
+      limit: rowsPerPage,
+      search: rawMaterialSearch.value,
+      category: filterCategory.value === 'All' ? '' : filterCategory.value,
+      supplier: filterSupplier.value === 'All' ? '' : filterSupplier.value,
+      status: filterStatus.value === 'All' ? '' : filterStatus.value
+    };
+
     try {
-      isLoading.value = true
+      isLoading.value = true;
+      console.log('Making API request with params:', params);
+
       const response = await api.get('/api/materials/paginated', {
-        params: {
-          page,
-          limit: rowsPerPage,
-          search: materialSearch.value,
-          category: filterCategory.value,
-          supplier: filterSupplier.value,
-          status: filterStatus.value
-        },
+        params,
         headers: {
           Authorization: `Bearer ${authStore.token}`
         }
-      })
+      });
 
-      materialRows.value = response.data.materials
+      console.log('API response:', {
+        materials: response.data.materials,
+        total: response.data.total,
+        page: response.data.page,
+        limit: response.data.limit,
+        totalPages: response.data.totalPages
+      });
+
+      materialRows.value = response.data.materials;
       pagination.value = {
         ...pagination.value,
         page,
         rowsPerPage,
         rowsNumber: response.data.total
-      }
+      };
     } catch (error) {
-      console.error('Error fetching paginated materials:', error)
-      materialRows.value = []
+      console.error('Error fetching paginated materials:', error);
+      if (error instanceof AxiosError) {
+        console.error('API error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          config: {
+            url: error.config?.url,
+            params: error.config?.params,
+            headers: error.config?.headers
+          }
+        });
+      }
+      materialRows.value = [];
+      pagination.value = {
+        ...pagination.value,
+        rowsNumber: 0
+      };
     } finally {
-      isLoading.value = false
+      isLoading.value = false;
     }
   }
 
   return {
+    // State
     materialRows,
     isLoading,
     rawMaterialSearch,
-    materialSearch,
     filterCategory,
     filterSupplier,
     filterStatus,
+
+    // Constants
     categories,
     suppliers,
     statuses,
+
+    // Computed
     filteredMaterialRows,
+
+    // Actions
     initializeMaterials,
     addMaterial,
-    updateMaterialStatus,
-    resetFilters,
-    deleteMaterial,
     updateMaterial,
-    pagination,
-    onRequest
+    deleteMaterial,
+    resetFilters,
+    updateMaterialStatus,
+    onRequest,
+    pagination
   }
 })

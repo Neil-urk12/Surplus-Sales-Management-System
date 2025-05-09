@@ -15,6 +15,13 @@ const FilterMaterialDialog = defineAsyncComponent(() => import('../components/Fi
 
 const $q = useQuasar();
 const store = useMaterialsStore();
+console.log('Store initialized:', {
+  rawMaterialSearch: store.rawMaterialSearch,
+  filterCategory: store.filterCategory,
+  filterSupplier: store.filterSupplier,
+  filterStatus: store.filterStatus,
+  pagination: store.pagination
+});
 const showFilterDialog = ref(false);
 const selectedMaterial = ref<MaterialRow>({
   name: '',
@@ -90,15 +97,15 @@ const materialColumns: QTableColumn[] = [
 const showMaterial = ref(false)
 const showAddDialog = ref(false)
 
-// const onMaterialRowClick: QTableProps['onRowClick'] = (evt, row) => {
-//   // Check if the click originated from the action button or its menu
-//   const target = evt.target as HTMLElement;
-//   if (target.closest('.action-button') || target.closest('.action-menu')) {
-//     return; // Do nothing if clicked on action button or its menu
-//   }
-//   selectedMaterial.value = row as MaterialRow
-//   showMaterial.value = true
-// }
+// Watch for filter changes and trigger data refresh
+watch([store.filterCategory, store.filterSupplier, store.filterStatus], () => {
+  void store.onRequest({ pagination: store.pagination });
+});
+
+// Watch for raw search input changes
+watch(() => store.rawMaterialSearch, () => {
+  void store.onRequest({ pagination: store.pagination });
+});
 
 function addMaterialToCart() {
   console.log('added material to cart', selectedMaterial.value.name)
@@ -147,6 +154,7 @@ async function addNewMaterial() {
 
 function applyFilters() {
   showFilterDialog.value = false;
+  void store.onRequest({ pagination: store.pagination });
   operationNotifications.filters.success();
 }
 
@@ -728,7 +736,12 @@ const showEditDialog = ref(false);
 
 // Update onMounted hook
 onMounted(async () => {
+  console.log('MaterialsPage mounted, initializing materials...');
   await store.initializeMaterials();
+  console.log('Materials initialized:', {
+    rowCount: store.materialRows.length,
+    pagination: store.pagination
+  });
 });
 </script>
 
@@ -740,9 +753,29 @@ onMounted(async () => {
         <div class="flex row q-my-sm">
           <div class="flex full-width col">
             <div class="flex col q-mr-sm">
-              <q-input v-model="store.rawMaterialSearch" outlined dense placeholder="Search" class="full-width">
+              <q-input
+                v-model="store.rawMaterialSearch"
+                outlined
+                dense
+                placeholder="Search by name, ID, category, or supplier..."
+                class="full-width"
+                clearable
+                debounce="300"
+                @clear="() => {
+                  store.rawMaterialSearch = '';
+                  store.resetFilters();
+                  void store.onRequest({ pagination: store.pagination });
+                }"
+                @update:model-value="() => {
+                  console.log('Search input updated:', store.rawMaterialSearch);
+                  void store.onRequest({ pagination: store.pagination });
+                }"
+              >
                 <template v-slot:prepend>
                   <q-icon name="search" />
+                </template>
+                <template v-slot:hint>
+                  Type to search all materials
                 </template>
               </q-input>
             </div>
@@ -784,6 +817,13 @@ onMounted(async () => {
             <q-inner-loading showing color="primary">
               <q-spinner-gears size="50px" color="primary" />
             </q-inner-loading>
+          </template>
+
+          <template v-slot:no-data>
+            <div class="full-width row flex-center q-pa-md">
+              <q-icon name="search_off" size="2em" color="grey-7" class="q-mr-sm" />
+              <span class="text-grey-7">No materials found matching your search</span>
+            </div>
           </template>
 
           <template v-slot:bottom>

@@ -34,8 +34,9 @@ func (r *materialRepository) GetAll(searchTerm string, category string, supplier
 	args := []interface{}{}
 
 	if searchTerm != "" {
-		query += " AND name ILIKE ?"
-		args = append(args, "%"+searchTerm+"%")
+		query += " AND (name LIKE ? OR category LIKE ? OR supplier LIKE ? OR CAST(id AS CHAR) LIKE ?)"
+		likeTerm := "%" + searchTerm + "%"
+		args = append(args, likeTerm, likeTerm, likeTerm, likeTerm)
 	}
 	if category != "" {
 		query += " AND category = ?"
@@ -141,26 +142,32 @@ func (r *materialRepository) GetPaginated(page, limit int, searchTerm, category,
 	query := `SELECT id, name, category, supplier, quantity, status, image, created_at, updated_at FROM materials WHERE 1=1`
 	countQuery := `SELECT COUNT(*) FROM materials WHERE 1=1`
 	args := []interface{}{}
+	countArgs := []interface{}{}
 
 	if searchTerm != "" {
-		query += " AND name ILIKE ?"
-		countQuery += " AND name ILIKE ?"
-		args = append(args, "%"+searchTerm+"%")
+		query += " AND (name LIKE ? OR category LIKE ? OR supplier LIKE ? OR CAST(id AS CHAR) LIKE ?)"
+		countQuery += " AND (name LIKE ? OR category LIKE ? OR supplier LIKE ? OR CAST(id AS CHAR) LIKE ?)"
+		likeTerm := "%" + searchTerm + "%"
+		args = append(args, likeTerm, likeTerm, likeTerm, likeTerm)
+		countArgs = append(countArgs, likeTerm, likeTerm, likeTerm, likeTerm)
 	}
 	if category != "" {
 		query += " AND category = ?"
 		countQuery += " AND category = ?"
 		args = append(args, category)
+		countArgs = append(countArgs, category)
 	}
 	if supplier != "" {
 		query += " AND supplier = ?"
 		countQuery += " AND supplier = ?"
 		args = append(args, supplier)
+		countArgs = append(countArgs, supplier)
 	}
 	if status != "" {
 		query += " AND status = ?"
 		countQuery += " AND status = ?"
 		args = append(args, status)
+		countArgs = append(countArgs, status)
 	}
 
 	query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
@@ -168,7 +175,7 @@ func (r *materialRepository) GetPaginated(page, limit int, searchTerm, category,
 
 	// Get total count
 	var total int64
-	err := r.DB.QueryRow(countQuery, args[:len(args)-2]...).Scan(&total)
+	err := r.DB.QueryRow(countQuery, countArgs...).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
