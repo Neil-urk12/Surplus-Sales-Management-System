@@ -23,7 +23,10 @@ export const cabsService = {
      */
     addCab: async (cab: NewCabInput): Promise<CabOperationResponse> => {
         try {
+            // Let the server generate the ID by sending the cab data without an ID
             const response = await apiService.post<CabsRow>(API_PATH, cab);
+            
+            // Return the ID assigned by the server
             return {
                 success: true,
                 id: response.id

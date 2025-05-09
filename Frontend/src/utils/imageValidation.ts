@@ -144,3 +144,91 @@ export function validateImageFile(file: File): ImageValidationResult {
 
   return { isValid: true };
 }
+
+/**
+ * Comprehensive validation for file uploads
+ * Validates file type, size, and optionally dimensions in one function
+ * 
+ * @param file The File object to validate
+ * @param options Optional configuration parameters
+ * @returns Promise resolving to validation result with sanitized data if valid
+ */
+export async function validateFileUpload(
+  file: File,
+  options: {
+    maxFileSize?: number,
+    maxDimension?: number,
+    validateDimensions?: boolean
+  } = {}
+): Promise<ImageValidationResult> {
+  // Set default options
+  const maxFileSize = options.maxFileSize || MAX_IMAGE_SIZE;
+  const maxDimension = options.maxDimension || DEFAULT_MAX_DIMENSION;
+  const validateDimensions = options.validateDimensions !== undefined ? options.validateDimensions : true;
+  
+  // First validate the file itself
+  const fileValidation = validateImageFile(file);
+  if (!fileValidation.isValid) {
+    return fileValidation;
+  }
+  
+  // If file size exceeds the limit
+  if (file.size > maxFileSize) {
+    return {
+      isValid: false,
+      error: `File size exceeds maximum limit of ${maxFileSize / (1024 * 1024)}MB`
+    };
+  }
+  
+  try {
+    // Read the file as data URL
+    const base64String = await readFileAsDataURL(file);
+    
+    // Validate and sanitize the base64 data
+    const validationResult = validateAndSanitizeBase64Image(base64String);
+    if (!validationResult.isValid || !validationResult.sanitizedData) {
+      return validationResult;
+    }
+    
+    // Optionally validate dimensions
+    if (validateDimensions) {
+      const dimensionResult = await validateImageDimensions(validationResult.sanitizedData, maxDimension);
+      if (!dimensionResult.isValid) {
+        return dimensionResult;
+      }
+    }
+    
+    // All validations passed
+    return {
+      isValid: true,
+      sanitizedData: validationResult.sanitizedData
+    };
+  } catch (error) {
+    console.error('Error during file validation:', error);
+    return {
+      isValid: false,
+      error: error instanceof Error ? error.message : 'Unknown error during file validation'
+    };
+  }
+}
+
+/**
+ * Reads a File object as a data URL
+ * @param file The File object to read
+ * @returns Promise resolving to the data URL string
+ */
+function readFileAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (result) {
+        resolve(result);
+      } else {
+        reject(new Error('Failed to read file'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Error reading file'));
+    reader.readAsDataURL(file);
+  });
+}

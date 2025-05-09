@@ -3,7 +3,7 @@ import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { useQuasar } from 'quasar';
 import type { NewCabInput } from 'src/types/cabs';
 import type { PropType } from 'vue';
-import { validateAndSanitizeBase64Image } from '../../utils/imageValidation'; // Adjusted path
+import { validateFileUpload, validateAndSanitizeBase64Image, MAX_IMAGE_SIZE, DEFAULT_MAX_DIMENSION } from '../../utils/imageValidation'; // Updated import
 import { operationNotifications } from '../../utils/notifications'; // Adjusted path
 // Import getNextFallbackImage or handle fallbacks differently if needed
 // import { getNextFallbackImage } from 'src/config/defaultImages'; 
@@ -35,8 +35,8 @@ const emit = defineEmits<{
 const $q = useQuasar();
 
 // Constants for file validation
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const MAX_DIMENSION = 4096; // Maximum image dimension in pixels
+const MAX_FILE_SIZE = MAX_IMAGE_SIZE;
+const MAX_DIMENSION = DEFAULT_MAX_DIMENSION;
 
 // --- State --- 
 const newCab = ref<NewCabInput>({
@@ -238,129 +238,39 @@ async function validateImageUrl(url: string): Promise<boolean> {
     }
 }
 
-async function validateFile(file: File): Promise<{ isValid: boolean; error?: string }> {
-    // ... (Keep the existing validateFile implementation)
-    // Ensure it uses MAX_FILE_SIZE, ALLOWED_TYPES, MAX_DIMENSION
-    // and calls validateImageDimensions
-    try {
-        console.log('Starting file validation:', {
-            name: file.name,
-            type: file.type,
-            size: file.size
-        });
-
-        if (!file) return { isValid: false, error: 'No file provided.' };
-        if (file.size > MAX_FILE_SIZE) {
-            const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-            return { isValid: false, error: `File size (${sizeMB}MB) exceeds 5MB limit.` };
-        }
-
-        const validMimeTypes = {
-            'image/jpeg': [0xFF, 0xD8, 0xFF],
-            'image/png': [0x89, 0x50, 0x4E, 0x47],
-            'image/gif': [0x47, 0x49, 0x46, 0x38]
-        };
-
-        if (!Object.keys(validMimeTypes).includes(file.type)) {
-            return { isValid: false, error: `Invalid file type: ${file.type}.` };
-        }
-
-        const arrayBuffer = await file.slice(0, 4).arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        const expectedSignature = validMimeTypes[file.type as keyof typeof validMimeTypes];
-        const isValidSignature = expectedSignature.every((byte, i) => byte === bytes[i]);
-        if (!isValidSignature) {
-            return { isValid: false, error: 'File content does not match extension.' };
-        }
-
-        const dimensionValidation = await validateImageDimensions(file);
-        if (!dimensionValidation.isValid) {
-            return dimensionValidation;
-        }
-
-        return { isValid: true };
-    } catch (error) {
-        console.error('Unexpected error during file validation:', error);
-        return { isValid: false, error: 'Validation error occurred.' };
-    }
-}
-
-function validateImageDimensions(file: File): Promise<{ isValid: boolean; error?: string }> {
-    return new Promise((resolve) => {
-        const img = new Image();
-        const objectUrl = URL.createObjectURL(file);
-        const cleanup = () => URL.revokeObjectURL(objectUrl);
-        let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-        const resolveClean = (result: { isValid: boolean; error?: string }) => {
-            if (timeoutId) clearTimeout(timeoutId);
-            cleanup();
-            resolve(result);
-        };
-
-        img.onload = () => {
-            if (img.width > MAX_DIMENSION || img.height > MAX_DIMENSION) {
-                resolveClean({ isValid: false, error: `Image dimensions exceed ${MAX_DIMENSION}px.` });
-            } else if (img.width === 0 || img.height === 0) {
-                resolveClean({ isValid: false, error: 'Invalid image dimensions.' });
+function handleFile(file: File) {
+    isUploadingImage.value = true;
+    
+    validateFileUpload(file, {
+        maxFileSize: MAX_FILE_SIZE,
+        maxDimension: MAX_DIMENSION
+    })
+        .then(result => {
+            if (result.isValid && result.sanitizedData) {
+                newCab.value.image = result.sanitizedData;
+                previewUrl.value = result.sanitizedData;
+                imageUrlValid.value = true;
             } else {
-                resolveClean({ isValid: true });
-            }
-        };
-        img.onerror = () => resolveClean({ isValid: false, error: 'Error loading image file.' });
-
-        // Add timeout
-        timeoutId = setTimeout(() => {
-            console.error('Dimension validation timed out');
-            resolveClean({ isValid: false, error: 'Image validation timed out. Please try again.' });
-        }, 10000); // 10 second timeout
-
-        img.src = objectUrl;
-    });
-}
-
-async function handleFile(file: File) {
-    try {
-        isUploadingImage.value = true;
-        previewUrl.value = ''; // Clear preview during processing
-
-        const validation = await validateFile(file);
-        if (!validation.isValid) {
-            $q.notify({ type: 'negative', message: validation.error || 'Invalid file', position: 'top' });
-            clearImageInput();
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            if (e.target?.result) {
-                const base64String = e.target.result as string;
-                const base64ValidationResult = validateAndSanitizeBase64Image(base64String);
-                if (!base64ValidationResult.isValid) {
-                    $q.notify({ type: 'negative', message: base64ValidationResult.error || 'Invalid image data', position: 'top' });
-                    clearImageInput();
-                } else {
-                    newCab.value.image = base64ValidationResult.sanitizedData!;
-                    imageUrlValid.value = true; // Watcher will update previewUrl
-                    $q.notify({ type: 'positive', message: 'Image uploaded successfully', position: 'top', timeout: 2000 });
-                }
-            } else {
+                $q.notify({
+                    color: 'negative',
+                    message: result.error || 'Invalid image',
+                    position: 'top',
+                });
                 clearImageInput();
             }
-            isUploadingImage.value = false;
-        };
-        reader.onerror = () => {
-            $q.notify({ type: 'negative', message: 'Error reading file.', position: 'top' });
+        })
+        .catch(error => {
+            console.error('Error processing image:', error);
+            $q.notify({
+                color: 'negative',
+                message: 'Error processing image',
+                position: 'top',
+            });
             clearImageInput();
+        })
+        .finally(() => {
             isUploadingImage.value = false;
-        };
-        reader.readAsDataURL(file);
-    } catch (error) {
-        console.error('Error in handleFile:', error);
-        $q.notify({ type: 'negative', message: 'An unexpected error occurred.', position: 'top' });
-        clearImageInput();
-        isUploadingImage.value = false;
-    }
+        });
 }
 
 function removeImage(event?: Event) {
@@ -381,11 +291,11 @@ function clearImageInput() {
     isUploadingImage.value = false;
 }
 
-async function handleFileSelect(event: Event) {
+function handleFileSelect(event: Event) {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
         const file = input.files[0];
-        await handleFile(file);
+        void handleFile(file);
     }
     if (input) {
         input.value = '';

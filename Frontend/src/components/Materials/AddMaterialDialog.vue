@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount } from 'vue';
+import { ref, watch } from 'vue';
 import type { NewMaterialInput } from 'src/types/materials';
 import type { PropType } from 'vue';
-import { validateAndSanitizeBase64Image, validateImageDimensions } from '../../utils/imageValidation';
 import { operationNotifications } from '../../utils/notifications';
+import MaterialFormCommon from './MaterialFormCommon.vue';
 
 const props = defineProps({
     modelValue: {
@@ -29,10 +29,6 @@ const emit = defineEmits<{
     (e: 'add-material', materialData: NewMaterialInput): void
 }>();
 
-// Constants for file validation
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const MAX_DIMENSION = 4096; // Maximum image dimension in pixels
-
 // --- State --- 
 const newMaterial = ref<NewMaterialInput>({
     name: '',
@@ -42,27 +38,7 @@ const newMaterial = ref<NewMaterialInput>({
     status: 'Out of Stock',
     image: props.defaultImageUrl,
 });
-const imageUrlValid = ref(true);
-const fileInput = ref<HTMLInputElement | null>(null);
-const previewUrl = ref<string>(props.defaultImageUrl);
-const isUploadingImage = ref(false);
-const isDragging = ref(false);
-let currentAbortController: AbortController | null = null;
-
-// For debouncing
-let dragLeaveTimer: number | null = null;
-
-// --- Computed --- 
-const capitalizedName = computed({
-    get: () => newMaterial.value.name,
-    set: (value: string) => {
-        if (value) {
-            newMaterial.value.name = value.charAt(0).toUpperCase() + value.slice(1);
-        } else {
-            newMaterial.value.name = value;
-        }
-    }
-});
+const isProcessing = ref(false);
 
 // --- Watchers --- 
 watch(() => props.modelValue, (newValue) => {
@@ -82,28 +58,6 @@ watch(() => newMaterial.value.quantity, (newQuantity) => {
     }
 });
 
-// --- Lifecycle Hooks ---
-onBeforeUnmount(() => {
-    if (currentAbortController) {
-        currentAbortController.abort();
-        currentAbortController = null;
-    }
-    // Cleanup any object URLs to prevent memory leaks
-    if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
-        try {
-            URL.revokeObjectURL(previewUrl.value);
-        } catch (error) {
-            console.error('Error revoking object URL:', error);
-        }
-    }
-    
-    // Clear any pending timers
-    if (dragLeaveTimer !== null) {
-        clearTimeout(dragLeaveTimer);
-        dragLeaveTimer = null;
-    }
-});
-
 // --- Functions --- 
 function resetForm() {
     newMaterial.value = {
@@ -114,165 +68,29 @@ function resetForm() {
         status: 'Out of Stock',
         image: props.defaultImageUrl,
     };
-    clearImageInput();
 }
 
-async function handleAddNewMaterial() {
-    if (!newMaterial.value.name) {
-        operationNotifications.validation.error('Please enter a material name');
-        return;
+function handleSubmit() {
+    isProcessing.value = true;
+    try {
+        // Don't make the API call here, just emit the event
+        // Let the parent component (MaterialsPage) handle the API call
+        emit('add-material', { ...newMaterial.value });
+        emit('update:modelValue', false);
+    } catch (error) {
+        console.error('Error in add material form submission:', error);
+        operationNotifications.add.error('material');
+    } finally {
+        isProcessing.value = false;
     }
-
-    if (!newMaterial.value.category || !newMaterial.value.supplier) {
-        operationNotifications.validation.error('Please fill in all required fields');
-        return;
-    }
-
-    if (!imageUrlValid.value) {
-        operationNotifications.validation.error('Please provide a valid image');
-        return;
-    }
-
-    if (!newMaterial.value.image || newMaterial.value.image === '') {
-        newMaterial.value.image = props.defaultImageUrl;
-    }
-
-    // Full sanitization right before sending to backend
-    if (newMaterial.value.image.startsWith('data:image/')) {
-        const sanitizationResult = validateAndSanitizeBase64Image(newMaterial.value.image);
-        if (!sanitizationResult.isValid) {
-            operationNotifications.validation.error(sanitizationResult.error || 'Invalid image data');
-            return;
-        }
-        
-        // Validate image dimensions
-        const dimensionResult = await validateImageDimensions(sanitizationResult.sanitizedData!, MAX_DIMENSION);
-        if (!dimensionResult.isValid) {
-            operationNotifications.validation.error(dimensionResult.error || 'Image dimensions exceed limits');
-            return;
-        }
-        
-        newMaterial.value.image = sanitizationResult.sanitizedData!;
-    }
-
-    emit('add-material', { ...newMaterial.value });
 }
 
 function closeDialog() {
     emit('update:modelValue', false);
 }
 
-// --- Image Handling --- 
-function handleFile(file: File) {
-    if (!file.type.startsWith('image/')) {
-        operationNotifications.validation.error('Please select an image file');
-        return;
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-        operationNotifications.validation.error('Image size must be less than 5MB');
-        return;
-    }
-
-    isUploadingImage.value = true;
-
-    try {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            const result = e.target?.result as string;
-            if (result) {
-                const validationResult = validateAndSanitizeBase64Image(result);
-                if (validationResult.isValid) {
-                    // Validate image dimensions
-                    const dimensionResult = await validateImageDimensions(validationResult.sanitizedData!, MAX_DIMENSION);
-                    if (dimensionResult.isValid) {
-                        newMaterial.value.image = validationResult.sanitizedData!;
-                        previewUrl.value = validationResult.sanitizedData!;
-                        imageUrlValid.value = true;
-                    } else {
-                        operationNotifications.validation.error(dimensionResult.error || 'Image dimensions exceed limits');
-                        clearImageInput();
-                    }
-                } else {
-                    operationNotifications.validation.error(validationResult.error || 'Invalid image data');
-                    clearImageInput();
-                }
-            }
-            isUploadingImage.value = false;
-        };
-        reader.readAsDataURL(file);
-    } catch (error) {
-        console.error('Error processing image:', error);
-        operationNotifications.validation.error('Error processing image');
-        clearImageInput();
-        isUploadingImage.value = false;
-    }
-}
-
-function clearImageInput() {
-    if (previewUrl.value && previewUrl.value !== props.defaultImageUrl) {
-        try {
-            URL.revokeObjectURL(previewUrl.value);
-        } catch (error) {
-            console.error('Error revoking object URL:', error);
-        }
-    }
-    previewUrl.value = props.defaultImageUrl;
-    newMaterial.value.image = props.defaultImageUrl;
-    imageUrlValid.value = true;
-    if (fileInput.value) {
-        fileInput.value.value = '';
-    }
-    isUploadingImage.value = false;
-}
-
-function handleFileSelect(event: Event) {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files[0]) {
-        const file = input.files[0];
-        handleFile(file);
-    }
-    if (input) {
-        input.value = '';
-        clearImageInput(); // Clear image state if user selects the same image again
-    }
-}
-
-function triggerFileInput() {
-    fileInput.value?.click();
-}
-
-// --- Drag & Drop --- 
-function handleDragLeave(event: DragEvent) {
-    // Clear any existing timer
-    if (dragLeaveTimer !== null) {
-        clearTimeout(dragLeaveTimer);
-    }
-    
-    // Set a new timer for debouncing
-    dragLeaveTimer = window.setTimeout(() => {
-        const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-        const x = event.clientX;
-        const y = event.clientY;
-        if (x <= rect.left || x >= rect.right || y <= rect.top || y >= rect.bottom) {
-            isDragging.value = false;
-        }
-        dragLeaveTimer = null;
-    }, 100); // 100ms debounce time
-}
-
-function handleDrop(event: DragEvent) {
-    event.preventDefault();
-    isDragging.value = false;
-    if (event.dataTransfer?.files && event.dataTransfer.files[0]) {
-        const file = event.dataTransfer.files[0];
-        handleFile(file);
-    }
-}
-
-// Add the removeImage function
-function removeImage() {
-    clearImageInput();
+function handleValidationError(message: string) {
+    operationNotifications.validation.error(message);
 }
 </script>
 
@@ -286,154 +104,21 @@ function removeImage() {
             </q-card-section>
 
             <q-card-section>
-                <q-form @submit.prevent="handleAddNewMaterial" class="q-gutter-sm">
-                    <q-input v-model="capitalizedName" label="Material Name" dense outlined required lazy-rules
-                        :rules="[val => !!val || 'Name is required']">
-                        <template v-slot:prepend>
-                            <q-icon name="inventory_2" />
-                        </template>
-                    </q-input>
-
-                    <div class="row q-col-gutter-sm">
-                        <div class="col-12 col-sm-6">
-                            <q-select v-model="newMaterial.category" :options="categories" label="Category" dense outlined
-                                required emit-value map-options placeholder="Select a category" lazy-rules
-                                :rules="[val => !!val || 'Category is required']">
-                                <template v-slot:prepend>
-                                    <q-icon name="category" />
-                                </template>
-                                <template v-slot:no-option>
-                                    <q-item>
-                                        <q-item-section class="text-grey">
-                                            No results
-                                        </q-item-section>
-                                    </q-item>
-                                </template>
-                            </q-select>
-                        </div>
-
-                        <div class="col-12 col-sm-6">
-                            <q-select v-model="newMaterial.supplier" :options="suppliers" label="Supplier" dense outlined
-                                required emit-value map-options placeholder="Select a supplier" lazy-rules
-                                :rules="[val => !!val || 'Supplier is required']">
-                                <template v-slot:prepend>
-                                    <q-icon name="local_shipping" />
-                                </template>
-                                <template v-slot:no-option>
-                                    <q-item>
-                                        <q-item-section class="text-grey">
-                                            No results
-                                        </q-item-section>
-                                    </q-item>
-                                </template>
-                            </q-select>
-                        </div>
-                    </div>
-
-                    <div class="row q-col-gutter-sm">
-                        <div class="col-12 col-sm-6">
-                            <q-input v-model.number="newMaterial.quantity" type="number" min="0" label="Quantity" dense
-                                outlined required lazy-rules
-                                :rules="[val => val !== null && val !== undefined && val >= 0 || 'Quantity must be positive']">
-                                <template v-slot:prepend>
-                                    <q-icon name="numbers" />
-                                </template>
-                            </q-input>
-                        </div>
-
-                        <div class="col-12 col-sm-6">
-                            <q-input v-model="newMaterial.status" label="Status" dense outlined readonly>
-                                <template v-slot:prepend>
-                                    <q-icon name="info" />
-                                </template>
-                            </q-input>
-                        </div>
-                    </div>
-
-                    <div class="row q-col-gutter-sm">
-                        <div class="col-12">
-                            <div class="upload-container" :class="{ dragging: isDragging }"
-                                @dragover.prevent="isDragging = true" @dragleave="handleDragLeave"
-                                @drop.prevent="handleDrop" @click="triggerFileInput">
-                                <input ref="fileInput" type="file" accept="image/*" class="hidden"
-                                    @change="handleFileSelect" />
-                                <div v-if="isUploadingImage" class="text-center">
-                                    <q-spinner-dots color="primary" size="40px" />
-                                    <div class="text-body1 q-mt-sm">Processing image...</div>
-                                </div>
-                                <div v-else-if="!previewUrl || previewUrl === defaultImageUrl" class="text-center">
-                                    <q-icon name="cloud_upload" size="48px" color="primary" />
-                                    <div class="text-body1 q-mt-sm">Drag/drop or click to select image</div>
-                                    <div class="text-caption text-grey q-mt-sm">JPG, PNG, GIF | Max 5MB | Max {{ MAX_DIMENSION }}px
-                                    </div>
-                                </div>
-                                <div v-else class="row items-center justify-center">
-                                    <div class="col-8 text-center">
-                                        <img :src="previewUrl" class="preview-image"
-                                            :alt="newMaterial.name || 'Preview image'"
-                                            @error="previewUrl = defaultImageUrl" />
-                                    </div>
-                                    <div class="col-4 text-center">
-                                        <q-btn flat round color="negative" icon="close" @click.stop="removeImage">
-                                            <q-tooltip>Remove Image</q-tooltip>
-                                        </q-btn>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </q-form>
+                <MaterialFormCommon
+                    v-model:materialData="newMaterial"
+                    :categories="categories"
+                    :suppliers="suppliers"
+                    :defaultImageUrl="defaultImageUrl"
+                    :isProcessing="isProcessing"
+                    @submit="handleSubmit"
+                    @cancel="closeDialog"
+                    @validation-error="handleValidationError"
+                >
+                    <template #submitButton="slotProps">
+                        <q-btn unelevated color="primary" label="Add Material" type="submit" :loading="slotProps.loading" :disable="slotProps.disabled" />
+                    </template>
+                </MaterialFormCommon>
             </q-card-section>
-
-            <q-card-actions align="right" class="q-pa-md">
-                <q-btn flat label="Cancel" @click="closeDialog" />
-                <q-btn unelevated color="primary" label="Add Material" @click="handleAddNewMaterial"
-                    :disable="!newMaterial.name || !newMaterial.category || !newMaterial.supplier || newMaterial.quantity < 0 || !imageUrlValid || isUploadingImage" />
-            </q-card-actions>
         </q-card>
     </q-dialog>
-</template>
-
-<style scoped lang="sass">
-.upload-container
-  position: relative
-  border: 2px dashed #ccc
-  border-radius: 8px
-  cursor: pointer
-  transition: all 0.3s ease
-  min-height: 200px
-  display: flex
-  align-items: center
-  justify-content: center
-  background-color: transparent
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05)
-
-  &:hover
-    border-color: var(--q-primary)
-    background-color: rgba(var(--q-primary-rgb), 0.04)
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1)
-    transform: translateY(-1px)
-
-  &.dragging
-    border-color: var(--q-primary)
-    background-color: rgba(var(--q-primary-rgb), 0.08)
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15)
-    transform: translateY(-2px)
-
-  .q-spinner-dots
-    margin: 0 auto
-
-.preview-image
-  width: 100%
-  max-height: 180px
-  object-fit: contain
-  border-radius: 4px
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1)
-  transition: all 0.3s ease
-
-  &:hover
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15)
-
-.hidden
-  display: none
-</style> 
+</template> 
