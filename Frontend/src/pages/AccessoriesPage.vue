@@ -298,7 +298,7 @@ onMounted(async () => {
                 @click="openAddDialog"
                 :disable="pageLoading"
                 :class="[
-                  $q.dark.isActive ? 'text-black bg-white' : 'text-white bg-primary', 
+                  $q.dark.isActive ? 'text-black bg-white' : 'text-white bg-primary',
                   { 'full-width': $q.screen.lt.md }
                 ]"
               >
@@ -310,8 +310,8 @@ onMounted(async () => {
                 flat
                 :disable="pageLoading"
                 :class="[
-                  $q.dark.isActive ? 'bg-white text-black' : 'bg-primary text-white', 
-                  'q-pa-sm', 
+                  $q.dark.isActive ? 'bg-white text-black' : 'bg-primary text-white',
+                  'q-pa-sm',
                   { 'full-width': $q.screen.lt.md }
                 ]"
               >
@@ -377,7 +377,7 @@ onMounted(async () => {
       </div>
 
       <!--ACCESSORIES TABLE - Only show when not loading and no errors -->
-      <q-table v-if="!pageLoading && !hasApiError" class="my-sticky-column-table custom-table-text" flat bordered 
+      <q-table v-if="!pageLoading && !hasApiError" class="my-sticky-column-table custom-table-text" flat bordered
         :rows="store.filteredAccessoryRows" :columns="columns" row-key="id" :filter="store.search.searchValue"
         @row-click="onRowClick" :pagination="{ rowsPerPage: 10 }" :rows-per-page-options="[10]" :loading="store.isLoading">
         <template v-slot:loading>
@@ -388,7 +388,7 @@ onMounted(async () => {
         </template>
         <template v-slot:body-cell-status="props">
           <q-td :props="props">
-            <q-badge :color="props.row.status === 'In Stock' ? 'green' : (props.row.status === 'Out of Stock' || props.row.status === 'Low Stock' ? 'red' : 'grey')" :label="props.row.status" />
+            <q-badge :color="props.row.status === 'In Stock' ? 'green' : (props.row.status === 'Out of Stock' ? 'red' : 'orange')" :label="props.row.status" />
           </q-td>
         </template>
         <template v-slot:body-cell-actions="props">
