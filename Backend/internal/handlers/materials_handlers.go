@@ -33,11 +33,12 @@ func (h *MaterialHandlers) RegisterMaterialRoutes(r fiber.Router) {
 	// Group routes under '/materials'
 	materialsGroup := r.Group("/materials", authRequired)
 
-	materialsGroup.Get("/", h.GetMaterialsHandler)         // GET /api/materials?params...
-	materialsGroup.Get("/:id", h.GetMaterialHandler)       // GET /api/materials/{id}
-	materialsGroup.Post("/", h.CreateMaterialHandler)      // POST /api/materials
-	materialsGroup.Put("/:id", h.UpdateMaterialHandler)    // PUT /api/materials/{id}
-	materialsGroup.Delete("/:id", h.DeleteMaterialHandler) // DELETE /api/materials/{id}
+	materialsGroup.Get("/", h.GetMaterialsHandler)                   // GET /api/materials?params...
+	materialsGroup.Get("/paginated", h.GetPaginatedMaterialsHandler) // GET /api/materials/paginated?page=1&limit=10
+	materialsGroup.Get("/:id", h.GetMaterialHandler)                 // GET /api/materials/{id}
+	materialsGroup.Post("/", h.CreateMaterialHandler)                // POST /api/materials
+	materialsGroup.Put("/:id", h.UpdateMaterialHandler)              // PUT /api/materials/{id}
+	materialsGroup.Delete("/:id", h.DeleteMaterialHandler)           // DELETE /api/materials/{id}
 }
 
 // GetMaterialsHandler handles requests to retrieve multiple materials with filtering
@@ -261,4 +262,61 @@ func (h *MaterialHandlers) DeleteMaterialHandler(c *fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusNoContent) // Standard response for successful deletion
+}
+
+// Maximum number of items that can be requested per page
+const maxPageLimit = 100
+
+// GetPaginatedMaterialsHandler handles requests to retrieve paginated materials
+func (h *MaterialHandlers) GetPaginatedMaterialsHandler(c *fiber.Ctx) error {
+	pageStr := c.Query("page", "1")
+	limitStr := c.Query("limit", "10")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil {
+		log.Printf("Invalid page parameter: %s, using default value 1", pageStr)
+		page = 1
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		log.Printf("Invalid limit parameter: %s, using default value 10", limitStr)
+		limit = 10
+	}
+
+	// Ensure page is at least 1
+	if page < 1 {
+		log.Printf("Page parameter less than 1: %d, using default value 1", page)
+		page = 1
+	}
+
+	// Ensure limit is between 1 and maxPageLimit
+	if limit < 1 {
+		log.Printf("Limit parameter less than 1: %d, using default value 10", limit)
+		limit = 10 // Default to 10 if invalid
+	} else if limit > maxPageLimit {
+		log.Printf("Limit parameter exceeds maximum allowed value: %d, using maximum value %d", limit, maxPageLimit)
+		limit = maxPageLimit
+	}
+
+	searchTerm := c.Query("search")
+	category := c.Query("category")
+	supplier := c.Query("supplier")
+	status := c.Query("status")
+
+	materials, total, err := h.Repo.GetPaginated(page, limit, searchTerm, category, supplier, status)
+	if err != nil {
+		log.Printf("Error getting paginated materials: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to retrieve materials",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"materials":  materials,
+		"total":      total,
+		"page":       page,
+		"limit":      limit,
+		"totalPages": (total + int64(limit) - 1) / int64(limit),
+	})
 }

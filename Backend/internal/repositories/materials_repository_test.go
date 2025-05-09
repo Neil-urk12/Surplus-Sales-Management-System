@@ -49,8 +49,8 @@ func TestGetAllMaterials(t *testing.T) {
 		rows := sqlmock.NewRows([]string{"id", "name", "category", "supplier", "quantity", "status", "image", "created_at", "updated_at"}).
 			AddRow(expectedMaterials[0].ID, expectedMaterials[0].Name, expectedMaterials[0].Category, expectedMaterials[0].Supplier, expectedMaterials[0].Quantity, expectedMaterials[0].Status, expectedMaterials[0].Image, expectedMaterials[0].CreatedAt, expectedMaterials[0].UpdatedAt)
 
-		querySearch := "SELECT id, name, category, supplier, quantity, status, image, created_at, updated_at FROM materials WHERE 1=1 AND name ILIKE ? ORDER BY created_at DESC"
-		mock.ExpectQuery(regexp.QuoteMeta(querySearch)).WithArgs("%term%").WillReturnRows(rows)
+		querySearch := "SELECT id, name, category, supplier, quantity, status, image, created_at, updated_at FROM materials WHERE 1=1 AND (LOWER(name) LIKE LOWER(?) OR LOWER(category) LIKE LOWER(?) OR LOWER(supplier) LIKE LOWER(?)) ORDER BY created_at DESC"
+		mock.ExpectQuery(regexp.QuoteMeta(querySearch)).WithArgs("%term%", "%term%", "%term%").WillReturnRows(rows)
 
 		materials, err := repo.GetAll("term", "", "", "")
 		assert.NoError(t, err)
@@ -62,7 +62,7 @@ func TestGetAllMaterials(t *testing.T) {
 		rows := sqlmock.NewRows([]string{"id", "name", "category", "supplier", "quantity", "status", "image", "created_at", "updated_at"}).
 			AddRow(expectedMaterials[0].ID, expectedMaterials[0].Name, expectedMaterials[0].Category, expectedMaterials[0].Supplier, expectedMaterials[0].Quantity, expectedMaterials[0].Status, expectedMaterials[0].Image, expectedMaterials[0].CreatedAt, expectedMaterials[0].UpdatedAt)
 
-		queryCategory := "SELECT id, name, category, supplier, quantity, status, image, created_at, updated_at FROM materials WHERE 1=1 AND category = ? ORDER BY created_at DESC"
+		queryCategory := "SELECT id, name, category, supplier, quantity, status, image, created_at, updated_at FROM materials WHERE 1=1 AND LOWER(category) = LOWER(?) ORDER BY created_at DESC"
 		mock.ExpectQuery(regexp.QuoteMeta(queryCategory)).WithArgs("Cat A").WillReturnRows(rows)
 
 		materials, err := repo.GetAll("", "Cat A", "", "")
@@ -75,7 +75,7 @@ func TestGetAllMaterials(t *testing.T) {
 		rows := sqlmock.NewRows([]string{"id", "name", "category", "supplier", "quantity", "status", "image", "created_at", "updated_at"}).
 			AddRow(expectedMaterials[0].ID, expectedMaterials[0].Name, expectedMaterials[0].Category, expectedMaterials[0].Supplier, expectedMaterials[0].Quantity, expectedMaterials[0].Status, expectedMaterials[0].Image, expectedMaterials[0].CreatedAt, expectedMaterials[0].UpdatedAt)
 
-		querySupplier := "SELECT id, name, category, supplier, quantity, status, image, created_at, updated_at FROM materials WHERE 1=1 AND supplier = ? ORDER BY created_at DESC"
+		querySupplier := "SELECT id, name, category, supplier, quantity, status, image, created_at, updated_at FROM materials WHERE 1=1 AND LOWER(supplier) = LOWER(?) ORDER BY created_at DESC"
 		mock.ExpectQuery(regexp.QuoteMeta(querySupplier)).WithArgs("Sup 1").WillReturnRows(rows)
 
 		materials, err := repo.GetAll("", "", "Sup 1", "")
@@ -88,7 +88,7 @@ func TestGetAllMaterials(t *testing.T) {
 		rows := sqlmock.NewRows([]string{"id", "name", "category", "supplier", "quantity", "status", "image", "created_at", "updated_at"}).
 			AddRow(expectedMaterials[0].ID, expectedMaterials[0].Name, expectedMaterials[0].Category, expectedMaterials[0].Supplier, expectedMaterials[0].Quantity, expectedMaterials[0].Status, expectedMaterials[0].Image, expectedMaterials[0].CreatedAt, expectedMaterials[0].UpdatedAt)
 
-		queryStatus := "SELECT id, name, category, supplier, quantity, status, image, created_at, updated_at FROM materials WHERE 1=1 AND status = ? ORDER BY created_at DESC"
+		queryStatus := "SELECT id, name, category, supplier, quantity, status, image, created_at, updated_at FROM materials WHERE 1=1 AND LOWER(status) = LOWER(?) ORDER BY created_at DESC"
 		mock.ExpectQuery(regexp.QuoteMeta(queryStatus)).WithArgs("Active").WillReturnRows(rows)
 
 		materials, err := repo.GetAll("", "", "", "Active")
@@ -101,8 +101,8 @@ func TestGetAllMaterials(t *testing.T) {
 		rows := sqlmock.NewRows([]string{"id", "name", "category", "supplier", "quantity", "status", "image", "created_at", "updated_at"}).
 			AddRow(expectedMaterials[0].ID, expectedMaterials[0].Name, expectedMaterials[0].Category, expectedMaterials[0].Supplier, expectedMaterials[0].Quantity, expectedMaterials[0].Status, expectedMaterials[0].Image, expectedMaterials[0].CreatedAt, expectedMaterials[0].UpdatedAt)
 
-		queryAll := "SELECT id, name, category, supplier, quantity, status, image, created_at, updated_at FROM materials WHERE 1=1 AND name ILIKE ? AND category = ? AND supplier = ? AND status = ? ORDER BY created_at DESC"
-		mock.ExpectQuery(regexp.QuoteMeta(queryAll)).WithArgs("%term%", "Cat A", "Sup 1", "Active").WillReturnRows(rows)
+		queryAll := "SELECT id, name, category, supplier, quantity, status, image, created_at, updated_at FROM materials WHERE 1=1 AND (LOWER(name) LIKE LOWER(?) OR LOWER(category) LIKE LOWER(?) OR LOWER(supplier) LIKE LOWER(?)) AND LOWER(category) = LOWER(?) AND LOWER(supplier) = LOWER(?) AND LOWER(status) = LOWER(?) ORDER BY created_at DESC"
+		mock.ExpectQuery(regexp.QuoteMeta(queryAll)).WithArgs("%term%", "%term%", "%term%", "Cat A", "Sup 1", "Active").WillReturnRows(rows)
 
 		materials, err := repo.GetAll("term", "Cat A", "Sup 1", "Active")
 		assert.NoError(t, err)

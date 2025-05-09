@@ -1,22 +1,28 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, defineAsyncComponent } from 'vue';
-import type { QTableColumn, QTableProps } from 'quasar';
+import { ref, watch, onMounted, defineAsyncComponent } from 'vue';
+import type { QTableColumn } from 'quasar';
 import { useQuasar } from 'quasar';
-import { useMaterialsStore } from 'src/stores/materials';
-import type { MaterialRow, NewMaterialInput } from 'src/stores/materials';
-import type { MaterialCategory, MaterialSupplier, MaterialStatus } from 'src/types/materials';
+import { useMaterialsStore } from '../stores/materials';
+import type { MaterialRow, NewMaterialInput } from '../stores/materials';
+import type { MaterialStatus, MaterialCategory, MaterialSupplier } from '../types/materials';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
-const ProductCardModal = defineAsyncComponent(() => import('src/components/Global/ProductModal.vue'));
-const DeleteDialog = defineAsyncComponent(() => import('src/components/Global/DeleteDialog.vue'));
-const AddMaterialDialog = defineAsyncComponent(() => import('src/components/Materials/AddMaterialDialog.vue'));
-const MaterialEditWrapper = defineAsyncComponent(() => import('src/components/Materials/MaterialEditWrapper.vue'));
-const FilterMaterialDialog = defineAsyncComponent(() => import('src/components/Materials/FilterMaterialDialog.vue'));
-const AdvancedSearch = defineAsyncComponent(() => import('src/components/Global/AdvancedSearch.vue'));
-const ImageUploader = defineAsyncComponent(() => import('src/components/Global/ImageUploader.vue'));
+
+const ProductCardModal = defineAsyncComponent(() => import('../components/Global/ProductModal.vue'));
+const DeleteDialog = defineAsyncComponent(() => import('../components/Global/DeleteDialog.vue'));
+const AddMaterialDialog = defineAsyncComponent(() => import('../components/Materials/AddMaterialDialog.vue'));
+const MaterialEditWrapper = defineAsyncComponent(() => import('../components/Materials/MaterialEditWrapper.vue'));
+const FilterMaterialDialog = defineAsyncComponent(() => import('../components/Materials/FilterMaterialDialog.vue'));
 
 const $q = useQuasar();
 const store = useMaterialsStore();
+console.log('Store initialized:', {
+  rawMaterialSearch: store.rawMaterialSearch,
+  filterCategory: store.filterCategory,
+  filterSupplier: store.filterSupplier,
+  filterStatus: store.filterStatus,
+  pagination: store.pagination
+});
 const showFilterDialog = ref(false);
 const selectedMaterial = ref<MaterialRow>({
   name: '',
@@ -53,17 +59,6 @@ const defaultImageUrl = 'https://loremflickr.com/600/400/material';
 // Available options from store
 const { categories, suppliers, statuses } = store;
 
-const capitalizedName = computed({
-  get: () => newMaterial.value.name,
-  set: (value: string) => {
-    if (value) {
-      newMaterial.value.name = value.charAt(0).toUpperCase() + value.slice(1);
-    } else {
-      newMaterial.value.name = value;
-    }
-  }
-});
-
 const materialColumns: QTableColumn[] = [
   { name: 'id', align: 'center', label: 'ID', field: 'id', sortable: true },
   {
@@ -77,7 +72,12 @@ const materialColumns: QTableColumn[] = [
   { name: 'category', label: 'Category', field: 'category' },
   { name: 'supplier', label: 'Supplier', field: 'supplier' },
   { name: 'quantity', label: 'Quantity', field: 'quantity', sortable: true },
-  { name: 'status', label: 'Status', field: 'status' },
+  {
+    name: 'status',
+    label: 'Status',
+    field: 'status',
+    align: 'center'
+  },
   {
     name: 'actions',
     label: 'Actions',
@@ -90,20 +90,23 @@ const materialColumns: QTableColumn[] = [
 const showMaterial = ref(false)
 const showAddDialog = ref(false)
 
-const onMaterialRowClick: QTableProps['onRowClick'] = (evt, row) => {
-  // Check if the click originated from the action button or its menu
-  const target = evt.target as HTMLElement;
-  if (target.closest('.action-button') || target.closest('.action-menu')) {
-    return; // Do nothing if clicked on action button or its menu
+// Watch for filter changes and trigger data refresh
+watch([store.filterCategory, store.filterSupplier, store.filterStatus], async () => {
+  try {
+    await store.onRequest({ pagination: store.pagination });
+  } catch (error) {
+    console.error('Error updating filters:', error);
   }
-  selectedMaterial.value = row as MaterialRow
-  showMaterial.value = true
-}
+});
 
-function addMaterialToCart() {
-  console.log('added material to cart', selectedMaterial.value.name)
-  showMaterial.value = false
-}
+// Watch for raw search input changes
+watch(() => store.rawMaterialSearch, async () => {
+  try {
+    await store.onRequest({ pagination: store.pagination });
+  } catch (error) {
+    console.error('Error updating search:', error);
+  }
+});
 
 function openAddDialog() {
   newMaterial.value = {
@@ -124,27 +127,19 @@ async function handleAddMaterial(materialData: NewMaterialInput) {
       operationNotifications.validation.error('Material name is required');
       return;
     }
-    
-    // Validate category and supplier
-    if (!materialData.category) {
-      operationNotifications.validation.error('Material category is required');
-      return;
-    }
-    
-    if (!materialData.supplier) {
-      operationNotifications.validation.error('Material supplier is required');
-      return;
-    }
-    
-    // Ensure image is provided
+
+    // If image URL is empty, use default
     if (!materialData.image) {
       materialData.image = defaultImageUrl;
     }
-    
+
+    // Execute the store action and await its completion
     const result = await store.addMaterial(materialData);
-    
+
+    // Only close dialog and show notification after operation successfully completes
     if (result.success) {
       showAddDialog.value = false;
+      operationNotifications.add.success('material');
     }
   } catch (error) {
     console.error('Error adding material:', error);
@@ -231,17 +226,20 @@ async function confirmDelete() {
       return;
     }
 
-    await store.deleteMaterial(materialToDelete.value.id);
-    showDeleteDialog.value = false;
-    materialToDelete.value = {
-      id: 0,
-      name: '',
-      category: 'Building',
-      supplier: 'Steel Co.',
-      quantity: 0,
-      status: 'Out of Stock',
-      image: ''
-    };
+    const result = await store.deleteMaterial(materialToDelete.value.id);
+    if (result.success) {
+      showDeleteDialog.value = false;
+      materialToDelete.value = {
+        id: 0,
+        name: '',
+        category: 'Building',
+        supplier: 'Steel Co.',
+        quantity: 0,
+        status: 'Out of Stock',
+        image: ''
+      };
+      operationNotifications.delete.success('material');
+    }
   } catch (error) {
     console.error('Error deleting material:', error);
     operationNotifications.delete.error('material');
@@ -253,7 +251,10 @@ const showEditDialog = ref(false);
 
 // Function to handle edit material
 function editMaterial(material: MaterialRow) {
-  materialToEdit.value = { ...material };
+  // Deep copy selected material to the dedicated edit ref
+  materialToEdit.value = JSON.parse(JSON.stringify(material));
+  imageUrlValid.value = true; // Reset validation state for the dialog
+  validatingImage.value = false; // Reset validation state
   showEditDialog.value = true;
 }
 
@@ -265,86 +266,187 @@ async function handleUpdateMaterial(materialData: NewMaterialInput) {
       operationNotifications.validation.error('Material name is required');
       return;
     }
-    
-    // Validate category and supplier
-    if (!materialData.category) {
-      operationNotifications.validation.error('Material category is required');
-      return;
+
+    const currentFile = fileInput.value?.files?.[0];
+    if (currentFile) {
+      if (currentFile.size > MAX_FILE_SIZE) {
+        $q.notify({
+          type: 'negative',
+          message: `File size (${(currentFile.size / 1024 / 1024).toFixed(2)}MB) exceeds the 5MB limit`,
+          position: 'top',
+          timeout: 3000
+        });
+        return;
+      }
+
+      await handleFile(currentFile);
     }
-    
-    if (!materialData.supplier) {
-      operationNotifications.validation.error('Material supplier is required');
-      return;
-    }
-    
-    // Ensure image is provided
-    if (!materialData.image) {
-      materialData.image = defaultImageUrl;
-    }
-    
+
+    // Execute the store action
     const result = await store.updateMaterial(materialToEdit.value.id, materialData);
-    
     if (result.success) {
       showEditDialog.value = false;
+      operationNotifications.update.success('material');
     }
   } catch (error) {
-    console.error('Error updating material:', error);
+    console.error('Error in handleUpdateMaterial:', error);
     operationNotifications.update.error('material');
   }
 }
 
+// Add missing image handling functions
+async function handleFile(fileToHandle: File): Promise<void> {
+  if (fileToHandle.size > MAX_FILE_SIZE) {
+    $q.notify({
+      type: 'negative',
+      message: `File size (${(fileToHandle.size / 1024 / 1024).toFixed(2)}MB) exceeds the 5MB limit`,
+      position: 'top',
+      timeout: 3000
+    });
+    return;
+  }
+
+  try {
+    const base64String = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result;
+        if (result && typeof result === 'string') {
+          resolve(result);
+        } else {
+          reject(new Error('Failed to read file: Invalid result'));
+        }
+      };
+      reader.onerror = () => reject(new Error(reader.error?.message || 'Failed to read file'));
+      reader.readAsDataURL(fileToHandle);
+    });
+
+    const validationResult = validateAndSanitizeBase64Image(base64String);
+    if (validationResult.isValid) {
+      newMaterial.value.image = validationResult.sanitizedData!;
+      imageUrlValid.value = true;
+    } else {
+      imageUrlValid.value = false;
+      $q.notify({
+        type: 'negative',
+        message: validationResult.error || 'Invalid image format',
+        position: 'top',
+        timeout: 3000
+      });
+    }
+  } catch (error) {
+    console.error('Error handling file:', error);
+    $q.notify({
+      type: 'negative',
+      message: 'Error processing the image. Please try again.',
+      position: 'top',
+      timeout: 3000
+    });
+  }
+}
+
+// Add missing refs and constants
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const fileInput = ref<HTMLInputElement | null>(null);
+const imageUrlValid = ref(true);
+const validatingImage = ref(false);
+
+// Add a computed property for status color mapping
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'In Stock':
+      return 'positive';
+    case 'Low Stock':
+      return 'warning';
+    case 'Out of Stock':
+      return 'negative';
+    default:
+      return 'grey';
+  }
+};
+
 // Update onMounted hook
 onMounted(async () => {
-  await store.initializeMaterials();
+  console.log('MaterialsPage mounted, initializing materials...');
+  try {
+    await store.initializeMaterials();
+    console.log('Materials initialized:', {
+      rowCount: store.materialRows.length,
+      pagination: store.pagination
+    });
+  } catch (error) {
+    console.error('Error initializing materials:', error);
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to initialize materials',
+      position: 'top',
+      timeout: 3000
+    });
+  }
 });
 
-function handleApplyFilters(filters: { category: string | null; supplier: string | null; status: string | null }) {
-  store.filterCategory = filters.category === null ? '' : filters.category as MaterialCategory;
-  store.filterSupplier = filters.supplier === null ? '' : filters.supplier as MaterialSupplier;
-  store.filterStatus = filters.status === null ? '' : filters.status as MaterialStatus;
+function handleApplyFilters(filters: { category: string | null; supplier: string | null; status: MaterialStatus | null }) {
+  store.filterCategory = (filters.category || 'All') as MaterialCategory | 'All';
+  store.filterSupplier = (filters.supplier || 'All') as MaterialSupplier | 'All';
+  store.filterStatus = filters.status || 'All';
+
+  // Reset to first page when applying filters
+  store.pagination.page = 1;
+
+  // Trigger the request with updated filters
+  void store.onRequest({
+    pagination: {
+      ...store.pagination,
+      page: 1
+    }
+  });
+
   operationNotifications.filters.success();
   showFilterDialog.value = false;
+}
+
+function addMaterialToCart() {
+  console.log('added material to cart', selectedMaterial.value.name)
+  showMaterial.value = false
 }
 </script>
 
 <template>
   <q-page class="flex inventory-page-padding">
     <div class="q-pa-sm full-width">
-      <!-- Modified Header Structure -->
-      <div class="q-mb-md">
-        <div class="flex row items-center justify-between">
-          <div class="col">
-            <div class="text-h5">Materials</div>
-          </div>
-        </div>
-        <div>
-          <div class="text-caption text-grey q-mt-sm">Manage your inventory items, track stock levels, and monitor product details.</div>
-          <!-- Main Controls Container -->
-          <div
-            class="flex items-center q-mt-sm"
-            :class="$q.screen.lt.md ? 'column q-gutter-y-sm items-stretch' : 'row justify-between'"
-          >
-            <!-- Search + Filters Group -->
-            <div
-              class="flex items-center"
-              :class="$q.screen.lt.md ? 'column full-width q-gutter-y-sm items-stretch' : 'row q-gutter-x-sm'"
-            >
-              <AdvancedSearch
-                v-model="store.search.searchInput"
-                placeholder="Search materials"
-                @clear="store.resetFilters"
-                color="primary"
-                :disable="store.isLoading"
-                :style="$q.screen.lt.md ? { width: '100%' } : { width: '400px' }"
-              />
-              <q-btn
-                outline
-                icon="filter_list"
-                label="Filters"
-                @click="showFilterDialog = true"
-                :disable="store.isLoading"
-                :class="{ 'full-width': $q.screen.lt.md }"
-              />
+      <!-- Materials Section -->
+      <div class="q-mt-sm">
+        <div class="flex row q-my-sm">
+          <div class="flex full-width col">
+            <div class="flex col q-mr-sm">
+              <q-input
+                v-model="store.rawMaterialSearch"
+                outlined
+                dense
+                placeholder="Search by name, ID, category, or supplier..."
+                class="full-width"
+                clearable
+                debounce="300"
+                @clear="() => {
+                  store.rawMaterialSearch = '';
+                  store.resetFilters();
+                  void store.onRequest({ pagination: store.pagination });
+                }"
+                @update:model-value="() => {
+                  console.log('Search input updated:', store.rawMaterialSearch);
+                  void store.onRequest({ pagination: store.pagination });
+                }"
+              >
+                <template v-slot:prepend>
+                  <q-icon name="search" />
+                </template>
+                <template v-slot:hint>
+                  Type to search all materials
+                </template>
+              </q-input>
+            </div>
+            <div class="flex col">
+              <q-btn outline icon="filter_list" label="Filters" @click="showFilterDialog = true" />
             </div>
             <!-- Add + Download CSV Group -->
             <div
@@ -356,7 +458,7 @@ function handleApplyFilters(filters: { category: string | null; supplier: string
                 @click="openAddDialog"
                 :disable="store.isLoading"
                 :class="[
-                  $q.dark.isActive ? 'text-black bg-white' : 'text-white bg-primary', 
+                  $q.dark.isActive ? 'text-black bg-white' : 'text-white bg-primary',
                   { 'full-width': $q.screen.lt.md }
                 ]"
               >
@@ -368,8 +470,8 @@ function handleApplyFilters(filters: { category: string | null; supplier: string
                 flat
                 :disable="store.isLoading"
                 :class="[
-                  $q.dark.isActive ? 'bg-white text-black' : 'bg-primary text-white', 
-                  'q-pa-sm', 
+                  $q.dark.isActive ? 'bg-white text-black' : 'bg-primary text-white',
+                  'q-pa-sm',
                   { 'full-width': $q.screen.lt.md }
                 ]"
               >
@@ -384,55 +486,96 @@ function handleApplyFilters(filters: { category: string | null; supplier: string
       <!-- Materials Section -->
       <div class="q-mt-sm">
         <!--MATERIALS TABLE-->
-        <q-table class="my-sticky-column-table custom-table-text" flat bordered :rows="store.filteredMaterialRows" 
-          :columns="materialColumns" row-key="id" :filter="store.search.searchValue" @row-click="onMaterialRowClick"
-          :pagination="{ rowsPerPage: 10 }" :rows-per-page-options="[10]" :loading="store.isLoading">
+        <q-table
+          class="my-sticky-column-table"
+          flat
+          bordered
+          title="Materials"
+          :rows="store.materialRows"
+          :columns="materialColumns"
+          row-key="id"
+          :pagination="store.pagination"
+          @request="store.onRequest"
+          :loading="store.isLoading"
+          binary-state-sort
+          :rows-per-page-options="[10, 20, 50, 0]"
+        >
           <template v-slot:loading>
             <q-inner-loading showing color="primary">
               <q-spinner-gears size="50px" color="primary" />
             </q-inner-loading>
           </template>
-          <template v-slot:body-cell-status="props">
-            <q-td :props="props">
-              <q-badge :color="props.row.status === 'In Stock' ? 'green' : (props.row.status === 'Out of Stock' || props.row.status === 'Low Stock' ? 'red' : 'grey')" :label="props.row.status" />
-            </q-td>
+
+          <template v-slot:no-data>
+            <div class="full-width row flex-center q-pa-md">
+              <q-icon name="search_off" size="2em" color="grey-7" class="q-mr-sm" />
+              <span class="text-grey-7">No materials found matching your search</span>
+            </div>
           </template>
-          <template v-slot:body-cell-actions="props">
-            <q-td :props="props" auto-width>
-              <q-btn flat round dense color="grey" icon="more_vert" class="action-button"
-                :aria-label="'Actions for ' + props.row.name">
-                <q-menu class="action-menu" :aria-label="'Available actions for ' + props.row.name">
-                  <q-list style="min-width: 100px">
-                    <q-item clickable v-close-popup @click.stop="editMaterial(props.row)" role="button"
-                      :aria-label="'Edit ' + props.row.name">
-                      <q-item-section>
-                        <q-item-label>
-                          <q-icon name="edit" size="xs" class="q-mr-sm" aria-hidden="true" />
-                          Edit
-                        </q-item-label>
-                      </q-item-section>
-                    </q-item>
-                    <q-item clickable v-close-popup @click.stop="deleteMaterial(props.row)" role="button"
-                      :aria-label="'Delete ' + props.row.name" class="text-negative">
-                      <q-item-section>
-                        <q-item-label class="text-negative">
-                          <q-icon name="delete" size="xs" class="q-mr-sm" aria-hidden="true" />
-                          Delete
-                        </q-item-label>
-                      </q-item-section>
-                    </q-item>
-                  </q-list>
-                </q-menu>
-              </q-btn>
-            </q-td>
+
+          <template v-slot:bottom>
+            <div class="row items-center justify-end q-mt-md">
+              <q-pagination
+                :model-value="store.pagination?.page || 1"
+                :max="store.pagination ? Math.ceil((store.pagination.rowsNumber || 0) / (store.pagination.rowsPerPage || 10)) : 1"
+                :max-pages="6"
+                boundary-numbers
+                direction-links
+                flat
+                color="primary"
+                @update:model-value="(val) => store.onRequest({ pagination: { ...store.pagination, page: val } })"
+              />
+            </div>
+          </template>
+
+          <template v-slot:body="props">
+            <q-tr :props="props" @click="() => {
+              selectedMaterial = props.row;
+              showMaterial = true;
+            }" class="cursor-pointer">
+              <q-td key="id" :props="props">{{ props.row.id }}</q-td>
+              <q-td key="materialName" :props="props">{{ props.row.name }}</q-td>
+              <q-td key="category" :props="props">{{ props.row.category }}</q-td>
+              <q-td key="supplier" :props="props">{{ props.row.supplier }}</q-td>
+              <q-td key="quantity" :props="props">{{ props.row.quantity }}</q-td>
+              <q-td key="status" :props="props">
+                <q-chip dense :color="getStatusColor(props.row.status)" text-color="white" class="q-px-sm">
+                  {{ props.row.status }}
+                </q-chip>
+              </q-td>
+              <q-td key="actions" :props="props" @click.stop>
+                <q-btn flat round dense color="grey" icon="more_vert" class="action-button">
+                  <q-menu class="action-menu">
+                    <q-list style="min-width: 100px">
+                      <q-item clickable v-close-popup @click="editMaterial(props.row)">
+                        <q-item-section>
+                          <q-item-label>
+                            <q-icon name="edit" size="xs" class="q-mr-sm" />
+                            Edit
+                          </q-item-label>
+                        </q-item-section>
+                      </q-item>
+                      <q-item clickable v-close-popup @click="deleteMaterial(props.row)" class="text-negative">
+                        <q-item-section>
+                          <q-item-label class="text-negative">
+                            <q-icon name="delete" size="xs" class="q-mr-sm" />
+                            Delete
+                          </q-item-label>
+                        </q-item-section>
+                      </q-item>
+                    </q-list>
+                  </q-menu>
+                </q-btn>
+              </q-td>
+            </q-tr>
           </template>
         </q-table>
 
         <!-- Existing Material Modal -->
         <ProductCardModal v-model="showMaterial" :image="selectedMaterial?.image || ''"
-          :title="selectedMaterial?.name || ''" :price="0" :quantity="selectedMaterial?.quantity || 0"
+          :title="selectedMaterial?.name || ''" :quantity="selectedMaterial?.quantity || 0"
           :details="`Supplier: ${selectedMaterial?.supplier}`" :unit_color="selectedMaterial?.category || ''"
-          @addItem="addMaterialToCart" />
+          :status="selectedMaterial?.status || ''" @addItem="addMaterialToCart" />
 
         <!-- Add Material Dialog -->
         <AddMaterialDialog
@@ -440,29 +583,26 @@ function handleApplyFilters(filters: { category: string | null; supplier: string
           :categories="categories"
           :suppliers="suppliers"
           :default-image-url="defaultImageUrl"
-          :material-name="capitalizedName"
           @add-material="handleAddMaterial"
         />
 
-        <!-- Image Upload Zone (hidden but functional) -->
-        <div class="hidden">
-          <ImageUploader 
-            :model-value="showEditDialog ? materialToEdit.image : newMaterial.image"
-            @update:model-value="val => showEditDialog ? materialToEdit.image = val : newMaterial.image = val"
-            :default-image-url="defaultImageUrl"
-          />
-        </div>
-
         <!-- Filter Dialog -->
-        <FilterMaterialDialog v-model="showFilterDialog" :categories="categories" :suppliers="suppliers"
-          :statuses="statuses" :initial-filter-category="store.filterCategory === '' ? null : store.filterCategory"
-          :initial-filter-supplier="store.filterSupplier === '' ? null : store.filterSupplier"
-          :initial-filter-status="store.filterStatus === '' ? null : store.filterStatus"
-          @apply-filters="handleApplyFilters" @reset-filters="store.resetFilters" />
+        <FilterMaterialDialog
+          v-model="showFilterDialog"
+          :categories="categories"
+          :suppliers="suppliers"
+          :statuses="statuses"
+          :initial-filter-category="store.filterCategory === 'All' ? null : store.filterCategory"
+          :initial-filter-supplier="store.filterSupplier === 'All' ? null : store.filterSupplier"
+          :initial-filter-status="store.filterStatus === 'All' ? null : store.filterStatus"
+          @apply-filters="handleApplyFilters"
+          @reset-filters="store.resetFilters"
+        />
 
         <!-- Edit Material Dialog -->
         <MaterialEditWrapper
-          v-model:open="showEditDialog"
+          :open="showEditDialog"
+          @update:open="showEditDialog = $event"
           :material-data="materialToEdit"
           :categories="categories"
           :suppliers="suppliers"
@@ -470,11 +610,11 @@ function handleApplyFilters(filters: { category: string | null; supplier: string
           @update-material="handleUpdateMaterial"
         />
 
-        <DeleteDialog 
-          v-model="showDeleteDialog" 
-          itemType="material" 
-          :itemName="materialToDelete?.name || 'Unknown material'" 
-          @confirm-delete="confirmDelete" 
+        <DeleteDialog
+          v-model="showDeleteDialog"
+          itemType="material"
+          :itemName="materialToDelete?.name || ''"
+          @confirm-delete="confirmDelete"
         />
       </div>
     </div>
@@ -484,6 +624,10 @@ function handleApplyFilters(filters: { category: string | null; supplier: string
 <style lang="sass">
 .my-sticky-column-table
   max-width: 100%
+  color: rgba(255, 255, 255, 0.9) !important
+
+  .body--light &
+    color: rgba(0, 0, 0, 0.87) !important
 
   thead tr:first-child th:nth-child(2)
     background-color: var(--sticky-column-bg)
@@ -523,4 +667,20 @@ function handleApplyFilters(filters: { category: string | null; supplier: string
     .q-badge
       font-size: 0.9em
       font-weight: 600
+
+:deep(.q-pagination)
+  .q-btn
+    color: #ffffff !important
+    &.text-primary
+      color: #ffffff !important
+      background: var(--q-primary)
+      font-weight: bold
+
+  .body--light &
+    .q-btn
+      color: rgba(0, 0, 0, 0.87) !important
+      &.text-primary
+        color: var(--q-primary) !important
+        background: transparent
+        font-weight: bold
 </style>
