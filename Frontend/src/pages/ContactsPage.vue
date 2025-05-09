@@ -82,9 +82,9 @@ const handleEditCustomer = async () => {
   }
 };
 
-const executeDelete = () => {
+const executeDelete = async () => {
   if (selectedCustomerId.value) {
-    deleteCustomer(selectedCustomerId.value);
+    await deleteCustomer(selectedCustomerId.value);
     if (!error.value) {
       $q.notify({ type: 'positive', message: 'Customer deleted successfully!' });
     } else {

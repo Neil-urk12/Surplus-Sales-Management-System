@@ -5,6 +5,7 @@ import (
 	"oop/internal/middleware"
 	"oop/internal/models"
 	"oop/internal/repositories"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -14,7 +15,7 @@ import (
 // It omits sensitive or unnecessary fields for client-side display.
 type CustomerResponse struct {
 	ID             string `json:"id"`
-	Name           string `json:"name"`
+	FullName       string `json:"fullName"`
 	Email          string `json:"email"`
 	Phone          string `json:"phone"`
 	Address        string `json:"address,omitempty"`
@@ -30,10 +31,10 @@ type CustomerListResponse struct {
 
 // CreateCustomerRequest defines the expected payload for creating a new customer.
 type CreateCustomerRequest struct {
-	Name    string `json:"name" validate:"required,min=2,max=100"`
-	Email   string `json:"email" validate:"required,email"`
-	Phone   string `json:"phone" validate:"required,e164"` // e164 format for phone numbers
-	Address string `json:"address,omitempty" validate:"max=255"`
+	FullName string `json:"fullName" validate:"required,min=2,max=100"`
+	Email    string `json:"email" validate:"required,email"`
+	Phone    string `json:"phone" validate:"required,e164"` // e164 format for phone numbers
+	Address  string `json:"address,omitempty" validate:"max=255"`
 }
 
 // UpdateCustomerRequest defines the expected payload for updating an existing customer.
@@ -41,10 +42,10 @@ type CreateCustomerRequest struct {
 // Similar to CreateCustomerRequest but fields are pointers or have omitempty if not pointers and not always required.
 // For simplicity, using direct fields and relying on handler logic to apply non-empty values.
 type UpdateCustomerRequest struct {
-	Name    string `json:"name,omitempty" validate:"omitempty,min=2,max=100"`
-	Email   string `json:"email,omitempty" validate:"omitempty,email"`
-	Phone   string `json:"phone,omitempty" validate:"omitempty,e164"`
-	Address string `json:"address,omitempty" validate:"omitempty,max=255"`
+	FullName string `json:"fullName,omitempty" validate:"omitempty,min=2,max=100"`
+	Email    string `json:"email,omitempty" validate:"omitempty,email"`
+	Phone    string `json:"phone,omitempty" validate:"omitempty,e164"`
+	Address  string `json:"address,omitempty" validate:"omitempty,max=255"`
 }
 
 // CustomerHandler holds the repository and JWT secret.
@@ -68,13 +69,13 @@ func toCustomerResponse(customer *models.Customer) *CustomerResponse {
 	}
 	return &CustomerResponse{
 		ID:             customer.ID,
-		Name:           customer.Name,
+		FullName:       customer.FullName,
 		Email:          customer.Email,
 		Phone:          customer.Phone,
 		Address:        customer.Address,
-		DateRegistered: customer.DateRegistered,
-		CreatedAt:      customer.CreatedAt,
-		UpdatedAt:      customer.UpdatedAt,
+		DateRegistered: customer.DateRegistered.Format(time.RFC3339),
+		CreatedAt:      customer.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      customer.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -108,17 +109,18 @@ func (h *CustomerHandler) CreateCustomer(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid request payload", StatusCode: fiber.StatusBadRequest})
 	}
 
-	// TODO: Add validation for req struct using a library like go-playground/validator
-	if req.Name == "" || req.Email == "" || req.Phone == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Name, email, and phone are required", StatusCode: fiber.StatusBadRequest})
+	// Basic validation (you might want to use a validation library for more complex scenarios)
+	if req.FullName == "" || req.Email == "" || req.Phone == "" {
+		log.Println("CreateCustomer: Validation failed - missing required fields")
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "FullName, email, and phone are required", StatusCode: fiber.StatusBadRequest})
 	}
 
 	customer := &models.Customer{
-		ID:      uuid.New().String(), // Repository will also generate if empty, but good to have it here too.
-		Name:    req.Name,
-		Email:   req.Email,
-		Phone:   req.Phone,
-		Address: req.Address,
+		ID:       uuid.New().String(), // Repository will also generate if empty, but good to have it here too.
+		FullName: req.FullName,
+		Email:    req.Email,
+		Phone:    req.Phone,
+		Address:  req.Address,
 	}
 
 	createdCustomer, err := h.Repo.CreateCustomer(customer)
@@ -221,8 +223,8 @@ func (h *CustomerHandler) UpdateCustomer(c *fiber.Ctx) error {
 	}
 
 	// Apply updates from request if fields are provided
-	if req.Name != "" {
-		existingCustomer.Name = req.Name
+	if req.FullName != "" {
+		existingCustomer.FullName = req.FullName
 	}
 	if req.Email != "" {
 		existingCustomer.Email = req.Email

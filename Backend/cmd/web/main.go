@@ -173,6 +173,7 @@ func main() {
 	userRepo := repositories.NewUserRepository(dbClient)
 	materialRepo := repositories.NewMaterialRepository(dbClient.DB)
 	accessoryRepo := repositories.NewAccessoryRepository(dbClient.DB)
+	customerRepo := repositories.NewCustomerRepository(dbClient.DB)
 
 	// Initialize cabs repository directly with DB
 	cabsRepo := repositories.NewCabsRepository(dbClient.DB)
@@ -180,6 +181,7 @@ func main() {
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userRepo, jwtSecret)
 	materialHandler := handlers.NewMaterialHandlers(materialRepo, jwtSecret)
+	customerHandler := handlers.NewCustomerHandler(customerRepo, jwtSecret)
 	// Initialize cabs handler
 	cabsHandler := handlers.NewCabsHandlers(cabsRepo)
 	accessoryHandler := handlers.NewAccessoriesHandler(accessoryRepo)
@@ -250,6 +252,7 @@ func main() {
 	// Public User Routes (register, login)
 	userHandler.RegisterRoutes(api) // This will now only register public routes
 	materialHandler.RegisterMaterialRoutes(api)
+	customerHandler.RegisterCustomerRoutes(api)
 
 	// Register Cabs routes - Detailed Swagger annotations are in cabs_handlers.go
 	api.Get("/cabs", cabsHandler.GetCabs)          // GET /api/cabs

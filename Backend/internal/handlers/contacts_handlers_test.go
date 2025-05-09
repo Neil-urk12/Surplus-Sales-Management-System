@@ -104,13 +104,11 @@ func TestCreateCustomerHandler(t *testing.T) {
 	app := setupCustomerTestApp(mockRepo, jwtSecret)
 	testToken, _ := createCustomerTestToken(jwtSecret, "user-id-123", "admin")
 
-	nowStr := time.Now().Format(time.RFC3339)
-
 	createReq := CreateCustomerRequest{
-		Name:    "Test Customer",
-		Email:   "test@example.com",
-		Phone:   "+12345678901",
-		Address: "123 Test St",
+		FullName: "Test Customer",
+		Email:    "test@example.com",
+		Phone:    "+12345678901",
+		Address:  "123 Test St",
 	}
 
 	t.Run("Success", func(t *testing.T) {
@@ -120,13 +118,12 @@ func TestCreateCustomerHandler(t *testing.T) {
 		expectedCreatedModel := &models.Customer{
 			// ID will be set based on what the handler passes or what the repo mock decides.
 			// For this test, we'll assume the handler passes a UUID, and the repo mock confirms other fields.
-			Name:           createReq.Name,
-			Email:          createReq.Email,
-			Phone:          createReq.Phone,
-			Address:        createReq.Address,
-			DateRegistered: nowStr, // These would be set by the repo upon creation
-			CreatedAt:      nowStr,
-			UpdatedAt:      nowStr,
+			FullName:  createReq.FullName,
+			Email:     createReq.Email,
+			Phone:     createReq.Phone,
+			Address:   createReq.Address,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
 		}
 
 		mockRepo.On("CreateCustomer", mock.MatchedBy(func(argToCreate *models.Customer) bool {
@@ -134,7 +131,7 @@ func TestCreateCustomerHandler(t *testing.T) {
 			// So, argToCreate.ID will be a UUID string here.
 			// We set this ID on our expectedCreatedModel to ensure the returned object matches.
 			expectedCreatedModel.ID = argToCreate.ID // Capture the generated ID
-			return argToCreate.Name == createReq.Name &&
+			return argToCreate.FullName == createReq.FullName &&
 				argToCreate.Email == createReq.Email &&
 				argToCreate.Phone == createReq.Phone &&
 				argToCreate.Address == createReq.Address
@@ -154,15 +151,14 @@ func TestCreateCustomerHandler(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.NotEmpty(t, actualResponse.ID, "ID should not be empty")
-		assert.Equal(t, createReq.Name, actualResponse.Name)
+		assert.Equal(t, createReq.FullName, actualResponse.FullName)
 		assert.Equal(t, createReq.Email, actualResponse.Email)
 		assert.Equal(t, createReq.Phone, actualResponse.Phone)
 		assert.Equal(t, createReq.Address, actualResponse.Address)
 		// Timestamps can be tricky if not precisely controlled in mock.
 		// For now, let's assume they are set as expected.
-		assert.Equal(t, nowStr, actualResponse.DateRegistered)
-		assert.Equal(t, nowStr, actualResponse.CreatedAt)
-		assert.Equal(t, nowStr, actualResponse.UpdatedAt)
+		assert.NotNil(t, actualResponse.CreatedAt)
+		assert.NotNil(t, actualResponse.UpdatedAt)
 
 		mockRepo.AssertExpectations(t)
 	})
@@ -184,9 +180,7 @@ func TestCreateCustomerHandler(t *testing.T) {
 	})
 
 	t.Run("Validation Error - Missing Required Fields", func(t *testing.T) {
-		// The handler has a basic check: Name, email, and phone are required.
-		// TODO: The handler mentions adding validation using a library. This test covers current basic check.
-		invalidReq := CreateCustomerRequest{Name: "Test"} // Missing email and phone
+		invalidReq := CreateCustomerRequest{FullName: "Test"}
 		bodyBytes, _ := json.Marshal(invalidReq)
 		req := httptest.NewRequest(http.MethodPost, "/api/customers", bytes.NewReader(bodyBytes))
 		req.Header.Set("Content-Type", "application/json")
@@ -199,7 +193,7 @@ func TestCreateCustomerHandler(t *testing.T) {
 		var errResp ErrorResponse
 		err = json.NewDecoder(resp.Body).Decode(&errResp)
 		assert.NoError(t, err)
-		assert.Equal(t, "Name, email, and phone are required", errResp.Error)
+		assert.Equal(t, "FullName, email, and phone are required", errResp.Error)
 		mockRepo.AssertExpectations(t) // No call to repo expected
 	})
 
@@ -229,10 +223,9 @@ func TestGetAllCustomersHandler(t *testing.T) {
 	app := setupCustomerTestApp(mockRepo, jwtSecret)
 	testToken, _ := createCustomerTestToken(jwtSecret, "user-id-123", "admin")
 
-	nowStr := time.Now().Format(time.RFC3339)
 	expectedCustomersModel := []*models.Customer{
-		{ID: "uuid1", Name: "Customer 1", Email: "cust1@example.com", Phone: "+111", Address: "Addr1", DateRegistered: nowStr, CreatedAt: nowStr, UpdatedAt: nowStr},
-		{ID: "uuid2", Name: "Customer 2", Email: "cust2@example.com", Phone: "+222", Address: "Addr2", DateRegistered: nowStr, CreatedAt: nowStr, UpdatedAt: nowStr},
+		{ID: "uuid1", FullName: "Customer 1", Email: "cust1@example.com", Phone: "+111", Address: "Addr1", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		{ID: "uuid2", FullName: "Customer 2", Email: "cust2@example.com", Phone: "+222", Address: "Addr2", CreatedAt: time.Now(), UpdatedAt: time.Now()},
 	}
 
 	t.Run("Success", func(t *testing.T) {
@@ -253,7 +246,7 @@ func TestGetAllCustomersHandler(t *testing.T) {
 		for i, actualCustResp := range listResponse.Customers {
 			expectedModel := expectedCustomersModel[i]
 			assert.Equal(t, expectedModel.ID, actualCustResp.ID)
-			assert.Equal(t, expectedModel.Name, actualCustResp.Name)
+			assert.Equal(t, expectedModel.FullName, actualCustResp.FullName)
 			assert.Equal(t, expectedModel.Email, actualCustResp.Email)
 			// Add other field assertions as needed
 		}
@@ -284,17 +277,15 @@ func TestGetCustomerHandler(t *testing.T) {
 	app := setupCustomerTestApp(mockRepo, jwtSecret)
 	testToken, _ := createCustomerTestToken(jwtSecret, "user-id-123", "admin")
 
-	nowStr := time.Now().Format(time.RFC3339)
 	customerID := uuid.New().String()
 	expectedCustomerModel := &models.Customer{
-		ID:             customerID,
-		Name:           "Specific Customer",
-		Email:          "specific@example.com",
-		Phone:          "+3334445555",
-		Address:        "456 Specific Ave",
-		DateRegistered: nowStr,
-		CreatedAt:      nowStr,
-		UpdatedAt:      nowStr,
+		ID:        customerID,
+		FullName:  "Specific Customer",
+		Email:     "specific@example.com",
+		Phone:     "+3334445555",
+		Address:   "456 Specific Ave",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	t.Run("Success", func(t *testing.T) {
@@ -311,7 +302,7 @@ func TestGetCustomerHandler(t *testing.T) {
 		err = json.NewDecoder(resp.Body).Decode(&actualResponse)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedCustomerModel.ID, actualResponse.ID)
-		assert.Equal(t, expectedCustomerModel.Name, actualResponse.Name)
+		assert.Equal(t, expectedCustomerModel.FullName, actualResponse.FullName)
 		assert.Equal(t, expectedCustomerModel.Email, actualResponse.Email)
 		mockRepo.AssertExpectations(t)
 	})
@@ -378,25 +369,23 @@ func TestUpdateCustomerHandler(t *testing.T) {
 	app := setupCustomerTestApp(mockRepo, jwtSecret)
 	testToken, _ := createCustomerTestToken(jwtSecret, "user-id-123", "admin")
 
-	nowStr := time.Now().Format(time.RFC3339)
 	customerID := uuid.New().String()
 
 	existingCustomerModel := &models.Customer{
-		ID:             customerID,
-		Name:           "Original Name",
-		Email:          "original@example.com",
-		Phone:          "+1000000000",
-		Address:        "Original Address",
-		DateRegistered: nowStr, // Should not change on update
-		CreatedAt:      nowStr, // Should not change on update
-		UpdatedAt:      nowStr, // Will be updated by repo
+		ID:        customerID,
+		FullName:  "Original Name",
+		Email:     "original@example.com",
+		Phone:     "+1000000000",
+		Address:   "Original Address",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	updateReq := UpdateCustomerRequest{
-		Name:    "Updated Name",
-		Email:   "updated@example.com",
-		Phone:   "+2000000000",
-		Address: "Updated Address",
+		FullName: "Updated Name",
+		Email:    "updated@example.com",
+		Phone:    "+2000000000",
+		Address:  "Updated Address",
 	}
 
 	t.Run("Success - Full Update", func(t *testing.T) {
@@ -405,26 +394,26 @@ func TestUpdateCustomerHandler(t *testing.T) {
 		// Define the expected state of the customer model that the mock's UpdateCustomer method should return.
 		// This model reflects updates from updateReq AND a new UpdatedAt timestamp as if set by the repository.
 		expectedReturnFromRepoUpdate := *existingCustomerModel // Start with a copy
-		expectedReturnFromRepoUpdate.Name = updateReq.Name
+		expectedReturnFromRepoUpdate.FullName = updateReq.FullName
 		expectedReturnFromRepoUpdate.Email = updateReq.Email
 		expectedReturnFromRepoUpdate.Phone = updateReq.Phone
 		expectedReturnFromRepoUpdate.Address = updateReq.Address
 		// Simulate the repository updating the UpdatedAt timestamp. Ensure it's different from the original.
-		newUpdatedAtStr := time.Now().Add(5 * time.Second).Format(time.RFC3339)
-		if newUpdatedAtStr == existingCustomerModel.UpdatedAt { // Ensure it's different
-			newUpdatedAtStr = time.Now().Add(10 * time.Second).Format(time.RFC3339)
+		newUpdatedAt := time.Now().Add(5 * time.Second)
+		if newUpdatedAt.Equal(existingCustomerModel.UpdatedAt) { // Ensure it's different
+			newUpdatedAt = time.Now().Add(10 * time.Second)
 		}
-		expectedReturnFromRepoUpdate.UpdatedAt = newUpdatedAtStr
+		expectedReturnFromRepoUpdate.UpdatedAt = newUpdatedAt
 
 		mockRepo.On("UpdateCustomer", mock.MatchedBy(func(argToUpdate *models.Customer) bool {
 			// Check the model passed to UpdateCustomer by the handler:
 			// It should have fields from updateReq, but UpdatedAt should still be original.
 			return argToUpdate.ID == customerID &&
-				argToUpdate.Name == updateReq.Name &&
+				argToUpdate.FullName == updateReq.FullName &&
 				argToUpdate.Email == updateReq.Email &&
 				argToUpdate.Phone == updateReq.Phone &&
 				argToUpdate.Address == updateReq.Address &&
-				argToUpdate.UpdatedAt == existingCustomerModel.UpdatedAt // Before repo changes it
+				argToUpdate.UpdatedAt.Equal(existingCustomerModel.UpdatedAt) // Before repo changes it
 		})).Return(&expectedReturnFromRepoUpdate, nil).Once()
 
 		bodyBytes, _ := json.Marshal(updateReq)
@@ -440,37 +429,37 @@ func TestUpdateCustomerHandler(t *testing.T) {
 		err = json.NewDecoder(resp.Body).Decode(&actualResponse)
 		assert.NoError(t, err)
 		assert.Equal(t, customerID, actualResponse.ID)
-		assert.Equal(t, updateReq.Name, actualResponse.Name)
+		assert.Equal(t, updateReq.FullName, actualResponse.FullName)
 		assert.Equal(t, updateReq.Email, actualResponse.Email)
 		assert.NotEqual(t, existingCustomerModel.UpdatedAt, actualResponse.UpdatedAt) // Check UpdatedAt changed
 		mockRepo.AssertExpectations(t)
 	})
 
 	t.Run("Success - Partial Update (Name only)", func(t *testing.T) {
-		partialUpdateReq := UpdateCustomerRequest{Name: "Partial Update Name"}
+		partialUpdateReq := UpdateCustomerRequest{FullName: "Partial Update Name"}
 		// Reset and re-mock GetCustomerByID for this specific sub-test
 		mockRepo.ExpectedCalls = nil // Clear previous expectations
 		mockRepo.On("GetCustomerByID", customerID).Return(existingCustomerModel, nil).Once()
 
 		// Define the expected state for partial update return
 		expectedReturnFromPartialRepoUpdate := *existingCustomerModel // Start with a copy
-		expectedReturnFromPartialRepoUpdate.Name = partialUpdateReq.Name
+		expectedReturnFromPartialRepoUpdate.FullName = partialUpdateReq.FullName
 		// Other fields (Email, Phone, Address) remain as in existingCustomerModel
-		newPartialUpdatedAtStr := time.Now().Add(5 * time.Second).Format(time.RFC3339)
-		if newPartialUpdatedAtStr == existingCustomerModel.UpdatedAt {
-			newPartialUpdatedAtStr = time.Now().Add(10 * time.Second).Format(time.RFC3339)
+		newPartialUpdatedAt := time.Now().Add(5 * time.Second)
+		if newPartialUpdatedAt.Equal(existingCustomerModel.UpdatedAt) {
+			newPartialUpdatedAt = time.Now().Add(10 * time.Second)
 		}
-		expectedReturnFromPartialRepoUpdate.UpdatedAt = newPartialUpdatedAtStr
+		expectedReturnFromPartialRepoUpdate.UpdatedAt = newPartialUpdatedAt
 
 		mockRepo.On("UpdateCustomer", mock.MatchedBy(func(argToUpdate *models.Customer) bool {
 			// Check the model passed to UpdateCustomer by the handler for partial update:
 			// Name updated, Email, Phone, Address, UpdatedAt should be original.
 			return argToUpdate.ID == customerID &&
-				argToUpdate.Name == partialUpdateReq.Name &&
+				argToUpdate.FullName == partialUpdateReq.FullName &&
 				argToUpdate.Email == existingCustomerModel.Email &&
 				argToUpdate.Phone == existingCustomerModel.Phone &&
 				argToUpdate.Address == existingCustomerModel.Address &&
-				argToUpdate.UpdatedAt == existingCustomerModel.UpdatedAt
+				argToUpdate.UpdatedAt.Equal(existingCustomerModel.UpdatedAt)
 		})).Return(&expectedReturnFromPartialRepoUpdate, nil).Once()
 
 		bodyBytes, _ := json.Marshal(partialUpdateReq)
@@ -486,7 +475,7 @@ func TestUpdateCustomerHandler(t *testing.T) {
 		err = json.NewDecoder(resp.Body).Decode(&actualResponse)
 		assert.NoError(t, err)
 		assert.Equal(t, customerID, actualResponse.ID)
-		assert.Equal(t, partialUpdateReq.Name, actualResponse.Name)
+		assert.Equal(t, partialUpdateReq.FullName, actualResponse.FullName)
 		assert.Equal(t, existingCustomerModel.Email, actualResponse.Email) // Check email is unchanged
 		mockRepo.AssertExpectations(t)
 	})

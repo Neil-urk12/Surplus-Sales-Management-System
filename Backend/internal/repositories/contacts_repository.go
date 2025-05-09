@@ -37,18 +37,18 @@ func (r *customerRepository) CreateCustomer(customer *models.Customer) (*models.
 	}
 
 	now := time.Now()
-	customer.DateRegistered = now.Format(time.RFC3339)
-	customer.CreatedAt = now.Format(time.RFC3339)
-	customer.UpdatedAt = now.Format(time.RFC3339)
+	customer.DateRegistered = now
+	customer.CreatedAt = now
+	customer.UpdatedAt = now
 
 	query := `
-		INSERT INTO customers (id, name, email, phone, address, date_registered, created_at, updated_at)
+		INSERT INTO customers (id, full_name, email, phone, address, date_registered, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err := r.DB.Exec(
 		query,
 		customer.ID,
-		customer.Name,
+		customer.FullName,
 		customer.Email,
 		customer.Phone,
 		customer.Address,
@@ -67,7 +67,7 @@ func (r *customerRepository) CreateCustomer(customer *models.Customer) (*models.
 // GetCustomerByID retrieves a customer by their ID.
 func (r *customerRepository) GetCustomerByID(id string) (*models.Customer, error) {
 	query := `
-		SELECT id, name, email, phone, address, date_registered, created_at, updated_at
+		SELECT id, full_name, email, phone, address, date_registered, created_at, updated_at
 		FROM customers
 		WHERE id = ?
 	`
@@ -76,7 +76,7 @@ func (r *customerRepository) GetCustomerByID(id string) (*models.Customer, error
 	var customer models.Customer
 	err := row.Scan(
 		&customer.ID,
-		&customer.Name,
+		&customer.FullName,
 		&customer.Email,
 		&customer.Phone,
 		&customer.Address,
@@ -98,7 +98,7 @@ func (r *customerRepository) GetCustomerByID(id string) (*models.Customer, error
 // GetCustomerByEmail retrieves a customer by their email.
 func (r *customerRepository) GetCustomerByEmail(email string) (*models.Customer, error) {
 	query := `
-		SELECT id, name, email, phone, address, date_registered, created_at, updated_at
+		SELECT id, full_name, email, phone, address, date_registered, created_at, updated_at
 		FROM customers
 		WHERE email = ?
 	`
@@ -107,7 +107,7 @@ func (r *customerRepository) GetCustomerByEmail(email string) (*models.Customer,
 	var customer models.Customer
 	err := row.Scan(
 		&customer.ID,
-		&customer.Name,
+		&customer.FullName,
 		&customer.Email,
 		&customer.Phone,
 		&customer.Address,
@@ -129,7 +129,7 @@ func (r *customerRepository) GetCustomerByEmail(email string) (*models.Customer,
 // GetAllCustomers retrieves all customers from the database.
 func (r *customerRepository) GetAllCustomers() ([]*models.Customer, error) {
 	query := `
-		SELECT id, name, email, phone, address, date_registered, created_at, updated_at
+		SELECT id, full_name, email, phone, address, date_registered, created_at, updated_at
 		FROM customers
 		ORDER BY created_at DESC
 	`
@@ -144,7 +144,7 @@ func (r *customerRepository) GetAllCustomers() ([]*models.Customer, error) {
 		var customer models.Customer
 		err := rows.Scan(
 			&customer.ID,
-			&customer.Name,
+			&customer.FullName,
 			&customer.Email,
 			&customer.Phone,
 			&customer.Address,
@@ -167,16 +167,16 @@ func (r *customerRepository) GetAllCustomers() ([]*models.Customer, error) {
 
 // UpdateCustomer updates an existing customer in the database.
 func (r *customerRepository) UpdateCustomer(customer *models.Customer) (*models.Customer, error) {
-	customer.UpdatedAt = time.Now().Format(time.RFC3339)
+	customer.UpdatedAt = time.Now()
 
 	query := `
 		UPDATE customers
-		SET name = ?, email = ?, phone = ?, address = ?, updated_at = ?
+		SET full_name = ?, email = ?, phone = ?, address = ?, updated_at = ?
 		WHERE id = ?
 	`
 	result, err := r.DB.Exec(
 		query,
-		customer.Name,
+		customer.FullName,
 		customer.Email,
 		customer.Phone,
 		customer.Address,
