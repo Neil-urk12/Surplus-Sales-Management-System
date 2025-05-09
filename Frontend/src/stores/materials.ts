@@ -14,10 +14,12 @@ import type {
 import { api } from 'boot/axios'
 import { useAuthStore } from 'src/stores/auth'
 import { AxiosError } from 'axios';
-import { useSearch } from 'src/utils/useSearch';
-import { operationNotifications } from 'src/utils/notifications';
+import type { QTableProps } from 'quasar'
 
 export type { MaterialRow, NewMaterialInput } from 'src/types/materials'
+
+/** Default number of rows to display per page in the materials table */
+const DEFAULT_ROWS_PER_PAGE = 10
 
 /**
  * Pinia store for managing material data.
@@ -50,74 +52,48 @@ export const useMaterialsStore = defineStore('materials', () => {
       console.error('No auth token found for initializing materials.')
       return
     }
-    try {
-      isLoading.value = true
-      const response = await api.get<MaterialRow[]>('/api/materials', {
-        headers: {
-          Authorization: `Bearer ${authStore.token}`
-        }
-      })
-      materialRows.value = response.data
-    } catch (error) {
-      console.error('Error initializing materials:', error)
-      materialRows.value = []
-    } finally {
-      isLoading.value = false
-    }
+    await onRequest({ pagination: pagination.value })
   }
-
-  /**
-   * Setup search with the composable
-   */
-  const search = useSearch({
-    onSearch: (value) => {
-      materialSearch.value = value;
-    }
-  });
 
   /**
    * Reactive state for the raw material search input value.
    * @type {string}
    */
   const rawMaterialSearch = ref('')
-  /**
-   * Reactive state for the debounced material search value.
-   * This value is updated after a short delay from rawMaterialSearch.
-   * @type {string}
-   */
-  const materialSearch = ref('')
 
-  /**
-   * Updates the search value and triggers the search.
-   * @param {string} value - The new search value.
-   */
-  function updateSearch(value: string) {
-    rawMaterialSearch.value = value;
-    materialSearch.value = value;
-  }
-
-  /**
-   * Watches for changes in rawMaterialSearch and updates materialSearch.
-   */
+  // Watch for changes in rawMaterialSearch and trigger search with debounce
+  let searchDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
   watch(rawMaterialSearch, (newValue) => {
-    materialSearch.value = newValue;
-  })
+    console.log('Search input changed:', newValue);
+    if (searchDebounceTimeout) {
+      clearTimeout(searchDebounceTimeout);
+    }
+    searchDebounceTimeout = setTimeout(() => {
+      console.log('Debounce timer expired, triggering search with query:', newValue);
+      void onRequest({
+        pagination: {
+          ...pagination.value,
+          page: 1 // Reset to first page on new search
+        }
+      });
+    }, 300);
+  });
 
   /**
    * Reactive state for filtering materials by category.
-   * @type {MaterialCategoryInput}
+   * @type {MaterialCategoryInput | 'All'}
    */
-  const filterCategory = ref<MaterialCategoryInput>('')
+  const filterCategory = ref<MaterialCategoryInput | 'All'>('All')
   /**
    * Reactive state for filtering materials by supplier.
-   * @type {MaterialSupplierInput}
+   * @type {MaterialSupplierInput | 'All'}
    */
-  const filterSupplier = ref<MaterialSupplierInput>('')
+  const filterSupplier = ref<MaterialSupplierInput | 'All'>('All')
   /**
    * Reactive state for filtering materials by status.
-   * @type {MaterialStatus | ''}
+   * @type {MaterialStatus | 'All'}
    */
-  const filterStatus = ref<MaterialStatus | ''>('')
+  const filterStatus = ref<MaterialStatus | 'All'>('All')
 
   /**
    * Array of available material categories.
@@ -141,20 +117,17 @@ export const useMaterialsStore = defineStore('materials', () => {
    * @returns {MaterialRow[]} The filtered array of material rows.
    */
   const filteredMaterialRows = computed(() => {
-    const filtered = materialRows.value.filter(row => {
+    return materialRows.value.filter(row => {
       const matchesCategory = !filterCategory.value || row.category === filterCategory.value
       const matchesSupplier = !filterSupplier.value || row.supplier === filterSupplier.value
       const matchesStatus = !filterStatus.value || row.status === filterStatus.value
-      const matchesSearch = !materialSearch.value ||
-        row.name.toLowerCase().includes(materialSearch.value.toLowerCase()) ||
-        row.category.toLowerCase().includes(materialSearch.value.toLowerCase()) ||
-        row.supplier.toLowerCase().includes(materialSearch.value.toLowerCase())
+      const matchesSearch = !rawMaterialSearch.value ||
+        row.name.toLowerCase().includes(rawMaterialSearch.value.toLowerCase()) ||
+        row.category.toLowerCase().includes(rawMaterialSearch.value.toLowerCase()) ||
+        row.supplier.toLowerCase().includes(rawMaterialSearch.value.toLowerCase())
 
       return matchesCategory && matchesSupplier && matchesStatus && matchesSearch
     })
-    
-    // Sort by ID to ensure items are in order with new items (highest IDs) at the end
-    return filtered.sort((a, b) => a.id - b.id)
   })
 
   /**
@@ -184,7 +157,6 @@ export const useMaterialsStore = defineStore('materials', () => {
 
       // Add the material returned from the server (with server-generated ID)
       materialRows.value.push(response.data)
-      operationNotifications.add.success(`material: ${material.name}`);
       return { success: true, id: response.data.id }
     } catch (error: unknown) {
       console.error('Error adding material:', error)
@@ -226,11 +198,10 @@ export const useMaterialsStore = defineStore('materials', () => {
    * Resets all material filters and search terms to their default empty states.
    */
   function resetFilters() {
-    filterCategory.value = ''
-    filterSupplier.value = ''
-    filterStatus.value = ''
+    filterCategory.value = 'All'
+    filterSupplier.value = 'All'
+    filterStatus.value = 'All'
     rawMaterialSearch.value = ''
-    materialSearch.value = ''
   }
 
   /**
@@ -261,13 +232,11 @@ export const useMaterialsStore = defineStore('materials', () => {
         }
       });
 
-      // Remove the material from the local state without affecting other IDs
-      const index = materialRows.value.findIndex(m => m.id === id);
+      const index = materialRows.value.indexOf(existingMaterial);
       if (index !== -1) {
         materialRows.value.splice(index, 1);
       }
-      
-      operationNotifications.delete.success('material');
+
       return { success: true };
     } catch (error: unknown) {
       console.error('Error deleting material:', error);
@@ -321,7 +290,6 @@ export const useMaterialsStore = defineStore('materials', () => {
       });
 
       materialRows.value[index] = response.data;
-      operationNotifications.update.success(`material: ${materialUpdate.name}`);
       return { success: true };
     } catch (error: unknown) {
       console.error('Error updating material:', error);
@@ -343,25 +311,108 @@ export const useMaterialsStore = defineStore('materials', () => {
     }
   }
 
+  const pagination = ref({
+    sortBy: 'name',
+    descending: false,
+    page: 1,
+    rowsPerPage: DEFAULT_ROWS_PER_PAGE,
+    rowsNumber: 0
+  });
+
+  async function onRequest(props: { pagination: QTableProps['pagination'] }) {
+    if (!props.pagination) {
+      console.log('No pagination provided, skipping request');
+      return;
+    }
+    if (!authStore.token) {
+      console.error('No auth token found for fetching materials.');
+      return;
+    }
+
+    const { page = 1, rowsPerPage = DEFAULT_ROWS_PER_PAGE } = props.pagination;
+    const params = {
+      page,
+      limit: rowsPerPage,
+      search: rawMaterialSearch.value,
+      category: filterCategory.value === 'All' ? '' : filterCategory.value,
+      supplier: filterSupplier.value === 'All' ? '' : filterSupplier.value,
+      status: filterStatus.value === 'All' ? '' : filterStatus.value
+    };
+
+    try {
+      isLoading.value = true;
+      console.log('Making API request with params:', params);
+
+      const response = await api.get('/api/materials/paginated', {
+        params,
+        headers: {
+          Authorization: `Bearer ${authStore.token}`
+        }
+      });
+
+      console.log('API response:', {
+        materials: response.data.materials,
+        total: response.data.total,
+        page: response.data.page,
+        limit: response.data.limit,
+        totalPages: response.data.totalPages
+      });
+
+      materialRows.value = response.data.materials;
+      pagination.value = {
+        ...pagination.value,
+        page,
+        rowsPerPage,
+        rowsNumber: response.data.total
+      };
+    } catch (error) {
+      console.error('Error fetching paginated materials:', error);
+      if (error instanceof AxiosError) {
+        console.error('API error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          config: {
+            url: error.config?.url,
+            params: error.config?.params,
+            headers: error.config?.headers
+          }
+        });
+      }
+      materialRows.value = [];
+      pagination.value = {
+        ...pagination.value,
+        rowsNumber: 0
+      };
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   return {
+    // State
     materialRows,
     isLoading,
     rawMaterialSearch,
-    materialSearch,
-    search,
     filterCategory,
     filterSupplier,
     filterStatus,
+    pagination,
+
+    // Constants
     categories,
     suppliers,
     statuses,
+
+    // Computed
     filteredMaterialRows,
+
+    // Actions
     initializeMaterials,
     addMaterial,
-    updateMaterialStatus,
-    resetFilters,
-    deleteMaterial,
     updateMaterial,
-    updateSearch
+    deleteMaterial,
+    resetFilters,
+    updateMaterialStatus,
+    onRequest
   }
 })
