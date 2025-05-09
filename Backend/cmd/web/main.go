@@ -22,6 +22,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	swagger "github.com/gofiber/swagger" // swagger handler
+	"github.com/joho/godotenv"
 )
 
 var jwtSecret = []byte(getEnv("JWT_SECRET", "7b324dbe6535a315ef300b1c79bc35324c8c2fb1495195176364d8e12379f22c469bea496c1336c85724175d83d566d2271df2f49a14a09d5fddecc85962435a17196950ad693461e38c6645148a15726626c35e0ead273673a8f4a98547d015c89dfdf0d6bc5332ad9cbc1a180363d881ab320ef0f825c8cc83286aea871562f442c71c05e44298b1e83f43e1e7a57a101718bdd58489c05978317afd1feaa7fa2d2898f6bd41e09823172c87d676b025c488eb849e71adc2408cbe36ca9814bd38091dd14b6d790c68e4210350f7bdd365fbfa903fe59a9744f70021943b2c4f65101695ad1c1d25468bb4589fefcaa863fdb57b8321b2a5cbfa4cb6ac275a"))
@@ -124,6 +125,14 @@ func getEnv(key, fallback string) string {
 }
 
 func main() {
+	// Load env variables
+	err := godotenv.Load()
+
+	if err != nil {
+		log.Println("Failed to load environment variables... Retrying...")
+		os.Exit(1)
+	}
+
 	// Load db config
 	dbClient, err := initDatabase()
 	if err != nil {
@@ -161,12 +170,13 @@ func main() {
 	app.Use(recover.New())
 
 	// Get allowed origins from environment variable or use default for development
-	allowedOrigins := getEnv("ALLOWED_ORIGINS", "http://localhost:9000,http://localhost:8080")
+	// allowedOrigins := getEnv("ALLOWED_ORIGINS", "http://localhost:9000,http://localhost:8080")
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: allowedOrigins,                // Restricted to specific origins from environment variable
-		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS", // Added OPTIONS for preflight
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowOrigins:     os.Getenv("FRONTEND_URL"),     // Restricted to specific origins from environment variable
+		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS", // Added OPTIONS for preflight
+		AllowCredentials: true,
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
 	}))
 
 	// Initialize repositories

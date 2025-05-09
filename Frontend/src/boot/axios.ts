@@ -8,8 +8,14 @@ declare module 'vue' {
   }
 }
 
+const baseURL = import.meta.env.VITE_API_BASE_URL
+
+if (!baseURL) {
+  throw new Error("Missing VITE_API_BASE_URL in .env file")
+}
+
 // Create axios instance with base URL
-const api = axios.create({ baseURL: 'http://localhost:8080' });
+export const api = axios.create({ baseURL });
 
 // Add a request interceptor to include the auth token in all requests
 api.interceptors.request.use(
@@ -33,5 +39,3 @@ export default defineBoot(({ app }) => {
   app.config.globalProperties.$axios = axios;
   app.config.globalProperties.$api = api;
 });
-
-export { api };
