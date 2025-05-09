@@ -269,18 +269,33 @@ const maxPageLimit = 100
 
 // GetPaginatedMaterialsHandler handles requests to retrieve paginated materials
 func (h *MaterialHandlers) GetPaginatedMaterialsHandler(c *fiber.Ctx) error {
-	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	pageStr := c.Query("page", "1")
+	limitStr := c.Query("limit", "10")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil {
+		log.Printf("Invalid page parameter: %s, using default value 1", pageStr)
+		page = 1
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		log.Printf("Invalid limit parameter: %s, using default value 10", limitStr)
+		limit = 10
+	}
 
 	// Ensure page is at least 1
 	if page < 1 {
+		log.Printf("Page parameter less than 1: %d, using default value 1", page)
 		page = 1
 	}
 
 	// Ensure limit is between 1 and maxPageLimit
 	if limit < 1 {
+		log.Printf("Limit parameter less than 1: %d, using default value 10", limit)
 		limit = 10 // Default to 10 if invalid
 	} else if limit > maxPageLimit {
+		log.Printf("Limit parameter exceeds maximum allowed value: %d, using maximum value %d", limit, maxPageLimit)
 		limit = maxPageLimit
 	}
 
