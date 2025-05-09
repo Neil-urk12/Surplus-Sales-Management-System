@@ -1,12 +1,12 @@
 // app global css in SCSS form
 //TEXT CONFIGURATION
 .title-text {
-    font-size: 1.1rem; 
-  
+    font-size: 1.1rem;
+
     @media (min-width: 576px) {
       font-size: 1.1rem;
     }
-  
+
     @media (min-width: 992px) {
       font-size: 1.1rem;
     }
@@ -24,7 +24,7 @@
   .custom-style::placeholder {
     color: rgb(97, 97, 97);;
     opacity: 1 ;
-    
+
   }
   .custom-style::-webkit-input-placeholder { color: rgb(97, 97, 97) ; }
   .custom-style::-moz-placeholder { color: rgb(97, 97, 97) ; }
@@ -33,7 +33,7 @@
 //LAYOUT CONFIGURATION
   //*Navbar
   .custom-nav-height-width {
-    height: 62px; 
+    height: 62px;
     min-height: 62px;
   };
   .custom-rounded{
@@ -50,7 +50,7 @@
     height: 44px;
   }
   //BORDER
- 
+
 
 
   //DARK THEME
@@ -65,8 +65,13 @@
     --border-color: #e4e4e7;
     --hover-bg: #f4f4f5;
     --sticky-column-bg: #09090b; // Light theme sticky column background
+
+    // Transition variables for consistent animations
+    --transition-duration: 0.3s;
+    --transition-easing: ease;
+    --transition-property: all;
   }
-  
+
   body.body--dark {
     // Dark theme colors from shadcn UI
     --page-bg: #09090b;
@@ -78,49 +83,54 @@
     --border-color: #27272a;
     --hover-bg: #18181b;
     --sticky-column-bg: #ffffff; // Dark theme sticky column background
+
+    // Transition variables for consistent animations (same as light theme)
+    --transition-duration: 0.3s;
+    --transition-easing: ease;
+    --transition-property: all;
   }
-  
-  
+
+
   .q-page-container,
   .q-page {
     background-color: var(--page-bg) ;
   }
-  
+
   .q-header,
   .q-drawer {
     background-color: var(--header-nav-bg) ;
   }
-  
-  
+
+
   .q-icon,
   .text-soft-light,
   .text-primary,
   .text-secondary {
     color: var(--icon-text-color) ;
   }
-  
-  
+
+
   .q-toolbar,
   .q-toolbar-title,
   .q-btn {
     color: var(--header-content-color) ;
   }
-  
-  
+
+
   .custom-style {
     color: var(--header-content-color) ;
   }
-  
+
   .custom-style::placeholder {
     color: var(--input-placeholder-color) ;
     opacity: 1 ;
   }
-  
+
   .custom-style::-webkit-input-placeholder { color: var(--input-placeholder-color) ; }
   .custom-style::-moz-placeholder { color: var(--input-placeholder-color) ; }
   .custom-style:-ms-input-placeholder { color: var(--input-placeholder-color) ; }
   .custom-style:-moz-placeholder { color: var(--input-placeholder-color) ; }
-  
+
 //INVENTORY PAGE
 .inventory-header {
   height: 10rem;
@@ -146,7 +156,7 @@
 .q-btn {
   border-radius: var(--radius, 0.5rem);
   font-weight: 500;
-  transition: all 0.2s ease;
+  transition: var(--transition-property) var(--transition-duration) var(--transition-easing);
 
   &.q-btn--standard {
     background-color: var(--primary);

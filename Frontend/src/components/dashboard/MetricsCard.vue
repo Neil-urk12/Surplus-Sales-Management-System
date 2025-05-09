@@ -110,7 +110,7 @@ const createChart = () => {
 
   const isPositive = (props.trendPercentage || 0) >= 0;
   const color = isPositive ? '#21BA45' : '#C10015';
-  
+
   // Create gradient
   const gradient = ctx.createLinearGradient(0, 0, 0, 60);
   gradient.addColorStop(0, `${color}15`);
@@ -175,7 +175,7 @@ watch([() => props.trendData, () => props.isLoading], () => {
 
 <style scoped>
 .metrics-card {
-  transition: all 0.3s;
+  transition: var(--transition-property) var(--transition-duration) var(--transition-easing);
   height: 100%;
   min-height: 160px;
 }
@@ -213,4 +213,4 @@ watch([() => props.trendData, () => props.isLoading], () => {
 .q-icon {
   font-size: 1.2em !important;
 }
-</style> 
+</style>

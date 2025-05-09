@@ -865,7 +865,7 @@ async function handleAlertAction(alertId: string) {
 
 /* Notification styling */
 .notification-item {
-  transition: all 0.3s ease;
+  transition: var(--transition-property) var(--transition-duration) var(--transition-easing);
 }
 
 .notification-unread {
@@ -914,9 +914,11 @@ async function handleAlertAction(alertId: string) {
 
 .notification-icon-unread {
   transform: scale(1.1);
+  transition: transform var(--transition-duration) var(--transition-easing);
 }
 
 .notification-icon-read {
   opacity: 0.7;
+  transition: opacity var(--transition-duration) var(--transition-easing);
 }
 </style>
