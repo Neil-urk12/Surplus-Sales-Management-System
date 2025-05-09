@@ -23,9 +23,13 @@
           </q-btn>
           <div class="notification-wrapper">
             <q-btn dense round flat icon="notifications" class="text-soft-light">
-              <q-badge color="red" floating>
-                {{ systemAlerts.length }}
-              </q-badge>
+            <q-badge
+              v-if="systemAlerts.length > 0"
+              color="red"
+              floating
+            >
+              {{ systemAlerts.length }}
+            </q-badge>
               <q-menu anchor="bottom right" self="top right">
                 <q-list style="min-width: 350px">
                   <q-item-label header class="row items-center justify-between">
@@ -50,9 +54,9 @@
                     </q-scroll-area>
                   </template>
                   <q-item v-else>
-                    <q-item-section class="text-center text-grey q-py-md">
-                      <q-icon name="notifications_none" size="48px" color="grey-4" />
-                      <div class="q-mt-sm">No active alerts</div>
+                    <q-item-section class="text-center text-grey q-py-md flex content-center row">
+                      <q-icon class="col" name="notifications_none" size="48px" color="grey-4" />
+                      <div class="q-mt-sm col">No active alerts</div>
                     </q-item-section>
                   </q-item>
                 </q-list>
@@ -142,6 +146,7 @@ import { useAuthStore } from '../stores/auth'
 const MenuItems = defineAsyncComponent(() => import('../components/SideMenuItems.vue'))
 import type { menuItemsProps } from '../types/menu-items'
 import type { AlertSeverity } from '../components/dashboard/AlertsPanel.vue';
+import { alertsService, type InventoryAlert } from '../services/alertsService';
 
 const menuItemsList: menuItemsProps[] = [
   {
@@ -227,29 +232,100 @@ const severityColorMap: Record<AlertSeverity, string> = {
   info: 'info'
 };
 
-// Update systemAlerts with timestamps
-const systemAlerts = ref<Alert[]>([
-  {
-    id: '1',
-    title: 'Low Stock Warning',
-    message: '5 items are running low on stock',
-    severity: 'warning' as AlertSeverity,
-    icon: 'warning',
-    actionIcon: 'visibility',
-    timestamp: new Date(),
-    read: false
-  },
-  {
-    id: '2',
-    title: 'Inventory Check Required',
-    message: 'Monthly inventory check due in 2 days',
-    severity: 'info' as AlertSeverity,
-    icon: 'inventory',
-    actionIcon: 'event',
-    timestamp: new Date(Date.now() - 3600000),
-    read: false
+// System alerts array
+const systemAlerts = ref<Alert[]>([]);
+
+// Inventory alerts from the service
+const inventoryAlerts = ref<InventoryAlert[]>([]);
+
+// Function to fetch inventory alerts and convert them to system alerts
+async function fetchInventoryAlerts() {
+  try {
+    inventoryAlerts.value = await alertsService.getInventoryAlerts();
+
+    // Convert inventory alerts to system alerts
+    const newSystemAlerts: Alert[] = inventoryAlerts.value.map((alert, index) => {
+      // Create a unique ID for each alert
+      const alertId = `inventory-${alert.category.toLowerCase()}-${alert.status.toLowerCase()}-${index}`;
+
+      // Determine severity based on status
+      const severity: AlertSeverity = alert.status === 'Out of Stock' ? 'error' : 'warning';
+
+      // Determine icon based on category
+      let icon = 'warning';
+      if (alert.category === 'Cabs') icon = 'directions_car';
+      else if (alert.category === 'Accessories') icon = 'settings_input_component';
+      else if (alert.category === 'Materials') icon = 'category';
+
+      // Create the alert message
+      const title = `${alert.category} ${alert.status}`;
+      const message = `${alert.count} ${alert.category.toLowerCase()} ${alert.status.toLowerCase()}`;
+
+      return {
+        id: alertId,
+        title,
+        message,
+        severity,
+        icon,
+        actionIcon: 'visibility',
+        timestamp: new Date(),
+        read: false
+      };
+    });
+
+    // Add inventory check reminder if we're within 5 days of the end of the month
+    const daysUntilEndOfMonth = getDaysUntilEndOfMonth();
+    if (shouldShowInventoryCheckReminder()) {
+      // Get the name of the current month
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+      const currentMonth = monthNames[new Date().getMonth()];
+
+      // Determine severity based on how close we are to the end of the month
+      let severity: AlertSeverity = 'info';
+      let title = 'Monthly Inventory Check Reminder';
+      let message = `${currentMonth} inventory check due in ${daysUntilEndOfMonth} day${daysUntilEndOfMonth === 1 ? '' : 's'}`;
+
+      if (daysUntilEndOfMonth <= 2) {
+        severity = 'warning';
+        title = 'Urgent: Inventory Check Due Soon';
+      }
+
+      if (daysUntilEndOfMonth === 0) {
+        severity = 'error';
+        title = 'CRITICAL: Inventory Check Due Today';
+        message = `${currentMonth} inventory check must be completed TODAY!`;
+      }
+
+      newSystemAlerts.push({
+        id: 'inventory-check',
+        title: title,
+        message: message,
+        severity: severity,
+        icon: 'inventory',
+        actionIcon: 'event',
+        timestamp: new Date(),
+        read: false
+      });
+    }
+
+    // Update system alerts
+    systemAlerts.value = newSystemAlerts;
+  } catch (error) {
+    console.error('Error fetching inventory alerts:', error);
+    // Add a fallback alert if there's an error
+    systemAlerts.value = [{
+      id: 'error',
+      title: 'Error Loading Alerts',
+      message: 'Failed to load inventory alerts',
+      severity: 'error',
+      icon: 'error',
+      actionIcon: 'refresh',
+      timestamp: new Date(),
+      read: false
+    }];
   }
-]);
+}
 
 watch(() => route.path, (newPath) => {
   switch (newPath) {
@@ -278,14 +354,27 @@ watch(() => route.path, (newPath) => {
 
 const themeMode = computed(() => ($q.dark.isActive ? 'Dark Mode' : 'Light Mode'))
 
-onMounted(() => {
+onMounted(async () => {
+  // Set theme mode
   const savedMode = localStorage.getItem('quasar-theme')
   if (savedMode) {
     $q.dark.set(savedMode === 'dark')
   } else {
     $q.dark.set(window.matchMedia('(prefers-color-scheme: dark)').matches)
   }
-//for the time out cleanup
+
+  // Fetch inventory alerts
+  await fetchInventoryAlerts()
+
+  // Set up interval to refresh alerts every 5 minutes
+  const alertsInterval = setInterval(() => {
+    void fetchInventoryAlerts() // Using void operator to ignore the promise
+  }, 5 * 60 * 1000)
+
+  // Clean up interval on component unmount
+  return () => {
+    clearInterval(alertsInterval)
+  }
 })
 
 const toggleColorMode = () => {
@@ -330,6 +419,54 @@ function formatAlertTime(date: Date): string {
   return `${days} days ago`;
 }
 
+/**
+ * Calculates the number of days until the end of the current month
+ * @returns The number of days until the end of the month
+ */
+function getDaysUntilEndOfMonth(): number {
+  const today = new Date();
+  // Create a date for the first day of the next month
+  const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+  // Subtract one day to get the last day of the current month
+  const lastDayOfMonth = new Date(nextMonth.getTime() - 86400000);
+  // Calculate the difference in days
+  const diffTime = lastDayOfMonth.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+}
+
+/**
+ * Checks if we're within the reminder period for the monthly inventory check
+ * and if the user hasn't already scheduled the check for this month
+ * @param daysBeforeEndOfMonth Number of days before the end of the month to show the reminder
+ * @returns True if we should show the reminder, false otherwise
+ */
+function shouldShowInventoryCheckReminder(daysBeforeEndOfMonth: number = 5): boolean {
+  const daysRemaining = getDaysUntilEndOfMonth();
+
+  // Check if the user has already scheduled the inventory check for this month
+  const today = new Date();
+  const currentMonthYear = `${today.getMonth()}-${today.getFullYear()}`;
+  const scheduledCheck = localStorage.getItem('scheduledInventoryCheck');
+
+  // If the user has scheduled a check for the current month, don't show the reminder
+  if (scheduledCheck === currentMonthYear) {
+    return false;
+  }
+
+  // Show the reminder if we're within the specified number of days of the end of the month
+  return daysRemaining <= daysBeforeEndOfMonth;
+}
+
+/**
+ * Marks the inventory check as scheduled for the current month
+ */
+function markInventoryCheckScheduled(): void {
+  const today = new Date();
+  const currentMonthYear = `${today.getMonth()}-${today.getFullYear()}`;
+  localStorage.setItem('scheduledInventoryCheck', currentMonthYear);
+}
+
 function markAllAsRead() {
   systemAlerts.value = systemAlerts.value.map(alert => ({
     ...alert,
@@ -349,35 +486,86 @@ async function handleAlertAction(alertId: string) {
       }
     }
 
-    switch (alertId) {
-      case '1': {
+    // Handle inventory alerts
+    if (alertId.startsWith('inventory-')) {
+      const parts = alertId.split('-');
+      const category = parts[1];
+      const status = parts[2];
+
+      // Navigate to the appropriate inventory page with filter
+      if (category && ['cabs', 'accessories', 'materials'].includes(category)) {
         await router.push({
-          path: '/inventory/cabs',
-          query: { filter: 'low-stock' }
+          path: `/inventory/${category}`,
+          query: { status: status }
         });
-        break;
-      }
-      case '2': {
-        $q.dialog({
-          title: 'Schedule Inventory Check',
-          message: 'Would you like to schedule the monthly inventory check?',
-          ok: {
-            label: 'Schedule Now',
-            color: 'primary'
-          },
-          cancel: {
-            label: 'Remind Me Later',
-            color: 'grey'
-          },
-          persistent: true
-        }).onOk(() => {
-          $q.notify({
-            type: 'positive',
-            message: 'Inventory check scheduled successfully'
-          });
+
+        $q.notify({
+          type: 'info',
+          message: `Viewing ${status} ${category}`,
+          position: 'top',
+          timeout: 2000
         });
-        break;
       }
+    }
+    // Handle inventory check alert
+    else if (alertId === 'inventory-check') {
+      // Get the last day of the month for the inventory check date
+      const today = new Date();
+      const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+      const lastDayOfMonth = new Date(nextMonth.getTime() - 86400000);
+      const formattedDate = lastDayOfMonth.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      // Get the name of the current month
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+      const currentMonth = monthNames[today.getMonth()];
+
+      $q.dialog({
+        title: 'Schedule Inventory Check',
+        message: `The ${currentMonth} inventory check is due by ${formattedDate}. Would you like to schedule it now?`,
+        html: true,
+        ok: {
+          label: 'Schedule Now',
+          color: 'primary'
+        },
+        cancel: {
+          label: 'Remind Me Later',
+          color: 'grey'
+        },
+        persistent: true
+      }).onOk(() => {
+        // Mark the inventory check as scheduled for this month
+        markInventoryCheckScheduled();
+
+        // Remove the alert from the list
+        const alertIndex = systemAlerts.value.findIndex(a => a.id === alertId);
+        if (alertIndex !== -1) {
+          systemAlerts.value.splice(alertIndex, 1);
+        }
+
+        $q.notify({
+          type: 'positive',
+          message: `${currentMonth} inventory check scheduled for ${formattedDate}`,
+          timeout: 3000
+        });
+      });
+    }
+    // Handle error alert
+    else if (alertId === 'error') {
+      // Refresh alerts
+      await fetchInventoryAlerts();
+
+      $q.notify({
+        type: 'info',
+        message: 'Refreshing alerts',
+        position: 'top',
+        timeout: 2000
+      });
     }
   } catch (error) {
     console.error('Error handling alert action:', error);
