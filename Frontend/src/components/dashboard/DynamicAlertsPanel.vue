@@ -106,16 +106,19 @@ function getAlertColor(status: string): string {
 async function handleAlertAction(alert: InventoryAlert) {
   try {
     // Navigate to the appropriate inventory page with filter
-    const path = `/inventory/${alert.category.toLowerCase()}`;
+    const category = alert.category.toLowerCase();
+    const status = alert.status.replace(' ', '-').toLowerCase();
+
+    // Use template literals for better readability
     await router.push({
-      path,
-      query: { status: alert.status.replace(' ', '-').toLowerCase() }
+      path: `/inventory/${category}`,
+      query: { status }
     });
 
-    // Show notification
+    // Show notification using the same variables for consistency
     $q.notify({
       type: 'info',
-      message: `Viewing ${alert.status.toLowerCase()} ${alert.category.toLowerCase()}`,
+      message: `Viewing ${status.replace('-', ' ')} ${category}`,
       position: 'top',
       timeout: 2000
     });
