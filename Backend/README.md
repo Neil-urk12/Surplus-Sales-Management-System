@@ -42,10 +42,6 @@ The server will start on port 8080 by default.
 - `PUT /api/users/:id/deactivate` - Deactivate a user (requires authentication)
 - `PUT /api/users/:id/password` - Update a user's password (requires authentication)
 
-## Default Admin User
-
-Email: admin@example.com
-Password: admin123
 
 ## Development
 
@@ -57,6 +53,25 @@ Password: admin123
   - `handlers/` - HTTP handlers
   - `models/` - Data models
   - `repositories/` - Database operations
+
+### Makefile & Local Development
+
+Before you start, install Air for live-reloading your Go server:
+```bash
+go install github.com/air-verse/air@latest
+```
+A top-level `Makefile` is provided in the project root to simplify common tasks:
+
+- `make help`       — list available commands
+- `make back-dev`  — start backend dev server (Air)
+- `make front-dev` — start frontend dev server
+- `make dev`       — run both watchers in parallel
+
+Example:
+```bash
+make back-dev
+```
+Run `make help` for full list of targets.
 
 ### Running with Docker
 
@@ -93,4 +108,3 @@ docker run -it --rm \
   -e PORT=8080 \
   -v "$(pwd)/Backend":/app \
   backend-dev
-```
