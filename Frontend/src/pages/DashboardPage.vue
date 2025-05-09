@@ -414,7 +414,16 @@ watch(
           <p class="text-subtitle1 q-mt-xs">System Overview</p>
         </div>
         <div class="col-auto">
-          <q-btn color="primary" icon="refresh" label="Refresh" @click="refreshData" :loading="isLoading" />
+          <q-btn 
+            :class="[
+              $q.dark.isActive ? 'bg-white text-black' : 'bg-primary text-white'
+            ]" 
+            @click="refreshData" 
+            :loading="isLoading"
+          >
+            <q-icon :name="'refresh'" :color="$q.dark.isActive ? 'black' : 'white'" />
+            <span :class="$q.dark.isActive ? 'text-black' : 'text-white'">Refresh</span>
+          </q-btn>
         </div>
       </div>
 

@@ -101,7 +101,7 @@
               class="text-soft-light q-hoverable absolute-bottom"
             >
               <!-- user -->
-              <div class="flex flex-start row items-center justify-between">
+              <div class="flex row items-center justify-between q-px-sm">
                 <div class="flex flex-start items-center q-gutter-md">
                   <q-avatar color="red user-profile-width user-profile-height" text-color="text-primary">
                       <img src="https://cdn.quasar.dev/img/avatar.png">
@@ -112,73 +112,15 @@
                 </div>
               </div>
               <div class="q-pa-md col">
-                <q-btn-dropdown
-                flat
-                class="absolute-right"
-                >
-                  <div class="row no-wrap q-pa-md">
-                    <div class="column">
-                      <div class="text-h6 q-mb-md">Preference</div>
-                        <div class="flex-start items-center">
-                          <q-btn dense flat class="text-soft-light row full-width flex justify-between" @click=toggleColorMode>
-                            <div class="flex items-center col-auto q-pr-sm full-width">
-                                <div class="flex q-pr-sm q-pl-sm ">
-                                  <q-icon
-                                    v-if="!isDark"
-                                    name="light_mode"
-                                    class="text-soft-light"
-                                    size="24px"
-                                  />
-                                  <q-icon
-                                    v-else
-                                    name="dark_mode"
-                                    class="text-soft-light"
-                                    size="24px"
-                                  />
-                                </div>
-                                <div class="flex items-center col">
-                                  <p class="q-mb-none text-weight-medium">{{ themeMode }}</p>
-                                </div>
-                            </div>
-                          </q-btn>
-                          <q-btn dense flat class="text-soft-light row full-width" @click=alert>
-                            <div class="flex flex-start items-center">
-                                <div class="flex items-center col-auto q-pr-sm">
-                                  <q-btn dense round flat icon="notifications" class="text-soft-light">
-                                  <q-badge color="red" floating class="notif-badge">
-                                    {{ systemAlerts.length }}
-                                  </q-badge>
-                                </q-btn>
-                                </div>
-                                <div class="flex items-center col">
-                                  <p class="q-mb-none text-weight-medium">Notifications</p>
-                                </div>
-                            </div>
-                          </q-btn>
-                        </div>
-                    </div>
-
-                    <q-separator vertical inset class="q-mx-lg" />
-
-                    <div class="column items-center">
-                      <q-avatar size="72px">
-                        <img src="https://cdn.quasar.dev/img/boy-avatar.png">
-                      </q-avatar>
-
-                      <div class="text-subtitle1 q-mt-md q-mb-xs">{{ currentUser.name }}</div>
-
-                      <q-btn
-                        color="primary"
-                        label="Logout"
-                        push
-                        flat
-                        size="sm"
-                        v-close-popup
-                        @click="handleLogout"
-                      />
-                    </div>
-                  </div>
-                </q-btn-dropdown>
+                <q-btn
+                  label="Logout"
+                  size="sm"
+                  :class="[
+                    $q.dark.isActive ? 'bg-white text-black' : 'bg-primary text-white',
+                    'q-px-md q-py-sm'
+                  ]"
+                  @click="handleLogout"
+                />
               </div>
             </q-item>
         </div>
@@ -348,6 +290,7 @@ onMounted(() => {
 
 const toggleColorMode = () => {
   $q.dark.toggle()
+  localStorage.setItem('quasar-theme', $q.dark.isActive ? 'dark' : 'light')
 }
 
 const currentUser = computed(() => {
@@ -358,9 +301,6 @@ const currentUser = computed(() => {
   } : { name: 'Guest', email: '', role: 'guest' }
 })
 
-function alert () {
-  console.log('alert')
-}
 
 function toggleLeftDrawer () {
   leftDrawerOpen.value = !leftDrawerOpen.value
