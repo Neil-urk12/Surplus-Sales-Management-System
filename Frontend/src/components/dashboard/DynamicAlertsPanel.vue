@@ -15,11 +15,11 @@
             <q-item-label caption>{{ alert.count }} {{ alert.category.toLowerCase() }} {{ alert.status.toLowerCase() }}</q-item-label>
           </q-item-section>
           <q-item-section side>
-            <q-btn 
-              flat 
-              round 
-              dense 
-              icon="visibility" 
+            <q-btn
+              flat
+              round
+              dense
+              icon="visibility"
               @click="handleAlertAction(alert)"
               :color="getAlertColor(alert.status)"
             />
@@ -70,33 +70,34 @@ async function fetchAlerts() {
 }
 
 /**
- * Gets the appropriate icon for each category
+ * Map of category to icon mappings for better maintainability
+ */
+const alertIcons = new Map<string, string>([
+  ['Cabs', 'directions_car'],
+  ['Accessories', 'settings_input_component'],
+  ['Materials', 'category'],
+]);
+
+/**
+ * Gets the appropriate icon for each category using the Map
  */
 function getAlertIcon(category: string): string {
-  switch (category) {
-    case 'Cabs':
-      return 'directions_car';
-    case 'Accessories':
-      return 'settings_input_component';
-    case 'Materials':
-      return 'category';
-    default:
-      return 'warning';
-  }
+  return alertIcons.get(category) || 'warning';
 }
 
 /**
- * Gets the appropriate color for each alert status
+ * Map of status to color mappings for better maintainability
+ */
+const alertColors = new Map<string, string>([
+  ['Low Stock', 'warning'],
+  ['Out of Stock', 'negative'],
+]);
+
+/**
+ * Gets the appropriate color for each alert status using the Map
  */
 function getAlertColor(status: string): string {
-  switch (status) {
-    case 'Low Stock':
-      return 'warning';
-    case 'Out of Stock':
-      return 'negative';
-    default:
-      return 'grey';
-  }
+  return alertColors.get(status) || 'grey';
 }
 
 /**
@@ -110,7 +111,7 @@ async function handleAlertAction(alert: InventoryAlert) {
       path,
       query: { status: alert.status.replace(' ', '-').toLowerCase() }
     });
-    
+
     // Show notification
     $q.notify({
       type: 'info',
