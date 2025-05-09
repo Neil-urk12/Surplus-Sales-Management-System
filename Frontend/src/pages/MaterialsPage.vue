@@ -84,7 +84,12 @@ const materialColumns: QTableColumn[] = [
   { name: 'category', label: 'Category', field: 'category' },
   { name: 'supplier', label: 'Supplier', field: 'supplier' },
   { name: 'quantity', label: 'Quantity', field: 'quantity', sortable: true },
-  { name: 'status', label: 'Status', field: 'status' },
+  {
+    name: 'status',
+    label: 'Status',
+    field: 'status',
+    align: 'center'
+  },
   {
     name: 'actions',
     label: 'Actions',
@@ -734,6 +739,20 @@ async function confirmDelete() {
 // Add ref for edit dialog
 const showEditDialog = ref(false);
 
+// Add a computed property for status color mapping
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'In Stock':
+      return 'positive';
+    case 'Low Stock':
+      return 'warning';
+    case 'Out of Stock':
+      return 'negative';
+    default:
+      return 'grey';
+  }
+};
+
 // Update onMounted hook
 onMounted(async () => {
   console.log('MaterialsPage mounted, initializing materials...');
@@ -839,6 +858,19 @@ onMounted(async () => {
                 @update:model-value="(val) => store.onRequest({ pagination: { ...store.pagination, page: val } })"
               />
             </div>
+          </template>
+
+          <template v-slot:body-cell-status="props">
+            <q-td :props="props">
+              <q-chip
+                dense
+                :color="getStatusColor(props.value)"
+                text-color="white"
+                class="q-px-sm"
+              >
+                {{ props.value }}
+              </q-chip>
+            </q-td>
           </template>
 
           <template v-slot:body-cell-actions="props">
