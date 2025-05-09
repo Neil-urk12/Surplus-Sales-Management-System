@@ -264,10 +264,26 @@ func (h *MaterialHandlers) DeleteMaterialHandler(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent) // Standard response for successful deletion
 }
 
+// Maximum number of items that can be requested per page
+const maxPageLimit = 100
+
 // GetPaginatedMaterialsHandler handles requests to retrieve paginated materials
 func (h *MaterialHandlers) GetPaginatedMaterialsHandler(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+
+	// Ensure page is at least 1
+	if page < 1 {
+		page = 1
+	}
+
+	// Ensure limit is between 1 and maxPageLimit
+	if limit < 1 {
+		limit = 10 // Default to 10 if invalid
+	} else if limit > maxPageLimit {
+		limit = maxPageLimit
+	}
+
 	searchTerm := c.Query("search")
 	category := c.Query("category")
 	supplier := c.Query("supplier")
