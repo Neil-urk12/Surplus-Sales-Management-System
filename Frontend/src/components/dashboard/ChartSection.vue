@@ -91,26 +91,38 @@ const updateChartType = (type: 'line' | 'bar' | 'area') => {
               <!-- Chart Type Button Group -->
               <q-btn-group flat>
                 <q-btn 
-                  label="Line Chart" 
-                  :color="chartType === 'line' ? 'primary' : 'grey-4'" 
-                  :text-color="chartType === 'line' ? 'white' : 'black'"
+                  :class="[
+                    chartType === 'line' ? 
+                      (isDark ? 'bg-white text-black' : 'bg-primary text-white') : 
+                      'bg-white text-black'
+                  ]" 
                   @click="updateChartType('line')" 
                   :disable="isLoading"
-                />
+                >
+                  <span>Line Chart</span>
+                </q-btn>
                 <q-btn 
-                  label="Bar Chart" 
-                  :color="chartType === 'bar' ? 'primary' : 'grey-4'" 
-                  :text-color="chartType === 'bar' ? 'white' : 'black'"
+                  :class="[
+                    chartType === 'bar' ? 
+                      (isDark ? 'bg-white text-black' : 'bg-primary text-white') : 
+                      'bg-white text-black'
+                  ]" 
                   @click="updateChartType('bar')" 
                   :disable="isLoading"
-                />
+                >
+                  <span>Bar Chart</span>
+                </q-btn>
                 <q-btn 
-                  label="Area Chart" 
-                  :color="chartType === 'area' ? 'primary' : 'grey-4'" 
-                  :text-color="chartType === 'area' ? 'white' : 'black'"
+                  :class="[
+                    chartType === 'area' ? 
+                      (isDark ? 'bg-white text-black' : 'bg-primary text-white') : 
+                      'bg-white text-black'
+                  ]" 
                   @click="updateChartType('area')" 
                   :disable="isLoading"
-                />
+                >
+                  <span>Area Chart</span>
+                </q-btn>
               </q-btn-group>
             </div>
           </div>
@@ -147,4 +159,10 @@ const updateChartType = (type: 'line' | 'bar' | 'area') => {
   align-items: center;
   justify-content: center;
 }
-</style> 
+</style>
+
+<style scoped>
+.bg-white.text-black {
+  border: 1px solid black;
+}
+</style>

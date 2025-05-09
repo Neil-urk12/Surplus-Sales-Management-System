@@ -355,19 +355,26 @@ function handleApplyFilters(filters: { category: string | null; supplier: string
                 unelevated
                 @click="openAddDialog"
                 :disable="store.isLoading"
-                :class="['text-white bg-primary', { 'full-width': $q.screen.lt.md }]"
+                :class="[
+                  $q.dark.isActive ? 'text-black bg-white' : 'text-white bg-primary', 
+                  { 'full-width': $q.screen.lt.md }
+                ]"
               >
-                <q-icon name="add" color="white" />
-                Add
+                <q-icon name="add" :color="$q.dark.isActive ? 'black' : 'white'" />
+                <span :class="$q.dark.isActive ? 'text-black' : 'text-white'">Add</span>
               </q-btn>
               <q-btn
                 dense
                 flat
                 :disable="store.isLoading"
-                :class="['bg-primary text-white q-pa-sm', { 'full-width': $q.screen.lt.md }]"
+                :class="[
+                  $q.dark.isActive ? 'bg-white text-black' : 'bg-primary text-white', 
+                  'q-pa-sm', 
+                  { 'full-width': $q.screen.lt.md }
+                ]"
               >
-                <q-icon name="download" color="white" />
-                Download CSV
+                <q-icon name="download" :color="$q.dark.isActive ? 'black' : 'white'" />
+                <span :class="$q.dark.isActive ? 'text-black' : 'text-white'">Download CSV</span>
               </q-btn>
             </div>
           </div>
