@@ -325,16 +325,6 @@ export const useDashboardStore = defineStore('dashboard', () => {
       // Update other dashboard metrics
       totalInventoryValue.value = calculateTotalInventoryValue();
       
-      // Add an activity for the refresh
-      addActivity({
-        id: Date.now().toString(),
-        title: 'Data Refreshed',
-        description: 'Dashboard data has been updated',
-        timestamp: new Date(),
-        icon: 'refresh',
-        color: 'info'
-      });
-      
       return true;
     } catch (error) {
       console.error('Error refreshing dashboard data:', error);

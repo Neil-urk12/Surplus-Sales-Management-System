@@ -13,6 +13,7 @@ import type {
 } from 'src/types/materials'
 import { api } from 'boot/axios'
 import { useAuthStore } from 'src/stores/auth'
+import { useDashboardStore } from 'src/stores/dashboardStore'
 import { AxiosError } from 'axios';
 import type { QTableProps } from 'quasar'
 
@@ -41,6 +42,7 @@ export const useMaterialsStore = defineStore('materials', () => {
    * Instance of the authentication store.
    */
   const authStore = useAuthStore()
+  const dashboardStore = useDashboardStore()
 
   /**
    * Initializes the material data by fetching it from the API.
@@ -157,6 +159,17 @@ export const useMaterialsStore = defineStore('materials', () => {
 
       // Add the material returned from the server (with server-generated ID)
       materialRows.value.push(response.data)
+      
+      // Add activity record
+      dashboardStore.addActivity({
+        id: Date.now().toString(),
+        title: 'Inventory Added',
+        description: `Added ${material.quantity} units of ${material.name}`,
+        timestamp: new Date(),
+        icon: 'inventory_2',
+        color: 'info'
+      });
+      
       return { success: true, id: response.data.id }
     } catch (error: unknown) {
       console.error('Error adding material:', error)
@@ -236,6 +249,16 @@ export const useMaterialsStore = defineStore('materials', () => {
       if (index !== -1) {
         materialRows.value.splice(index, 1);
       }
+      
+      // Add activity record
+      dashboardStore.addActivity({
+        id: Date.now().toString(),
+        title: 'Inventory Removed',
+        description: `Removed ${existingMaterial.name} from inventory`,
+        timestamp: new Date(),
+        icon: 'delete',
+        color: 'negative'
+      });
 
       return { success: true };
     } catch (error: unknown) {
@@ -290,6 +313,35 @@ export const useMaterialsStore = defineStore('materials', () => {
       });
 
       materialRows.value[index] = response.data;
+      
+      // Create a descriptive message about what changed
+      const changes: string[] = [];
+      if (materialUpdate.quantity !== undefined && materialUpdate.quantity !== existingMaterial.quantity) {
+        const difference = materialUpdate.quantity - existingMaterial.quantity;
+        if (difference > 0) {
+          changes.push(`added ${difference} units`);
+        } else if (difference < 0) {
+          changes.push(`removed ${Math.abs(difference)} units`);
+        }
+      }
+      
+      if (materialUpdate.name !== undefined && materialUpdate.name !== existingMaterial.name) {
+        changes.push(`renamed to ${materialUpdate.name}`);
+      }
+      
+      // Only add activity if there were actual changes
+      if (changes.length > 0) {
+        // Add activity record
+        dashboardStore.addActivity({
+          id: Date.now().toString(),
+          title: 'Inventory Updated',
+          description: `${existingMaterial.name}: ${changes.join(', ')}`,
+          timestamp: new Date(),
+          icon: 'edit',
+          color: 'info'
+        });
+      }
+      
       return { success: true };
     } catch (error: unknown) {
       console.error('Error updating material:', error);

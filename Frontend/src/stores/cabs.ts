@@ -13,6 +13,7 @@ import type {
 } from 'src/types/cabs'
 import { cabsService } from 'src/services/cabsService'
 import { useSearch } from 'src/utils/useSearch'
+import { useDashboardStore } from 'src/stores/dashboardStore'
 
 export type { CabsRow } from 'src/types/cabs'
 
@@ -20,6 +21,7 @@ export const useCabsStore = defineStore('cabs', () => {
   // State
   const cabRows = ref<CabsRow[]>([])
   const isLoading = ref(false)
+  const dashboardStore = useDashboardStore()
 
   // Use input types that allow empty strings for filters
   const filterMake = ref<CabMakeInput>('')
@@ -98,6 +100,16 @@ export const useCabsStore = defineStore('cabs', () => {
         // No need to manually set IDs here since:
         // 1. The server assigns the IDs
         // 2. The filteredCabRows sorts by ID to ensure new items appear at end
+        
+        // Add activity for new cab
+        dashboardStore.addActivity({
+          id: Date.now().toString(),
+          title: 'New Car Added',
+          description: `Added ${cab.quantity || 1} units of ${cab.name}`,
+          timestamp: new Date(),
+          icon: 'directions_car',
+          color: 'info'
+        });
       }
 
       return result
@@ -136,6 +148,10 @@ export const useCabsStore = defineStore('cabs', () => {
   async function deleteCab(id: number): Promise<CabOperationResponse> {
     try {
       isLoading.value = true
+      
+      // Store the cab details before deletion for the activity record
+      const cabToDelete = cabRows.value.find(c => c.id === id);
+      
       const result = await cabsService.deleteCab(id)
 
       if (result.success && cabRows.value) {
@@ -144,6 +160,18 @@ export const useCabsStore = defineStore('cabs', () => {
         const index = cabRows.value.findIndex(c => c.id === id);
         if (index !== -1) {
           cabRows.value.splice(index, 1);
+        }
+        
+        // Add activity for deleted cab
+        if (cabToDelete) {
+          dashboardStore.addActivity({
+            id: Date.now().toString(),
+            title: 'Car Removed',
+            description: `Removed ${cabToDelete.name} from inventory`,
+            timestamp: new Date(),
+            icon: 'delete',
+            color: 'negative'
+          });
         }
       }
 
@@ -170,6 +198,9 @@ export const useCabsStore = defineStore('cabs', () => {
           error: 'Cab not found'
         }
       }
+
+      // Store original values for comparison
+      const originalCab = JSON.parse(JSON.stringify(existingCab));
 
       // Merge existing cab with updates
       const updatedCab: NewCabInput = {
@@ -219,6 +250,38 @@ export const useCabsStore = defineStore('cabs', () => {
           
           // Update the cab in the array with properly typed data
           cabRows.value[index] = typedUpdatedCab;
+          
+          // Create a descriptive message about what changed
+          const changes: string[] = [];
+          if (updatedCab.quantity !== originalCab.quantity) {
+            const difference = updatedCab.quantity - originalCab.quantity;
+            if (difference > 0) {
+              changes.push(`added ${difference} units`);
+            } else if (difference < 0) {
+              changes.push(`removed ${Math.abs(difference)} units`);
+            }
+          }
+          
+          if (updatedCab.name !== originalCab.name) {
+            changes.push(`renamed to ${updatedCab.name}`);
+          }
+          
+          if (updatedCab.price !== originalCab.price) {
+            changes.push(`price updated to $${updatedCab.price}`);
+          }
+          
+          // Only add activity if there were actual changes
+          if (changes.length > 0) {
+            // Add activity record
+            dashboardStore.addActivity({
+              id: Date.now().toString(),
+              title: 'Car Updated',
+              description: `${originalCab.name}: ${changes.join(', ')}`,
+              timestamp: new Date(),
+              icon: 'edit',
+              color: 'info'
+            });
+          }
         }
       }
 
