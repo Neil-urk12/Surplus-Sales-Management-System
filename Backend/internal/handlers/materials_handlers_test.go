@@ -26,7 +26,11 @@ type MockMaterialRepository struct {
 
 // GetPaginated implements repositories.MaterialRepository.
 func (m *MockMaterialRepository) GetPaginated(page int, limit int, searchTerm string, category string, supplier string, status string) ([]models.Material, int64, error) {
-	panic("unimplemented")
+	args := m.Called(page, limit, searchTerm, category, supplier, status)
+	if args.Get(0) == nil {
+		return nil, 0, args.Error(2)
+	}
+	return args.Get(0).([]models.Material), args.Get(1).(int64), args.Error(2)
 }
 
 func (m *MockMaterialRepository) GetAll(searchTerm string, category string, supplier string, status string) ([]models.Material, error) {
@@ -458,6 +462,75 @@ func TestDeleteMaterialHandler(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 		mockRepo.AssertExpectations(t)
+	})
+}
+
+func TestGetPaginatedMaterialsHandler(t *testing.T) {
+	mockRepo := new(MockMaterialRepository)
+	jwtSecret := []byte("test_secret")
+	app := setupMaterialTestApp(mockRepo, jwtSecret)
+	testToken, _ := createTestToken(jwtSecret, 1, "admin")
+
+	now := time.Now()
+	expectedMaterials := []models.Material{
+		{ID: 1, Name: "Mat 1", Category: "C1", Supplier: "S1", Quantity: 10, Status: "Active", CreatedAt: now, UpdatedAt: now},
+		{ID: 2, Name: "Mat 2", Category: "C2", Supplier: "S2", Quantity: 20, Status: "Inactive", CreatedAt: now, UpdatedAt: now},
+	}
+
+	t.Run("Success - Default Pagination", func(t *testing.T) {
+		mockRepo.On("GetPaginated", 1, 10, "", "", "", "").Return(expectedMaterials, int64(2), nil).Once()
+
+		req := httptest.NewRequest(http.MethodGet, "/api/materials/paginated", nil)
+		req.Header.Set("Authorization", "Bearer "+testToken)
+
+		resp, err := app.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var result fiber.Map
+		err = json.NewDecoder(resp.Body).Decode(&result)
+		assert.NoError(t, err)
+
+		// Convert the materials array
+		materialsData := result["materials"].([]interface{})
+		assert.Equal(t, 2, len(materialsData))
+		assert.Equal(t, float64(2), result["total"])
+		assert.Equal(t, float64(1), result["page"])
+		assert.Equal(t, float64(10), result["limit"])
+		assert.Equal(t, float64(1), result["totalPages"])
+	})
+
+	t.Run("Success - With Filters and Custom Pagination", func(t *testing.T) {
+		mockRepo.On("GetPaginated", 2, 5, "search", "C1", "S1", "Active").Return(expectedMaterials[:1], int64(1), nil).Once()
+
+		req := httptest.NewRequest(http.MethodGet, "/api/materials/paginated?page=2&limit=5&search=search&category=C1&supplier=S1&status=Active", nil)
+		req.Header.Set("Authorization", "Bearer "+testToken)
+
+		resp, err := app.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var result fiber.Map
+		err = json.NewDecoder(resp.Body).Decode(&result)
+		assert.NoError(t, err)
+
+		materialsData := result["materials"].([]interface{})
+		assert.Equal(t, 1, len(materialsData))
+		assert.Equal(t, float64(1), result["total"])
+		assert.Equal(t, float64(2), result["page"])
+		assert.Equal(t, float64(5), result["limit"])
+		assert.Equal(t, float64(1), result["totalPages"])
+	})
+
+	t.Run("Repository Error", func(t *testing.T) {
+		mockRepo.On("GetPaginated", 1, 10, "", "", "", "").Return([]models.Material{}, int64(0), errors.New("db error")).Once()
+
+		req := httptest.NewRequest(http.MethodGet, "/api/materials/paginated", nil)
+		req.Header.Set("Authorization", "Bearer "+testToken)
+
+		resp, err := app.Test(req, -1)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	})
 }
 
