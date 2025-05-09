@@ -230,7 +230,9 @@ export const useMaterialsStore = defineStore('materials', () => {
       });
 
       const index = materialRows.value.indexOf(existingMaterial);
-      materialRows.value.splice(index, 1);
+      if (index !== -1) {
+        materialRows.value.splice(index, 1);
+      }
 
       return { success: true };
     } catch (error: unknown) {
