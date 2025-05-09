@@ -18,6 +18,9 @@ import type { QTableProps } from 'quasar'
 
 export type { MaterialRow, NewMaterialInput } from 'src/types/materials'
 
+/** Default number of rows to display per page in the materials table */
+const DEFAULT_ROWS_PER_PAGE = 10
+
 /**
  * Pinia store for managing material data.
  * Provides state, computed properties, and actions for materials,
@@ -312,7 +315,7 @@ export const useMaterialsStore = defineStore('materials', () => {
     sortBy: 'name',
     descending: false,
     page: 1,
-    rowsPerPage: 10,
+    rowsPerPage: DEFAULT_ROWS_PER_PAGE,
     rowsNumber: 0
   });
 
@@ -326,7 +329,7 @@ export const useMaterialsStore = defineStore('materials', () => {
       return;
     }
 
-    const { page = 1, rowsPerPage = 10 } = props.pagination;
+    const { page = 1, rowsPerPage = DEFAULT_ROWS_PER_PAGE } = props.pagination;
     const params = {
       page,
       limit: rowsPerPage,
