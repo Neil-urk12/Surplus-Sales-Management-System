@@ -24,11 +24,11 @@
           <div class="notification-wrapper">
             <q-btn dense round flat icon="notifications" class="text-soft-light">
             <q-badge
-              v-if="systemAlerts.length > 0"
+              v-if="unreadAlertsCount > 0"
               color="red"
               floating
             >
-              {{ systemAlerts.length }}
+              {{ unreadAlertsCount }}
             </q-badge>
               <q-menu anchor="bottom right" self="top right">
                 <q-list style="min-width: 350px">
@@ -41,16 +41,113 @@
                   <q-separator />
                   <template v-if="systemAlerts.length">
                     <q-scroll-area style="height: 300px;">
-                      <q-item v-for="alert in systemAlerts" :key="alert.id" clickable v-close-popup @click="handleAlertAction(alert.id)" :class="{ 'bg-grey-2': alert.read }">
-                        <q-item-section avatar>
-                          <q-icon :name="alert.icon" :color="getAlertColor(alert.severity)" />
-                        </q-item-section>
-                        <q-item-section>
-                          <q-item-label class="text-weight-medium">{{ alert.title }}</q-item-label>
-                          <q-item-label caption>{{ alert.message }}</q-item-label>
-                          <q-item-label caption class="text-grey-7">{{ formatAlertTime(alert.timestamp) }}</q-item-label>
-                        </q-item-section>
-                      </q-item>
+                      <!-- Unread Alerts Section -->
+                      <div>
+                        <q-item-label header class="text-primary q-px-md">
+                          Unread Alerts
+                        </q-item-label>
+
+                        <template v-if="unreadAlerts.length > 0">
+                          <q-item
+                            v-for="alert in unreadAlerts"
+                            :key="alert.id"
+                            clickable
+                            v-close-popup
+                            @click="handleAlertAction(alert.id)"
+                            class="alert-item"
+                            :class="`alert-unread alert-unread-${getAlertColor(alert.severity)}`"
+                          >
+                            <q-item-section avatar>
+                              <q-icon
+                                :name="alert.icon"
+                                :color="getAlertColor(alert.severity)"
+                                class="alert-icon-unread"
+                              />
+                            </q-item-section>
+                            <q-item-section>
+                              <q-item-label class="alert-title-unread">
+                                {{ alert.title }}
+                              </q-item-label>
+                              <q-item-label caption>{{ alert.message }}</q-item-label>
+                              <q-item-label caption class="text-grey-7">{{ formatAlertTime(alert.timestamp) }}</q-item-label>
+                            </q-item-section>
+                            <q-item-section side>
+                              <q-btn
+                                flat
+                                round
+                                dense
+                                icon="done"
+                                size="sm"
+                                :color="getAlertColor(alert.severity)"
+                                @click.stop="markAlertAsRead(alert.id)"
+                              >
+                                <q-tooltip>Mark as read</q-tooltip>
+                              </q-btn>
+                            </q-item-section>
+                          </q-item>
+                        </template>
+
+                        <q-item v-else>
+                          <q-item-section class="text-center text-grey q-py-sm">
+                            <div>No unread alerts</div>
+                          </q-item-section>
+                        </q-item>
+                      </div>
+
+                      <q-separator v-if="unreadAlerts.length > 0 && readAlerts.length > 0" class="q-my-sm" />
+
+                      <!-- Read Alerts Section -->
+                      <div>
+                        <q-item-label header class="text-grey q-px-md q-pt-md">
+                          Read Alerts
+                        </q-item-label>
+
+                        <template v-if="readAlerts.length > 0">
+                          <q-item
+                            v-for="alert in readAlerts"
+                            :key="alert.id"
+                            clickable
+                            v-close-popup
+                            @click="handleAlertAction(alert.id)"
+                            class="alert-item alert-read"
+                          >
+                            <q-item-section avatar>
+                              <q-icon
+                                :name="alert.icon"
+                                :color="getAlertColor(alert.severity)"
+                                class="alert-icon-read"
+                              />
+                            </q-item-section>
+                            <q-item-section>
+                              <q-item-label class="alert-title-read">
+                                {{ alert.title }}
+                              </q-item-label>
+                              <q-item-label caption>{{ alert.message }}</q-item-label>
+                              <q-item-label caption class="text-grey-7">{{ formatAlertTime(alert.timestamp) }}</q-item-label>
+                            </q-item-section>
+                          </q-item>
+                        </template>
+
+                        <q-item v-else>
+                          <q-item-section class="text-center text-grey q-py-sm">
+                            <div>No read alerts</div>
+                          </q-item-section>
+                        </q-item>
+
+                        <!-- View All Button -->
+                        <q-item
+                          v-if="hasMoreReadAlerts"
+                          clickable
+                          class="text-primary"
+                          @click="showAllReadAlerts"
+                        >
+                          <q-item-section class="text-center">
+                            <q-item-label>
+                              View all {{ allReadAlerts.length }} read alerts
+                            </q-item-label>
+                          </q-item-section>
+                        </q-item>
+                      </div>
                     </q-scroll-area>
                   </template>
                   <q-item v-else>
@@ -354,6 +451,33 @@ watch(() => route.path, (newPath) => {
 
 const themeMode = computed(() => ($q.dark.isActive ? 'Dark Mode' : 'Light Mode'))
 
+// Computed property for unread alerts
+const unreadAlerts = computed(() => {
+  return systemAlerts.value.filter(alert => !alert.read)
+    .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Sort by timestamp, newest first
+})
+
+// Get all read alerts (for counting)
+const allReadAlerts = computed(() => {
+  return systemAlerts.value.filter(alert => alert.read)
+    .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Sort by timestamp, newest first
+})
+
+// Computed property for read alerts (limit to 5 most recent)
+const readAlerts = computed(() => {
+  return allReadAlerts.value.slice(0, 5); // Limit to 5 most recent read alerts
+})
+
+// Check if there are more read alerts than we're showing
+const hasMoreReadAlerts = computed(() => {
+  return allReadAlerts.value.length > 5;
+})
+
+// Computed property to count unread alerts
+const unreadAlertsCount = computed(() => {
+  return unreadAlerts.value.length;
+})
+
 onMounted(async () => {
   // Set theme mode
   const savedMode = localStorage.getItem('quasar-theme')
@@ -467,6 +591,50 @@ function markInventoryCheckScheduled(): void {
   localStorage.setItem('scheduledInventoryCheck', currentMonthYear);
 }
 
+/**
+ * Marks a specific alert as read
+ * @param alertId The ID of the alert to mark as read
+ */
+function markAlertAsRead(alertId: string) {
+  const alertIndex = systemAlerts.value.findIndex(a => a.id === alertId);
+  if (alertIndex !== -1) {
+    const alert = systemAlerts.value[alertIndex];
+    if (alert) {
+      alert.read = true;
+    }
+  }
+}
+
+/**
+ * Shows a dialog with all read alerts
+ */
+function showAllReadAlerts() {
+  // Create a list of all read alerts for the dialog
+  const alertsList = allReadAlerts.value.map(alert => {
+    return `<div class="q-mb-md">
+      <div class="text-weight-medium">${alert.title}</div>
+      <div class="text-caption">${alert.message}</div>
+      <div class="text-caption text-grey">${formatAlertTime(alert.timestamp)}</div>
+    </div>`;
+  }).join('');
+
+  // Show dialog with all read alerts
+  $q.dialog({
+    title: 'All Read Alerts',
+    message: `<div class="q-pa-md">${alertsList}</div>`,
+    html: true,
+    style: 'width: 500px; max-width: 80vw',
+    ok: {
+      label: 'Close',
+      flat: true,
+      color: 'primary'
+    }
+  });
+}
+
+/**
+ * Marks all alerts as read
+ */
 function markAllAsRead() {
   systemAlerts.value = systemAlerts.value.map(alert => ({
     ...alert,
@@ -474,7 +642,7 @@ function markAllAsRead() {
   }));
 }
 
-// Update handleAlertAction to mark alerts as read with type safety
+// Update handleAlertAction to handle alert clicks
 async function handleAlertAction(alertId: string) {
   try {
     // Mark the alert as read
@@ -596,5 +764,62 @@ async function handleAlertAction(alertId: string) {
 .notif-badge,
 .notif-count {
   display: none !important;
+}
+
+/* Alert styling */
+.alert-item {
+  transition: all 0.3s ease;
+}
+
+.alert-unread {
+  border-left: 4px solid;
+  background-color: rgba(var(--q-primary-rgb), 0.05);
+}
+
+.alert-unread-error {
+  border-left-color: var(--q-negative);
+}
+
+.alert-unread-warning {
+  border-left-color: var(--q-warning);
+}
+
+.alert-unread-info {
+  border-left-color: var(--q-info);
+}
+
+.alert-unread-success {
+  border-left-color: var(--q-positive);
+}
+
+.alert-read {
+  opacity: 0.7;
+  background-color: transparent;
+  border-left: 4px solid transparent;
+}
+
+.q-dark .alert-unread {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.q-dark .alert-read {
+  background-color: transparent;
+  opacity: 0.5;
+}
+
+.alert-title-unread {
+  font-weight: 600;
+}
+
+.alert-title-read {
+  font-weight: 400;
+}
+
+.alert-icon-unread {
+  transform: scale(1.1);
+}
+
+.alert-icon-read {
+  opacity: 0.7;
 }
 </style>
