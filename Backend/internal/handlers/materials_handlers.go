@@ -7,6 +7,7 @@ import (
 	"oop/internal/middleware"
 	"oop/internal/models"
 	"oop/internal/repositories"
+	"oop/internal/config"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -144,7 +145,7 @@ func (h *MaterialHandlers) CreateMaterialHandler(c *fiber.Ctx) error {
 
 	// Handle empty or null image by using default from repository
 	if newMaterial.Image == "null" || newMaterial.Image == "" {
-		newMaterial.Image = repositories.DefaultImageURL
+		newMaterial.Image = config.DefaultImageURL
 	}
 
 	id, err := h.Repo.Create(&newMaterial)
@@ -215,7 +216,7 @@ func (h *MaterialHandlers) UpdateMaterialHandler(c *fiber.Ctx) error {
 
 	// Handle empty or null image by using default from repository
 	if updatedMaterial.Image == "null" || updatedMaterial.Image == "" {
-		updatedMaterial.Image = repositories.DefaultImageURL
+		updatedMaterial.Image = config.DefaultImageURL
 	}
 
 	err = h.Repo.Update(&updatedMaterial)

@@ -7,6 +7,7 @@ import (
 	"oop/internal/models"
 	"oop/internal/repositories"
 	"strings"
+	"oop/internal/config"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -152,7 +153,7 @@ func (h *CabsHandlers) AddCab(c *fiber.Ctx) error {
 	
 	// Handle empty or null image with default image URL
 	if cab.Image == "null" || cab.Image == "" {
-		cab.Image = repositories.DefaultImageURL
+		cab.Image = config.DefaultImageURL
 	}
 
 	// Call repository to add the new cab
@@ -222,7 +223,7 @@ func (h *CabsHandlers) UpdateCab(c *fiber.Ctx) error {
 	
 	// Handle empty or null image with default image URL
 	if updatedCabData.Image == "null" || updatedCabData.Image == "" {
-		updatedCabData.Image = repositories.DefaultImageURL
+		updatedCabData.Image = config.DefaultImageURL
 	}
 
 	// Call repository to update the cab

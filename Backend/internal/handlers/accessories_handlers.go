@@ -8,6 +8,7 @@ import (
 	"oop/internal/models"
 	"oop/internal/repositories"
 	"strings"
+	"oop/internal/config"
 
 	// Added for Timestamp in ErrorResponse/SuccessResponse
 	"github.com/gofiber/fiber/v2"
@@ -164,7 +165,7 @@ func (h *AccessoriesHandler) CreateAccessory(c *fiber.Ctx) error {
 
 	// Handle null or empty image with default image URL
 	if input.Image == "null" || input.Image == "" {
-		input.Image = repositories.DefaultImageURL
+		input.Image = config.DefaultImageURL
 	}
 
 	// Create accessory
@@ -232,7 +233,7 @@ func (h *AccessoriesHandler) UpdateAccessory(c *fiber.Ctx) error {
 	// Handle null image values
 	if input.Image != nil {
 		if *input.Image == "null" || *input.Image == "" {
-			defaultImage := repositories.DefaultImageURL
+			defaultImage := config.DefaultImageURL
 			input.Image = &defaultImage
 		}
 	}
