@@ -8,7 +8,7 @@
       :to="to"
       class="text-soft-light q-hoverable"
       :active="$route.path === to"
-      :class="{ 'text-dark': $route.path === to && !isDark, 'text-white': $route.path === to && isDark }"
+      :class="{ 'text-dark': $route.path === to && !isDark, 'text-white': $route.path === to && isDark, 'active-bold': $route.path === to }"
       :exact="exact"
     >
       <q-item-section
@@ -40,7 +40,7 @@
           :to="child.to"
           clickable
           class="text-soft-light q-hoverable"
-          :class="{ 'text-dark': $route.path === child.to && !isDark, 'text-white': $route.path === child.to && isDark }"
+          :class="{ 'text-dark': $route.path === child.to && !isDark, 'text-white': $route.path === child.to && isDark, 'active-bold': $route.path === child.to }"
         >
           <q-item-section avatar v-if="child.icon">
             <q-icon :name="child.icon" />
@@ -70,5 +70,9 @@ withDefaults(defineProps<menuItemsProps & { isDark: boolean }>(), {
 <style scoped>
 .q-expansion-item :deep(.q-expansion-item__content) {
   padding-left: 16px;
+}
+
+.active-bold {
+  font-weight: 700;
 }
 </style>
