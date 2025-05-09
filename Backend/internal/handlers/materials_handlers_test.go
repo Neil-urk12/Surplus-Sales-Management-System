@@ -24,6 +24,11 @@ type MockMaterialRepository struct {
 	mock.Mock
 }
 
+// GetPaginated implements repositories.MaterialRepository.
+func (m *MockMaterialRepository) GetPaginated(page int, limit int, searchTerm string, category string, supplier string, status string) ([]models.Material, int64, error) {
+	panic("unimplemented")
+}
+
 func (m *MockMaterialRepository) GetAll(searchTerm string, category string, supplier string, status string) ([]models.Material, error) {
 	args := m.Called(searchTerm, category, supplier, status)
 	return args.Get(0).([]models.Material), args.Error(1)

@@ -14,6 +14,7 @@ import type {
 import { api } from 'boot/axios'
 import { useAuthStore } from 'src/stores/auth'
 import { AxiosError } from 'axios';
+import type { QTableProps } from 'quasar'
 
 export type { MaterialRow, NewMaterialInput } from 'src/types/materials'
 
@@ -48,20 +49,7 @@ export const useMaterialsStore = defineStore('materials', () => {
       console.error('No auth token found for initializing materials.')
       return
     }
-    try {
-      isLoading.value = true
-      const response = await api.get<MaterialRow[]>('/api/materials', {
-        headers: {
-          Authorization: `Bearer ${authStore.token}`
-        }
-      })
-      materialRows.value = response.data
-    } catch (error) {
-      console.error('Error initializing materials:', error)
-      materialRows.value = []
-    } finally {
-      isLoading.value = false
-    }
+    await onRequest({ pagination: pagination.value })
   }
 
   /**
@@ -337,6 +325,49 @@ export const useMaterialsStore = defineStore('materials', () => {
     }
   }
 
+  const pagination = ref<QTableProps['pagination']>({
+    sortBy: 'id',
+    descending: false,
+    page: 1,
+    rowsPerPage: 10,
+    rowsNumber: 0
+  })
+
+  async function onRequest(props: { pagination: QTableProps['pagination'] }) {
+    if (!props.pagination) return
+
+    const { page = 1, rowsPerPage = 10 } = props.pagination
+    try {
+      isLoading.value = true
+      const response = await api.get('/api/materials/paginated', {
+        params: {
+          page,
+          limit: rowsPerPage,
+          search: materialSearch.value,
+          category: filterCategory.value,
+          supplier: filterSupplier.value,
+          status: filterStatus.value
+        },
+        headers: {
+          Authorization: `Bearer ${authStore.token}`
+        }
+      })
+
+      materialRows.value = response.data.materials
+      pagination.value = {
+        ...pagination.value,
+        page,
+        rowsPerPage,
+        rowsNumber: response.data.total
+      }
+    } catch (error) {
+      console.error('Error fetching paginated materials:', error)
+      materialRows.value = []
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   return {
     materialRows,
     isLoading,
@@ -354,6 +385,8 @@ export const useMaterialsStore = defineStore('materials', () => {
     updateMaterialStatus,
     resetFilters,
     deleteMaterial,
-    updateMaterial
+    updateMaterial,
+    pagination,
+    onRequest
   }
 })

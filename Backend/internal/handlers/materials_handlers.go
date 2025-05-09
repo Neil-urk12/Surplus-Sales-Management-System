@@ -33,11 +33,12 @@ func (h *MaterialHandlers) RegisterMaterialRoutes(r fiber.Router) {
 	// Group routes under '/materials'
 	materialsGroup := r.Group("/materials", authRequired)
 
-	materialsGroup.Get("/", h.GetMaterialsHandler)         // GET /api/materials?params...
-	materialsGroup.Get("/:id", h.GetMaterialHandler)       // GET /api/materials/{id}
-	materialsGroup.Post("/", h.CreateMaterialHandler)      // POST /api/materials
-	materialsGroup.Put("/:id", h.UpdateMaterialHandler)    // PUT /api/materials/{id}
-	materialsGroup.Delete("/:id", h.DeleteMaterialHandler) // DELETE /api/materials/{id}
+	materialsGroup.Get("/", h.GetMaterialsHandler)                   // GET /api/materials?params...
+	materialsGroup.Get("/paginated", h.GetPaginatedMaterialsHandler) // GET /api/materials/paginated?page=1&limit=10
+	materialsGroup.Get("/:id", h.GetMaterialHandler)                 // GET /api/materials/{id}
+	materialsGroup.Post("/", h.CreateMaterialHandler)                // POST /api/materials
+	materialsGroup.Put("/:id", h.UpdateMaterialHandler)              // PUT /api/materials/{id}
+	materialsGroup.Delete("/:id", h.DeleteMaterialHandler)           // DELETE /api/materials/{id}
 }
 
 // GetMaterialsHandler handles requests to retrieve multiple materials with filtering
@@ -191,4 +192,30 @@ func (h *MaterialHandlers) DeleteMaterialHandler(c *fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusNoContent) // Standard response for successful deletion
+}
+
+// GetPaginatedMaterialsHandler handles requests to retrieve paginated materials
+func (h *MaterialHandlers) GetPaginatedMaterialsHandler(c *fiber.Ctx) error {
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	searchTerm := c.Query("search")
+	category := c.Query("category")
+	supplier := c.Query("supplier")
+	status := c.Query("status")
+
+	materials, total, err := h.Repo.GetPaginated(page, limit, searchTerm, category, supplier, status)
+	if err != nil {
+		log.Printf("Error getting paginated materials: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to retrieve materials",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"materials":  materials,
+		"total":      total,
+		"page":       page,
+		"limit":      limit,
+		"totalPages": (total + int64(limit) - 1) / int64(limit),
+	})
 }

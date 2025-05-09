@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, defineAsyncComponent } from 'vue';
-import type { QTableColumn, QTableProps } from 'quasar';
+import type { QTableColumn } from 'quasar';
 import ProductCardModal from 'src/components/Global/ProductModal.vue'
 import { useQuasar } from 'quasar';
 import { useMaterialsStore } from 'src/stores/materials';
-import type { MaterialRow, NewMaterialInput } from 'src/stores/materials'; 
-import type { UpdateMaterialInput } from 'src/types/materials'; 
+import type { MaterialRow, NewMaterialInput } from 'src/stores/materials';
+import type { UpdateMaterialInput } from 'src/types/materials';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
 const DeleteDialog = defineAsyncComponent(() => import('src/components/Global/DeleteDialog.vue'));
@@ -90,15 +90,15 @@ const materialColumns: QTableColumn[] = [
 const showMaterial = ref(false)
 const showAddDialog = ref(false)
 
-const onMaterialRowClick: QTableProps['onRowClick'] = (evt, row) => {
-  // Check if the click originated from the action button or its menu
-  const target = evt.target as HTMLElement;
-  if (target.closest('.action-button') || target.closest('.action-menu')) {
-    return; // Do nothing if clicked on action button or its menu
-  }
-  selectedMaterial.value = row as MaterialRow
-  showMaterial.value = true
-}
+// const onMaterialRowClick: QTableProps['onRowClick'] = (evt, row) => {
+//   // Check if the click originated from the action button or its menu
+//   const target = evt.target as HTMLElement;
+//   if (target.closest('.action-button') || target.closest('.action-menu')) {
+//     return; // Do nothing if clicked on action button or its menu
+//   }
+//   selectedMaterial.value = row as MaterialRow
+//   showMaterial.value = true
+// }
 
 function addMaterialToCart() {
   console.log('added material to cart', selectedMaterial.value.name)
@@ -771,19 +771,36 @@ onMounted(async () => {
           flat
           bordered
           title="Materials"
-          :rows="store.filteredMaterialRows"
+          :rows="store.materialRows"
           :columns="materialColumns"
           row-key="id"
-          :filter="store.materialSearch"
-          @row-click="onMaterialRowClick"
-          :pagination="{ rowsPerPage: 5 }"
+          :pagination="store.pagination"
+          @request="store.onRequest"
           :loading="store.isLoading"
+          binary-state-sort
+          :rows-per-page-options="[10, 20, 50, 0]"
         >
           <template v-slot:loading>
             <q-inner-loading showing color="primary">
               <q-spinner-gears size="50px" color="primary" />
             </q-inner-loading>
           </template>
+
+          <template v-slot:bottom>
+            <div class="row items-center justify-end q-mt-md">
+              <q-pagination
+                :model-value="store.pagination?.page || 1"
+                :max="store.pagination ? Math.ceil((store.pagination.rowsNumber || 0) / (store.pagination.rowsPerPage || 10)) : 1"
+                :max-pages="6"
+                boundary-numbers
+                direction-links
+                flat
+                color="primary"
+                @update:model-value="(val) => store.onRequest({ pagination: { ...store.pagination, page: val } })"
+              />
+            </div>
+          </template>
+
           <template v-slot:body-cell-actions="props">
             <q-td :props="props" auto-width>
               <q-btn
