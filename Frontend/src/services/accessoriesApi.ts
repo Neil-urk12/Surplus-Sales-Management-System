@@ -13,8 +13,15 @@ export const accessoriesApi = {
      * @returns Promise with array of accessories
      */
     getAllAccessories: async (): Promise<AccessoryRow[]> => {
-        const response = await axios.get<AccessoriesListResponse>(`${API_URL}/accessories`);
-        return response.data.data || [];
+        console.log('Calling API endpoint:', `${API_URL}/accessories`);
+        try {
+            const response = await axios.get<AccessoriesListResponse>(`${API_URL}/accessories`);
+            console.log('API response:', response);
+            return response.data.data || [];
+        } catch (error) {
+            console.error('API call failed:', error);
+            throw error;
+        }
     },
 
     /**

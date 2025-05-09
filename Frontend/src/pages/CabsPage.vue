@@ -12,6 +12,7 @@ import { useQuasar } from 'quasar';
 import { useCabsStore } from 'src/stores/cabs';
 import { useAccessoriesStore } from 'src/stores/accessories';
 import { useCustomerStore } from 'src/stores/customerStore';
+import { useDashboardStore } from 'src/stores/dashboardStore';
 import type { CabsRow, NewCabInput, CabStatus, CabMake, CabColor } from 'src/types/cabs';
 import { getDefaultImage } from 'src/config/defaultImages';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
@@ -23,6 +24,7 @@ const $q = useQuasar();
 const store = useCabsStore();
 const accessoriesStore = useAccessoriesStore();
 const customerStore = useCustomerStore();
+const dashboardStore = useDashboardStore();
 const showFilterDialog = ref(false);
 const showAddDialog = ref(false);
 const showEditDialog = ref(false);
@@ -294,6 +296,68 @@ async function processCabSale(
       'critical'
     );
   }
+  
+  // Calculate the total sale amount including the cab and accessories
+  const cabTotal = cab.price * soldQuantity;
+  const accessoriesTotal = accessories.reduce((total, acc) => total + (acc.price * acc.quantity), 0);
+  
+  // Get customer info for the activity record
+  const customer = customerStore.customers.find(c => c.id === customerId);
+  const customerName = customer ? customer.fullName : 'a customer';
+  
+  // Log the total sales value before recording the sale
+  console.log('Current totalSales before recording:', dashboardStore.totalSales);
+  console.log('About to record cab sale:', {
+    itemName: cab.name,
+    amount: cabTotal,
+    type: 'cab',
+    customerName
+  });
+  
+  // Record the cab sale in the dashboard
+  dashboardStore.recordSale({
+    itemName: cab.name,
+    amount: cabTotal,
+    quantity: soldQuantity,
+    type: 'cab',
+    customerName
+  });
+  
+  // Log the total sales value after recording the cab sale
+  console.log('totalSales after cab sale:', dashboardStore.totalSales);
+  console.log('Cab quantity sold and recorded in trend data:', soldQuantity);
+  
+  // If accessories were sold, record them separately
+  if (accessoriesTotal > 0) {
+    // Create a concatenated name for multiple accessories
+    const accessoryNames = accessories.map(a => a.name).join(', ');
+    
+    // Calculate total quantity of accessories
+    const totalAccessoryQuantity = accessories.reduce((total, acc) => total + acc.quantity, 0);
+    
+    console.log('About to record accessories sale:', {
+      itemName: accessoryNames,
+      amount: accessoriesTotal,
+      quantity: totalAccessoryQuantity,
+      type: 'accessory',
+      customerName
+    });
+    
+    // Record the accessories sale
+    dashboardStore.recordSale({
+      itemName: accessoryNames,
+      amount: accessoriesTotal,
+      quantity: totalAccessoryQuantity,
+      type: 'accessory',
+      customerName
+    });
+    
+    // Log the total sales value after recording the accessories sale
+    console.log('totalSales after accessories sale:', dashboardStore.totalSales);
+  }
+  
+  // Log the final total sales value
+  console.log('Final totalSales after all sales recorded:', dashboardStore.totalSales);
 }
 
 async function handleConfirmSell(payload: {
@@ -316,8 +380,20 @@ async function handleConfirmSell(payload: {
       payload.accessories
     );
 
+    // Calculate total value for the notification
+    const cabTotal = cabToSell.value.price * payload.quantity;
+    const accessoriesTotal = payload.accessories.reduce((total, acc) => total + (acc.price * acc.quantity), 0);
+    const totalAmount = cabTotal + accessoriesTotal;
+    
+    // Format the price for display
+    const formattedTotal = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0
+    }).format(totalAmount);
+
     showSellDialog.value = false;
-    operationNotifications.update.success(`Sold ${payload.quantity} ${cabToSell.value.name}`);
+    operationNotifications.update.success(`Sold ${payload.quantity} ${cabToSell.value.name} for ${formattedTotal}`);
   } catch (error) {
     const { type } = errorHandler.handleOperation(error, 'update', 'cab sale');
 

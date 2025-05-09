@@ -28,14 +28,19 @@ export const useAccessoriesStore = defineStore('accessories', () => {
     try {
       isLoading.value = true
       apiError.value = null
-
+      
+      console.log('Initializing accessories, calling API...');
+      
       // Replace with API call using our service
       const accessories = await accessoriesApi.getAllAccessories()
+      console.log('API response received:', accessories);
       accessoryRows.value = accessories
+      console.log('Accessories loaded successfully, count:', accessories.length);
     } catch (error: unknown) {
       console.error('Error initializing accessories:', error);
       if (axios.isAxiosError(error)) { // Axios specific error handling
         apiError.value = `Failed to load accessories: ${error.response?.status} - ${error.response?.data?.message || 'Unknown error'}`;
+        console.log('Axios error details:', error.response);
       } else if (error instanceof Error) {
         apiError.value = `Failed to load accessories: ${error.message}`;
       } else {
