@@ -2,7 +2,7 @@
  * API service for sales operations
  */
 import { api } from 'src/boot/axios';
-import type { CabSalePayload, CabSale, SalesOperationResponse, Sale } from 'src/types/salesTypes';
+import type { CabSalePayload, CabSale, SalesOperationResponse, Sale, SaleItem, SellCabResponse } from 'src/types/salesTypes';
 
 /**
  * Service for handling sales-related API calls
@@ -14,20 +14,12 @@ export const salesService = {
    * @param payload - Sale details including customer, quantity, and accessories
    * @returns Promise with the sale operation response
    */
-  async sellCab(cabId: number, payload: CabSalePayload): Promise<SalesOperationResponse> {
+  async sellCab(cabId: number, payload: CabSalePayload): Promise<SellCabResponse> {
     try {
       const response = await api.post<CabSale>(`/api/cabs/${cabId}/sell`, payload);
       return {
         success: true,
-        sale: {
-          id: response.data.cabId.toString(), // Using cabId as a placeholder for sale ID
-          customerId: response.data.customerId,
-          soldBy: 'system', // This would typically come from the authenticated user
-          saleDate: response.data.saleDate,
-          totalPrice: response.data.totalPrice,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
+        cabSale: response.data
       };
     } catch (error) {
       console.error('Error selling cab:', error);
@@ -79,6 +71,82 @@ export const salesService = {
     } catch (error) {
       console.error(`Error fetching sales for customer ${customerId}:`, error);
       return [];
+    }
+  },
+
+  /**
+   * Get all items for a specific sale
+   * @param saleId - ID of the sale
+   * @returns Promise with array of sale items
+   */
+  async getSaleItems(saleId: string): Promise<SaleItem[]> {
+    try {
+      const response = await api.get<SaleItem[]>(`/api/sales/${saleId}/items`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching items for sale ${saleId}:`, error);
+      return [];
+    }
+  },
+
+  /**
+   * Create a new sale
+   * @param saleData - Data for the new sale
+   * @returns Promise with the sale operation response
+   */
+  async createSale(saleData: Sale): Promise<SalesOperationResponse> {
+    try {
+      const response = await api.post<Sale>('/api/sales', saleData);
+      return {
+        success: true,
+        sale: response.data
+      };
+    } catch (error) {
+      console.error('Error creating sale:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create sale'
+      };
+    }
+  },
+
+  /**
+   * Update an existing sale
+   * @param saleId - ID of the sale to update
+   * @param saleData - Updated sale data
+   * @returns Promise with the sale operation response
+   */
+  async updateSale(saleId: string, saleData: Partial<Sale>): Promise<SalesOperationResponse> {
+    try {
+      const response = await api.put<Sale>(`/api/sales/${saleId}`, saleData);
+      return {
+        success: true,
+        sale: response.data
+      };
+    } catch (error) {
+      console.error(`Error updating sale ${saleId}:`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update sale'
+      };
+    }
+  },
+
+  /**
+   * Delete a sale
+   * @param saleId - ID of the sale to delete
+   * @returns Promise with the sale operation response
+   */
+  async deleteSale(saleId: string): Promise<SalesOperationResponse> {
+    try {
+      await api.delete(`/api/sales/${saleId}`);
+      return { success: true };
+    } catch (error) {
+      console.error(`Error deleting sale ${saleId}:`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete sale'
+      };
     }
   }
 };

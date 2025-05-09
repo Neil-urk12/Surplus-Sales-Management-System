@@ -61,3 +61,10 @@ export interface SalesOperationResponse {
   error?: string;
   sale?: Sale;
 }
+
+// SellCabResponse represents the response from selling a cab
+export interface SellCabResponse {
+  success: boolean;
+  error?: string;
+  cabSale?: CabSale;
+}
