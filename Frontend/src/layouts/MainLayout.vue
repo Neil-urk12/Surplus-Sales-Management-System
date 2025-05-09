@@ -356,9 +356,10 @@ async function fetchInventoryAlerts() {
     inventoryAlerts.value = await alertsService.getInventoryAlerts();
 
     // Convert inventory alerts to system alerts
-    const newSystemAlerts: Alert[] = inventoryAlerts.value.map((alert, index) => {
-      // Create a unique ID for each alert
-      const alertId = `inventory-${alert.category.toLowerCase()}-${alert.status.toLowerCase()}-${index}`;
+    const newSystemAlerts: Alert[] = inventoryAlerts.value.map((alert) => {
+      // Create a unique ID for each alert based on category and status
+      // This ensures consistent IDs across refreshes and prevents duplicate IDs
+      const alertId = `inventory-${alert.category.toLowerCase()}-${alert.status.toLowerCase()}`;
 
       // Determine severity based on status
       const severity: AlertSeverity = alert.status === 'Out of Stock' ? 'error' : 'warning';
