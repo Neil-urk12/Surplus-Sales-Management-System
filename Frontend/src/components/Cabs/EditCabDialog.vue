@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue';
 import { useQuasar } from 'quasar';
 import type { PropType } from 'vue';
 import type { CabsRow, NewCabInput } from 'src/types/cabs';
-import { validateAndSanitizeBase64Image } from '../../utils/imageValidation';
+import { validateFileUpload, validateAndSanitizeBase64Image, MAX_IMAGE_SIZE, DEFAULT_MAX_DIMENSION } from '../../utils/imageValidation';
 import { operationNotifications } from '../../utils/notifications';
 
 const props = defineProps({
@@ -37,10 +37,8 @@ const emit = defineEmits<{
 const $q = useQuasar();
 
 // Constants for file validation
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif'] as const;
-const MAX_DIMENSION = 4096; // Maximum image dimension in pixels
-type AllowedMimeType = typeof ALLOWED_TYPES[number];
+const MAX_FILE_SIZE = MAX_IMAGE_SIZE;
+const MAX_DIMENSION = DEFAULT_MAX_DIMENSION;
 
 // --- Local State --- 
 // Use a local ref to store editable data, initialized from prop
@@ -250,109 +248,40 @@ async function validateImageUrl(url: string): Promise<boolean> {
     }
 }
 
-async function validateFile(file: File): Promise<{ isValid: boolean; error?: string }> {
-    try {
-        if (!file) return { isValid: false, error: 'No file provided.' };
-        if (file.size > MAX_FILE_SIZE) return { isValid: false, error: `File size exceeds 5MB.` };
-        const validMimeTypes = { 'image/jpeg': [0xFF, 0xD8, 0xFF], 'image/png': [0x89, 0x50, 0x4E, 0x47], 'image/gif': [0x47, 0x49, 0x46, 0x38] };
-        if (!Object.keys(validMimeTypes).includes(file.type)) return { isValid: false, error: `Invalid file type.` };
-        const arrayBuffer = await file.slice(0, 4).arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        const expectedSignature = validMimeTypes[file.type as keyof typeof validMimeTypes];
-        if (!expectedSignature.every((byte, i) => byte === bytes[i])) return { isValid: false, error: 'File content mismatch.' };
-        const dimensionValidation = await validateImageDimensions(file);
-        if (!dimensionValidation.isValid) return dimensionValidation;
-        return { isValid: true };
-    } catch (error) { console.error('File validation error:', error); return { isValid: false, error: 'Validation error.' }; }
-
-}
-
-function validateImageDimensions(file: File): Promise<{ isValid: boolean; error?: string }> {
-    return new Promise((resolve) => {
-        const img = new Image();
-        const objectUrl = URL.createObjectURL(file);
-        const cleanup = () => URL.revokeObjectURL(objectUrl);
-        let timeout: NodeJS.Timeout | null = null;
-
-        const resolveClean = (result: { isValid: boolean; error?: string }) => {
-            if (timeout) clearTimeout(timeout);
-            cleanup();
-            resolve(result);
-        };
-
-        img.onload = () => {
-            if (img.width > MAX_DIMENSION || img.height > MAX_DIMENSION) {
-                resolveClean({
-                    isValid: false,
-                    error: `Image dimensions exceed maximum of ${MAX_DIMENSION}px`
-                });
-            } else {
-                resolveClean({ isValid: true });
-            }
-        };
-
-        img.onerror = () => resolveClean({ isValid: false, error: 'Error loading image.' });
-        timeout = setTimeout(() => resolveClean({ isValid: false, error: 'Validation timed out.' }), 10000);
-        img.src = objectUrl;
-    });
-}
-
-async function handleFile(file: File) {
+// --- Image Handling ---
+function handleFile(file: File) {
     isUploadingImage.value = true;
-    previewUrl.value = ''; // Clear preview during processing
-    try {
-        const validation = await validateFile(file);
-        if (!validation.isValid) {
-            $q.notify({ type: 'negative', message: validation.error || 'Invalid file', position: 'top' });
-            clearImageInput();
-            isUploadingImage.value = false;
-            return;
-        }
-        const reader = new FileReader();
-
-        reader.onload = (e) => {
-            try {
-                if (e.target?.result) {
-                    const base64String = e.target.result as string;
-                    // Only do basic validation during upload
-                    const base64ValidationResult = validateAndSanitizeBase64Image(base64String);
-                    if (!base64ValidationResult.isValid) {
-                        $q.notify({ type: 'negative', message: base64ValidationResult.error || 'Invalid image data', position: 'top' });
-                        clearImageInput();
-                    } else {
-                        // Store the original base64 string for later sanitization
-                        localCabData.value.image = base64String;
-                        previewUrl.value = base64String;
-                        imageUrlValid.value = true;
-                        $q.notify({ type: 'positive', message: 'Image uploaded successfully', position: 'top', timeout: 2000 });
-                    }
-                } else {
-                    clearImageInput();
-                }
-            } catch (onloadError) {
-                console.error('Error inside FileReader onload:', onloadError);
-                $q.notify({ type: 'negative', message: 'Error processing image data.', position: 'top' });
+    
+    validateFileUpload(file, {
+        maxFileSize: MAX_FILE_SIZE,
+        maxDimension: MAX_DIMENSION
+    })
+        .then(result => {
+            if (result.isValid && result.sanitizedData) {
+                localCabData.value.image = result.sanitizedData;
+                previewUrl.value = result.sanitizedData;
+                imageUrlValid.value = true;
+            } else {
+                $q.notify({
+                    color: 'negative',
+                    message: result.error || 'Invalid image',
+                    position: 'top',
+                });
                 clearImageInput();
-            } finally {
-                isUploadingImage.value = false;
             }
-        }
-
-        reader.onerror = (error) => {
-            console.error('FileReader error:', error);
-            $q.notify({ type: 'negative', message: 'Error reading file.', position: 'top' });
+        })
+        .catch(error => {
+            console.error('Error processing image:', error);
+            $q.notify({
+                color: 'negative',
+                message: 'Error processing image',
+                position: 'top',
+            });
             clearImageInput();
+        })
+        .finally(() => {
             isUploadingImage.value = false;
-        };
-
-        reader.readAsDataURL(file);
-
-    } catch (error) {
-        console.error('Error in handleFile:', error);
-        $q.notify({ type: 'negative', message: 'An unexpected error occurred handling the file.', position: 'top' });
-        clearImageInput();
-        isUploadingImage.value = false;
-    }
+        });
 }
 
 function removeImage(event?: Event) {
@@ -374,13 +303,11 @@ function clearImageInput() {
     }
 }
 
-async function handleFileSelect(event: Event) {
+function handleFileSelect(event: Event) {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
         const file = input.files[0];
-        if (!ALLOWED_TYPES.includes(file.type as AllowedMimeType)) { clearImageInput(); return; }
-        if (file.size > MAX_FILE_SIZE) { clearImageInput(); return; }
-        await handleFile(file);
+        void handleFile(file);
     }
 }
 

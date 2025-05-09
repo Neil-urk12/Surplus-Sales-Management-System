@@ -4,7 +4,7 @@ import type { QTableColumn, QTableProps } from 'quasar';
 import { useQuasar } from 'quasar';
 import { useMaterialsStore } from 'src/stores/materials';
 import type { MaterialRow, NewMaterialInput } from 'src/stores/materials';
-import type { MaterialCategory, MaterialSupplier, MaterialStatus, UpdateMaterialInput } from 'src/types/materials';
+import type { MaterialCategory, MaterialSupplier, MaterialStatus } from 'src/types/materials';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
 const ProductCardModal = defineAsyncComponent(() => import('src/components/Global/ProductModal.vue'));
@@ -142,77 +142,14 @@ async function handleAddMaterial(materialData: NewMaterialInput) {
     }
     
     const result = await store.addMaterial(materialData);
+    
     if (result.success) {
       showAddDialog.value = false;
-      operationNotifications.add.success(`material: ${materialData.name}`);
     }
   } catch (error) {
     console.error('Error adding material:', error);
     operationNotifications.add.error('material');
   }
-}
-
-// Add a dedicated function to close the edit dialog
-function closeEditDialog() {
-  console.log('closeEditDialog called in MaterialsPage');
-  showEditDialog.value = false;
-  materialToEdit.value = {
-    id: 0,
-    name: '',
-    category: 'Building',
-    supplier: 'Steel Co.',
-    quantity: 0,
-    status: 'Out of Stock',
-    image: ''
-  };
-}
-
-async function handleUpdateMaterial(materialData: UpdateMaterialInput) {
-  try {
-    console.log('handleUpdateMaterial called in MaterialsPage');
-    
-    // Validate material selection
-    if (!materialToEdit.value || !materialToEdit.value.id) {
-      throw new Error('No material selected for update or missing ID');
-    }
-    
-    // Validate material data
-    if (!materialData.name || materialData.name.trim() === '') {
-      operationNotifications.validation.error('Material name is required');
-      return;
-    }
-    
-    // Validate category and supplier
-    if (!materialData.category) {
-      operationNotifications.validation.error('Material category is required');
-      return;
-    }
-    
-    if (!materialData.supplier) {
-      operationNotifications.validation.error('Material supplier is required');
-      return;
-    }
-    
-    // Ensure image is provided
-    if (!materialData.image) {
-      materialData.image = defaultImageUrl;
-    }
-
-    const result = await store.updateMaterial(materialToEdit.value.id, materialData);
-    console.log('Update result:', result);
-    if (result.success) {
-      closeEditDialog(); // Use the dedicated function
-      operationNotifications.update.success(`material: ${materialData.name}`);
-    }
-  } catch (error) {
-    console.error('Error updating material:', error);
-    operationNotifications.update.error('material');
-  }
-}
-
-function editMaterial(material: MaterialRow) {
-  materialToEdit.value = { ...material };
-  showEditDialog.value = true;
 }
 
 // Add watch for quantity changes
@@ -305,7 +242,6 @@ async function confirmDelete() {
       status: 'Out of Stock',
       image: ''
     };
-    operationNotifications.delete.success('material');
   } catch (error) {
     console.error('Error deleting material:', error);
     operationNotifications.delete.error('material');
@@ -314,6 +250,48 @@ async function confirmDelete() {
 
 // Add ref for edit dialog
 const showEditDialog = ref(false);
+
+// Function to handle edit material
+function editMaterial(material: MaterialRow) {
+  materialToEdit.value = { ...material };
+  showEditDialog.value = true;
+}
+
+// Function to handle updating material
+async function handleUpdateMaterial(materialData: NewMaterialInput) {
+  try {
+    // Validate material data
+    if (!materialData.name || materialData.name.trim() === '') {
+      operationNotifications.validation.error('Material name is required');
+      return;
+    }
+    
+    // Validate category and supplier
+    if (!materialData.category) {
+      operationNotifications.validation.error('Material category is required');
+      return;
+    }
+    
+    if (!materialData.supplier) {
+      operationNotifications.validation.error('Material supplier is required');
+      return;
+    }
+    
+    // Ensure image is provided
+    if (!materialData.image) {
+      materialData.image = defaultImageUrl;
+    }
+    
+    const result = await store.updateMaterial(materialToEdit.value.id, materialData);
+    
+    if (result.success) {
+      showEditDialog.value = false;
+    }
+  } catch (error) {
+    console.error('Error updating material:', error);
+    operationNotifications.update.error('material');
+  }
+}
 
 // Update onMounted hook
 onMounted(async () => {

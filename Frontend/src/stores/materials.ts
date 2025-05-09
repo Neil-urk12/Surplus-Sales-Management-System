@@ -15,6 +15,7 @@ import { api } from 'boot/axios'
 import { useAuthStore } from 'src/stores/auth'
 import { AxiosError } from 'axios';
 import { useSearch } from 'src/utils/useSearch';
+import { operationNotifications } from 'src/utils/notifications';
 
 export type { MaterialRow, NewMaterialInput } from 'src/types/materials'
 
@@ -140,7 +141,7 @@ export const useMaterialsStore = defineStore('materials', () => {
    * @returns {MaterialRow[]} The filtered array of material rows.
    */
   const filteredMaterialRows = computed(() => {
-    return materialRows.value.filter(row => {
+    const filtered = materialRows.value.filter(row => {
       const matchesCategory = !filterCategory.value || row.category === filterCategory.value
       const matchesSupplier = !filterSupplier.value || row.supplier === filterSupplier.value
       const matchesStatus = !filterStatus.value || row.status === filterStatus.value
@@ -151,6 +152,9 @@ export const useMaterialsStore = defineStore('materials', () => {
 
       return matchesCategory && matchesSupplier && matchesStatus && matchesSearch
     })
+    
+    // Sort by ID to ensure items are in order with new items (highest IDs) at the end
+    return filtered.sort((a, b) => a.id - b.id)
   })
 
   /**
@@ -178,8 +182,9 @@ export const useMaterialsStore = defineStore('materials', () => {
         }
       })
 
+      // Add the material returned from the server (with server-generated ID)
       materialRows.value.push(response.data)
-
+      operationNotifications.add.success(`material: ${material.name}`);
       return { success: true, id: response.data.id }
     } catch (error: unknown) {
       console.error('Error adding material:', error)
@@ -256,9 +261,13 @@ export const useMaterialsStore = defineStore('materials', () => {
         }
       });
 
-      const index = materialRows.value.indexOf(existingMaterial);
-      materialRows.value.splice(index, 1);
-
+      // Remove the material from the local state without affecting other IDs
+      const index = materialRows.value.findIndex(m => m.id === id);
+      if (index !== -1) {
+        materialRows.value.splice(index, 1);
+      }
+      
+      operationNotifications.delete.success('material');
       return { success: true };
     } catch (error: unknown) {
       console.error('Error deleting material:', error);
@@ -312,7 +321,7 @@ export const useMaterialsStore = defineStore('materials', () => {
       });
 
       materialRows.value[index] = response.data;
-
+      operationNotifications.update.success(`material: ${materialUpdate.name}`);
       return { success: true };
     } catch (error: unknown) {
       console.error('Error updating material:', error);

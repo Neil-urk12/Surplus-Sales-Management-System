@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, defineProps, defineEmits } from 'vue';
 import { useQuasar } from 'quasar';
-import { validateAndSanitizeBase64Image } from 'src/utils/imageValidation';
+import { validateFileUpload, MAX_IMAGE_SIZE, DEFAULT_MAX_DIMENSION } from 'src/utils/imageValidation';
 
 const props = defineProps({
   modelValue: {
@@ -23,11 +23,8 @@ const isUploadingImage = ref(false);
 const isDragging = ref(false);
 
 // Constants for validation
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif'] as const;
-const MAX_DIMENSION = 4096; // Maximum image dimension in pixels
-
-type AllowedMimeType = typeof ALLOWED_TYPES[number];
+const MAX_FILE_SIZE = MAX_IMAGE_SIZE;
+const MAX_DIMENSION = DEFAULT_MAX_DIMENSION;
 
 // Watch for prop changes
 watch(() => props.modelValue, (newValue) => {
@@ -64,9 +61,14 @@ function handleDrop(event: DragEvent) {
 async function handleFile(file: File) {
   try {
     isUploadingImage.value = true;
-
     console.log('Starting file validation for:', file.name);
-    const validation = await validateFile(file);
+    
+    // Use the new validateFileUpload function
+    const validation = await validateFileUpload(file, {
+      maxFileSize: MAX_FILE_SIZE,
+      maxDimension: MAX_DIMENSION
+    });
+    
     if (!validation.isValid) {
       console.error('File validation failed:', validation.error);
       $q.notify({
@@ -77,61 +79,21 @@ async function handleFile(file: File) {
       });
       return;
     }
+    
     console.log('File validation passed');
-
-    // Create a temporary URL for preview
-    console.log('Creating preview URL');
-    const tempPreviewUrl = URL.createObjectURL(file);
-    previewUrl.value = tempPreviewUrl;
-    console.log('Preview URL set:', previewUrl.value);
-
-    console.log('Starting FileReader');
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      console.log('FileReader loaded');
-      if (e.target?.result) {
-        const base64String = e.target.result as string;
-        console.log('Processing base64 data');
-        const base64ValidationResult = validateAndSanitizeBase64Image(base64String);
-
-        if (!base64ValidationResult.isValid) {
-          console.error('Base64 validation failed:', base64ValidationResult.error);
-          $q.notify({
-            type: 'negative',
-            message: base64ValidationResult.error || 'Invalid image data',
-            position: 'top',
-            timeout: 3000
-          });
-          previewUrl.value = props.defaultImageUrl;
-          return;
-        }
-
-        console.log('Base64 validation passed, updating image');
-        emit('update:modelValue', base64ValidationResult.sanitizedData);
-
-        $q.notify({
-          type: 'positive',
-          message: 'Image uploaded successfully',
-          position: 'top',
-          timeout: 2000
-        });
-      }
-    };
-
-    reader.onerror = (error) => {
-      console.error('FileReader error:', error);
-      previewUrl.value = props.defaultImageUrl;
+    
+    // If validation passed, we already have the sanitized data
+    if (validation.sanitizedData) {
+      previewUrl.value = validation.sanitizedData;
+      emit('update:modelValue', validation.sanitizedData);
+      
       $q.notify({
-        type: 'negative',
-        message: 'Error reading file. Please try again.',
+        type: 'positive',
+        message: 'Image uploaded successfully',
         position: 'top',
-        timeout: 3000
+        timeout: 2000
       });
-    };
-
-    console.log('Starting file read');
-    reader.readAsDataURL(file);
+    }
   } catch (error) {
     console.error('Error in handleFile:', error);
     previewUrl.value = props.defaultImageUrl;
@@ -144,143 +106,6 @@ async function handleFile(file: File) {
   } finally {
     isUploadingImage.value = false;
   }
-}
-
-// Validate file function
-async function validateFile(file: File): Promise<{ isValid: boolean; error?: string }> {
-  try {
-    console.log('Starting file validation:', {
-      name: file.name,
-      type: file.type,
-      size: file.size
-    });
-
-    // Step 1: Basic file validation
-    if (!file) {
-      console.error('Validation failed: No file provided');
-      return { isValid: false, error: 'No file provided.' };
-    }
-
-    // Step 2: Size validation
-    if (file.size > MAX_FILE_SIZE) {
-      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      console.error(`Validation failed: File size ${sizeMB}MB exceeds limit`);
-      return {
-        isValid: false,
-        error: `File size (${sizeMB}MB) exceeds 5MB limit. Please choose a smaller file.`
-      };
-    }
-
-    // Step 3: Enhanced MIME type validation with file signature check
-    const validMimeTypes = {
-      'image/jpeg': [0xFF, 0xD8, 0xFF],
-      'image/png': [0x89, 0x50, 0x4E, 0x47],
-      'image/gif': [0x47, 0x49, 0x46, 0x38]
-    };
-
-    if (!Object.keys(validMimeTypes).includes(file.type)) {
-      console.error(`Validation failed: Invalid file type ${file.type}`);
-      return {
-        isValid: false,
-        error: `Invalid file type: ${file.type}. Please upload a JPG, PNG, or GIF image.`
-      };
-    }
-
-    // Step 4: File signature validation
-    const arrayBuffer = await file.slice(0, 4).arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    const expectedSignature = validMimeTypes[file.type as keyof typeof validMimeTypes];
-
-    const isValidSignature = expectedSignature.every((byte, i) => byte === bytes[i]);
-    if (!isValidSignature) {
-      console.error('Validation failed: File signature mismatch');
-      return {
-        isValid: false,
-        error: 'Invalid image format. The file content does not match its extension.'
-      };
-    }
-
-    // Step 5: Validate image dimensions
-    try {
-      const dimensionValidation = await validateImageDimensions(file);
-      if (!dimensionValidation.isValid) {
-        console.error('Validation failed:', dimensionValidation.error);
-        return dimensionValidation;
-      }
-    } catch (error) {
-      console.error('Error validating image dimensions:', error);
-      return {
-        isValid: false,
-        error: 'Error validating image dimensions. Please try again.'
-      };
-    }
-
-    console.log('File validation passed successfully');
-    return { isValid: true };
-  } catch (error) {
-    console.error('Unexpected error during file validation:', error);
-    return {
-      isValid: false,
-      error: 'An unexpected error occurred during validation. Please try again.'
-    };
-  }
-}
-
-// Validate image dimensions function
-function validateImageDimensions(file: File): Promise<{ isValid: boolean; error?: string }> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
-
-    const cleanup = () => {
-      URL.revokeObjectURL(objectUrl);
-    };
-
-    // Set a timeout to avoid hanging
-    const timeout = setTimeout(() => {
-      cleanup();
-      console.error('Dimension validation timed out');
-      resolve({
-        isValid: false,
-        error: 'Image validation timed out. Please try again.'
-      });
-    }, 10000); // 10 second timeout
-
-    img.onload = () => {
-      clearTimeout(timeout);
-      cleanup();
-      console.log('Image dimensions:', {
-        width: img.width,
-        height: img.height,
-        maxAllowed: MAX_DIMENSION
-      });
-
-      if (img.width > MAX_DIMENSION || img.height > MAX_DIMENSION) {
-        resolve({
-          isValid: false,
-          error: `Image dimensions (${img.width}x${img.height}) cannot exceed ${MAX_DIMENSION}x${MAX_DIMENSION} pixels.`
-        });
-      } else if (img.width === 0 || img.height === 0) {
-        resolve({
-          isValid: false,
-          error: 'Invalid image dimensions.'
-        });
-      } else {
-        resolve({ isValid: true });
-      }
-    };
-
-    img.onerror = () => {
-      clearTimeout(timeout);
-      cleanup();
-      resolve({
-        isValid: false,
-        error: 'Error loading image. Please ensure it is a valid image file.'
-      });
-    };
-
-    img.src = objectUrl;
-  });
 }
 
 // Remove image function
@@ -316,28 +141,6 @@ async function handleFileSelect(event: Event) {
       size: file.size,
       lastModified: file.lastModified
     });
-
-    // Check file type
-    if (!ALLOWED_TYPES.includes(file.type as AllowedMimeType)) {
-      $q.notify({
-        type: 'negative',
-        message: `Invalid file type: ${file.type}. Allowed types are: JPEG, PNG, and GIF`,
-        position: 'top',
-        timeout: 3000
-      });
-      return;
-    }
-
-    // Check file size
-    if (file.size > MAX_FILE_SIZE) {
-      $q.notify({
-        type: 'negative',
-        message: `File size (${(file.size / 1024 / 1024).toFixed(2)}MB) exceeds the 5MB limit`,
-        position: 'top',
-        timeout: 3000
-      });
-      return;
-    }
 
     try {
       await handleFile(file);
