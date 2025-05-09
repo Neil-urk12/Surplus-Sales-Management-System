@@ -466,9 +466,21 @@ onMounted(async () => {
 });
 
 function handleApplyFilters(filters: { category: string | null; supplier: string | null; status: MaterialStatus | null }) {
-  store.filterCategory = filters.category as MaterialCategory || 'All';
-  store.filterSupplier = filters.supplier as MaterialSupplier || 'All';
+  store.filterCategory = (filters.category || 'All') as MaterialCategory | 'All';
+  store.filterSupplier = (filters.supplier || 'All') as MaterialSupplier | 'All';
   store.filterStatus = filters.status || 'All';
+
+  // Reset to first page when applying filters
+  store.pagination.page = 1;
+
+  // Trigger the request with updated filters
+  void store.onRequest({
+    pagination: {
+      ...store.pagination,
+      page: 1
+    }
+  });
+
   operationNotifications.filters.success();
   showFilterDialog.value = false;
 }
