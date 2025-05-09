@@ -393,6 +393,7 @@ export const useMaterialsStore = defineStore('materials', () => {
     filterCategory,
     filterSupplier,
     filterStatus,
+    pagination,
 
     // Constants
     categories,
@@ -409,7 +410,6 @@ export const useMaterialsStore = defineStore('materials', () => {
     deleteMaterial,
     resetFilters,
     updateMaterialStatus,
-    onRequest,
-    pagination
+    onRequest
   }
 })
