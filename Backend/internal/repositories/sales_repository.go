@@ -11,12 +11,12 @@ import (
 
 // SalesRepository defines the interface for sales data operations
 type SalesRepository interface {
-	GetAllSales(filters map[string]interface{}) ([]models.Sale, error)
-	GetSaleByID(id string) (*models.Sale, error)
-	GetSalesByCustomerID(customerID string) ([]models.Sale, error)
-	CreateSale(sale *models.Sale) (string, error)
-	UpdateSale(sale *models.Sale) error
-	DeleteSale(id string) error
+	GetAll(filters map[string]interface{}) ([]models.Sale, error)
+	GetByID(id string) (*models.Sale, error)
+	GetCustomerSales(customerID string) ([]models.Sale, error)
+	Create(sale *models.Sale) (string, error)
+	Update(sale *models.Sale) error
+	Delete(id string) error
 	GetSaleItems(saleID string) ([]models.SaleItem, error)
 	CreateSaleItem(item *models.SaleItem) (string, error)
 	SellCab(cabID int, customerID string, quantity int, soldBy string, accessories []models.AccessoryForSale) (*models.Sale, error)
@@ -32,8 +32,9 @@ func NewSalesRepository(db *sql.DB) SalesRepository {
 	return &salesRepository{DB: db}
 }
 
-// GetAllSales retrieves all sales records with optional filtering
-func (r *salesRepository) GetAllSales(filters map[string]interface{}) ([]models.Sale, error) {
+// GetAll retrieves all sales from the database, with optional filtering
+// TODO: Implement proper filtering based on the filters map
+func (r *salesRepository) GetAll(filters map[string]interface{}) ([]models.Sale, error) {
 	query := `SELECT id, customer_id, sold_by, sale_date, total_price, created_at, updated_at FROM sales WHERE 1=1`
 	args := []interface{}{}
 
@@ -98,8 +99,8 @@ func (r *salesRepository) GetAllSales(filters map[string]interface{}) ([]models.
 	return sales, nil
 }
 
-// GetSaleByID retrieves a single sale by its ID
-func (r *salesRepository) GetSaleByID(id string) (*models.Sale, error) {
+// GetByID retrieves a single sale by its ID
+func (r *salesRepository) GetByID(id string) (*models.Sale, error) {
 	query := `SELECT id, customer_id, sold_by, sale_date, total_price, created_at, updated_at FROM sales WHERE id = ?`
 	row := r.DB.QueryRow(query, id)
 
@@ -127,16 +128,16 @@ func (r *salesRepository) GetSaleByID(id string) (*models.Sale, error) {
 	return &sale, nil
 }
 
-// GetSalesByCustomerID retrieves all sales for a specific customer
-func (r *salesRepository) GetSalesByCustomerID(customerID string) ([]models.Sale, error) {
+// GetCustomerSales retrieves all sales for a specific customer
+func (r *salesRepository) GetCustomerSales(customerID string) ([]models.Sale, error) {
 	filters := map[string]interface{}{
 		"customer_id": customerID,
 	}
-	return r.GetAllSales(filters)
+	return r.GetAll(filters)
 }
 
-// CreateSale inserts a new sale record into the database
-func (r *salesRepository) CreateSale(sale *models.Sale) (string, error) {
+// Create inserts a new sale record into the database
+func (r *salesRepository) Create(sale *models.Sale) (string, error) {
 	query := `INSERT INTO sales (id, customer_id, sold_by, sale_date, total_price, created_at, updated_at) 
 			VALUES (?, ?, ?, ?, ?, ?, ?)`
 
@@ -170,10 +171,10 @@ func (r *salesRepository) CreateSale(sale *models.Sale) (string, error) {
 	return sale.ID, nil
 }
 
-// UpdateSale modifies an existing sale record in the database
-func (r *salesRepository) UpdateSale(sale *models.Sale) error {
+// Update modifies an existing sale record in the database
+func (r *salesRepository) Update(sale *models.Sale) error {
 	// Check if the sale exists
-	_, err := r.GetSaleByID(sale.ID)
+	_, err := r.GetByID(sale.ID)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "not found") {
 			return fmt.Errorf("sale with ID %s not found for update", sale.ID)
@@ -206,44 +207,44 @@ func (r *salesRepository) UpdateSale(sale *models.Sale) error {
 	return nil
 }
 
-// DeleteSale removes a sale record from the database
-func (r *salesRepository) DeleteSale(id string) error {
-	// Check if the sale exists
-	_, err := r.GetSaleByID(id)
-	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "not found") {
-			return fmt.Errorf("sale with ID %s not found for deletion", id)
-		}
-		return err
-	}
-
-	// Start a transaction to delete the sale and its items
+// Delete removes a sale and its associated items from the database
+func (r *salesRepository) Delete(id string) error {
 	tx, err := r.DB.Begin()
 	if err != nil {
-		log.Printf("Error starting transaction for sale deletion: %v", err)
-		return err
+		log.Printf("Error beginning transaction for deleting sale ID %s: %v", id, err)
+		return fmt.Errorf("could not start transaction: %w", err)
 	}
+	defer tx.Rollback() // Rollback if not committed
 
-	// Delete sale items first (foreign key constraint)
-	_, err = tx.Exec("DELETE FROM sale_items WHERE sale_id = ?", id)
+	// First, delete the sale record
+	querySale := `DELETE FROM sales WHERE id = ?`
+	result, err := tx.Exec(querySale, id)
 	if err != nil {
-		tx.Rollback()
-		log.Printf("Error deleting sale items for sale ID %s: %v", id, err)
-		return err
-	}
-
-	// Delete the sale record
-	_, err = tx.Exec("DELETE FROM sales WHERE id = ?", id)
-	if err != nil {
-		tx.Rollback()
 		log.Printf("Error deleting sale ID %s: %v", id, err)
-		return err
+		return fmt.Errorf("error deleting sale: %w", err)
 	}
 
-	// Commit the transaction
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		log.Printf("Error getting rows affected for sale ID %s: %v", id, err)
+		return fmt.Errorf("error checking if sale was deleted: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("sale with ID %s not found for deletion", id) // Specific error for not found
+	}
+
+	// Then, delete associated sale items (if any)
+	queryItems := `DELETE FROM sale_items WHERE sale_id = ?`
+	_, err = tx.Exec(queryItems, id)
+	if err != nil {
+		// If deleting items fails, we've already deleted the sale, rollback will handle it.
+		log.Printf("Error deleting sale items for sale ID %s: %v", id, err)
+		return fmt.Errorf("error deleting sale items: %w", err)
+	}
+
 	if err = tx.Commit(); err != nil {
-		log.Printf("Error committing transaction for sale deletion: %v", err)
-		return err
+		log.Printf("Error committing transaction for deleting sale ID %s: %v", id, err)
+		return fmt.Errorf("could not commit transaction: %w", err)
 	}
 
 	return nil

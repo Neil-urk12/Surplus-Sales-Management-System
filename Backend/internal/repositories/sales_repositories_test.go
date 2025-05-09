@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetAllSales_NoFilters(t *testing.T) {
+func TestGetAll_NoFilters(t *testing.T) {
 	db, mock := NewMockDB(t)
 	defer db.Close()
 	repo := NewSalesRepository(db)
@@ -32,13 +32,13 @@ func TestGetAllSales_NoFilters(t *testing.T) {
 	query := "SELECT id, customer_id, sold_by, sale_date, total_price, created_at, updated_at FROM sales WHERE 1=1 ORDER BY created_at DESC"
 	mock.ExpectQuery(regexp.QuoteMeta(query)).WillReturnRows(rows)
 
-	sales, err := repo.GetAllSales(nil)
+	sales, err := repo.GetAll(nil)
 	require.NoError(t, err)
 	assert.Equal(t, expected, sales)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestGetSaleByID_Exists(t *testing.T) {
+func TestGetByID_Exists(t *testing.T) {
 	db, mock := NewMockDB(t)
 	defer db.Close()
 	repo := NewSalesRepository(db)
@@ -52,14 +52,14 @@ func TestGetSaleByID_Exists(t *testing.T) {
 	query := "SELECT id, customer_id, sold_by, sale_date, total_price, created_at, updated_at FROM sales WHERE id = ?"
 	mock.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(expected.ID).WillReturnRows(rows)
 
-	sale, err := repo.GetSaleByID(expected.ID)
+	sale, err := repo.GetByID(expected.ID)
 	require.NoError(t, err)
 	require.NotNil(t, sale)
 	assert.Equal(t, expected, sale)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestGetSaleByID_NotExists(t *testing.T) {
+func TestGetByID_NotExists(t *testing.T) {
 	db, mock := NewMockDB(t)
 	defer db.Close()
 	repo := NewSalesRepository(db)
@@ -68,14 +68,14 @@ func TestGetSaleByID_NotExists(t *testing.T) {
 	query := "SELECT id, customer_id, sold_by, sale_date, total_price, created_at, updated_at FROM sales WHERE id = ?"
 	mock.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(id).WillReturnError(sql.ErrNoRows)
 
-	sale, err := repo.GetSaleByID(id)
+	sale, err := repo.GetByID(id)
 	require.Error(t, err)
 	assert.Nil(t, sale)
 	assert.Contains(t, err.Error(), fmt.Sprintf("sale with ID %s not found", id))
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestCreateSale_Success(t *testing.T) {
+func TestCreate_Success(t *testing.T) {
 	db, mock := NewMockDB(t)
 	defer db.Close()
 	repo := NewSalesRepository(db)
@@ -86,13 +86,13 @@ func TestCreateSale_Success(t *testing.T) {
 		WithArgs(s.ID, s.CustomerID, s.SoldBy, s.SaleDate, s.TotalPrice, sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	id, err := repo.CreateSale(s)
+	id, err := repo.Create(s)
 	require.NoError(t, err)
 	assert.Equal(t, s.ID, id)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestUpdateSale_Success(t *testing.T) {
+func TestUpdate_Success(t *testing.T) {
 	db, mock := NewMockDB(t)
 	defer db.Close()
 	repo := NewSalesRepository(db)
@@ -111,12 +111,12 @@ func TestUpdateSale_Success(t *testing.T) {
 		WithArgs(s.CustomerID, s.SoldBy, s.SaleDate, s.TotalPrice, sqlmock.AnyArg(), s.ID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	err := repo.UpdateSale(s)
+	err := repo.Update(s)
 	require.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestUpdateSale_NotExists(t *testing.T) {
+func TestUpdate_NotExists(t *testing.T) {
 	db, mock := NewMockDB(t)
 	defer db.Close()
 	repo := NewSalesRepository(db)
@@ -125,48 +125,46 @@ func TestUpdateSale_NotExists(t *testing.T) {
 	getQuery := "SELECT id, customer_id, sold_by, sale_date, total_price, created_at, updated_at FROM sales WHERE id = ?"
 	mock.ExpectQuery(regexp.QuoteMeta(getQuery)).WithArgs(s.ID).WillReturnError(sql.ErrNoRows)
 
-	err := repo.UpdateSale(s)
+	err := repo.Update(s)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), fmt.Sprintf("sale with ID %s not found for update", s.ID))
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestDeleteSale_Success(t *testing.T) {
+func TestDelete_Success(t *testing.T) {
 	db, mock := NewMockDB(t)
 	defer db.Close()
 	repo := NewSalesRepository(db)
 
 	id := "sdel"
-	// Mock existing sale lookup
-	getQuery := "SELECT id, customer_id, sold_by, sale_date, total_price, created_at, updated_at FROM sales WHERE id = ?"
-	now := time.Now()
-	rowsGet := sqlmock.NewRows([]string{"id", "customer_id", "sold_by", "sale_date", "total_price", "created_at", "updated_at"}).
-		AddRow(id, "cust", "user", "2025-05-09", 50.0, now, now)
-	mock.ExpectQuery(regexp.QuoteMeta(getQuery)).WithArgs(id).WillReturnRows(rowsGet)
 
 	// Mock transaction
 	mock.ExpectBegin()
-	mock.ExpectExec(regexp.QuoteMeta("DELETE FROM sale_items WHERE sale_id = ?")).WithArgs(id).WillReturnResult(sqlmock.NewResult(0, 2))
-	mock.ExpectExec(regexp.QuoteMeta("DELETE FROM sales WHERE id = ?")).WithArgs(id).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta("DELETE FROM sales WHERE id = ?")).WithArgs(id).WillReturnResult(sqlmock.NewResult(0, 1)) // 1 row affected for main sale delete
+	mock.ExpectExec(regexp.QuoteMeta("DELETE FROM sale_items WHERE sale_id = ?")).WithArgs(id).WillReturnResult(sqlmock.NewResult(0, 2)) // 2 items deleted
 	mock.ExpectCommit()
 
-	err := repo.DeleteSale(id)
+	err := repo.Delete(id)
 	require.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestDeleteSale_NotExists(t *testing.T) {
+func TestDelete_NotExists(t *testing.T) {
 	db, mock := NewMockDB(t)
 	defer db.Close()
 	repo := NewSalesRepository(db)
 
 	id := "none"
-	getQuery := "SELECT id, customer_id, sold_by, sale_date, total_price, created_at, updated_at FROM sales WHERE id = ?"
-	mock.ExpectQuery(regexp.QuoteMeta(getQuery)).WithArgs(id).WillReturnError(sql.ErrNoRows)
 
-	err := repo.DeleteSale(id)
+	mock.ExpectBegin()
+	// Expect deletion attempt on 'sales' table, but it won't find the row.
+	mock.ExpectExec(regexp.QuoteMeta("DELETE FROM sales WHERE id = ?")).WithArgs(id).WillReturnResult(sqlmock.NewResult(0, 0)) // 0 rows affected
+	// No ExpectExec for sale_items as it shouldn't be reached if the sale doesn't exist.
+	// The deferred Rollback will be called implicitly if Commit isn't reached.
+
+	err := repo.Delete(id)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), fmt.Sprintf("sale with ID %s not found for deletion", id))
+	assert.EqualError(t, err, fmt.Sprintf("sale with ID %s not found for deletion", id)) // Check for the specific error message
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
