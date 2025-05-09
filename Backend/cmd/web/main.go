@@ -130,7 +130,11 @@ func main() {
 
 	if err != nil {
 		log.Println("Failed to load environment variables... Retrying...")
-		os.Exit(1)
+		return
+	}
+
+	if os.Getenv("FRONTEND_URL") == "" {
+		log.Fatalf("FRONTEND_URL is not set. Please set it to a valid frontend URL (e.g., http://localhost:9000).")
 	}
 
 	// Load db config
@@ -170,8 +174,6 @@ func main() {
 	app.Use(recover.New())
 
 	// Get allowed origins from environment variable or use default for development
-	// allowedOrigins := getEnv("ALLOWED_ORIGINS", "http://localhost:9000,http://localhost:8080")
-
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     os.Getenv("FRONTEND_URL"),     // Restricted to specific origins from environment variable
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS", // Added OPTIONS for preflight
