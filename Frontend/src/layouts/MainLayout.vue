@@ -547,11 +547,31 @@ onMounted(async () => {
   }
 
   // Fetch inventory alerts
-  await fetchInventoryAlerts()
+  try {
+    await fetchInventoryAlerts();
+  } catch (error) {
+    console.error('Failed to fetch inventory alerts during initialization:', error);
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to load inventory alerts',
+      caption: 'Please refresh the page or contact support if the issue persists',
+      position: 'top',
+      timeout: 5000
+    });
+  }
 
   // Set up interval to refresh alerts every 5 minutes
   const alertsInterval = setInterval(() => {
-    void fetchInventoryAlerts() // Using void operator to ignore the promise
+    // Wrap in async IIFE with try-catch for proper error handling
+    void (async () => {
+      try {
+        await fetchInventoryAlerts();
+      } catch (error) {
+        console.error('Failed to fetch inventory alerts during refresh interval:', error);
+        // Don't show notification for background refresh errors to avoid spamming the user
+        // The error alert will already be shown by the fetchInventoryAlerts function
+      }
+    })();
   }, 5 * 60 * 1000)
 
   // Clean up interval on component unmount
@@ -785,14 +805,32 @@ async function handleAlertAction(alertId: string) {
     // Handle error alert
     else if (alertId === 'error') {
       // Refresh notifications
-      await fetchInventoryAlerts();
+      try {
+        $q.notify({
+          type: 'info',
+          message: 'Refreshing notifications',
+          position: 'top',
+          timeout: 2000
+        });
 
-      $q.notify({
-        type: 'info',
-        message: 'Refreshing notifications',
-        position: 'top',
-        timeout: 2000
-      });
+        await fetchInventoryAlerts();
+
+        $q.notify({
+          type: 'positive',
+          message: 'Notifications refreshed successfully',
+          position: 'top',
+          timeout: 2000
+        });
+      } catch (error) {
+        console.error('Failed to refresh notifications:', error);
+        $q.notify({
+          type: 'negative',
+          message: 'Failed to refresh notifications',
+          caption: 'Please try again or contact support if the issue persists',
+          position: 'top',
+          timeout: 3000
+        });
+      }
     }
   } catch (error) {
     console.error('Error handling alert action:', error);
