@@ -3,6 +3,7 @@ package repositories
 import (
 	"database/sql"
 	"log"
+	"strconv"
 	"time"
 
 	"oop/internal/models"
@@ -34,20 +35,27 @@ func (r *materialRepository) GetAll(searchTerm string, category string, supplier
 	args := []interface{}{}
 
 	if searchTerm != "" {
-		query += " AND (name LIKE ? OR category LIKE ? OR supplier LIKE ? OR CAST(id AS CHAR) LIKE ?)"
-		likeTerm := "%" + searchTerm + "%"
-		args = append(args, likeTerm, likeTerm, likeTerm, likeTerm)
+		// First try to convert searchTerm to integer for direct ID comparison
+		if id, err := strconv.Atoi(searchTerm); err == nil {
+			query += " AND id = ?"
+			args = append(args, id)
+		} else {
+			// If not an integer, search in text fields with case-insensitive comparison
+			query += " AND (LOWER(name) LIKE LOWER(?) OR LOWER(category) LIKE LOWER(?) OR LOWER(supplier) LIKE LOWER(?))"
+			likeTerm := "%" + searchTerm + "%"
+			args = append(args, likeTerm, likeTerm, likeTerm)
+		}
 	}
 	if category != "" {
-		query += " AND category = ?"
+		query += " AND LOWER(category) = LOWER(?)"
 		args = append(args, category)
 	}
 	if supplier != "" {
-		query += " AND supplier = ?"
+		query += " AND LOWER(supplier) = LOWER(?)"
 		args = append(args, supplier)
 	}
 	if status != "" {
-		query += " AND status = ?"
+		query += " AND LOWER(status) = LOWER(?)"
 		args = append(args, status)
 	}
 
@@ -145,27 +153,36 @@ func (r *materialRepository) GetPaginated(page, limit int, searchTerm, category,
 	countArgs := []interface{}{}
 
 	if searchTerm != "" {
-		query += " AND (name LIKE ? OR category LIKE ? OR supplier LIKE ? OR CAST(id AS CHAR) LIKE ?)"
-		countQuery += " AND (name LIKE ? OR category LIKE ? OR supplier LIKE ? OR CAST(id AS CHAR) LIKE ?)"
-		likeTerm := "%" + searchTerm + "%"
-		args = append(args, likeTerm, likeTerm, likeTerm, likeTerm)
-		countArgs = append(countArgs, likeTerm, likeTerm, likeTerm, likeTerm)
+		// First try to convert searchTerm to integer for direct ID comparison
+		if id, err := strconv.Atoi(searchTerm); err == nil {
+			query += " AND id = ?"
+			countQuery += " AND id = ?"
+			args = append(args, id)
+			countArgs = append(countArgs, id)
+		} else {
+			// If not an integer, search in text fields with case-insensitive comparison
+			query += " AND (LOWER(name) LIKE LOWER(?) OR LOWER(category) LIKE LOWER(?) OR LOWER(supplier) LIKE LOWER(?))"
+			countQuery += " AND (LOWER(name) LIKE LOWER(?) OR LOWER(category) LIKE LOWER(?) OR LOWER(supplier) LIKE LOWER(?))"
+			likeTerm := "%" + searchTerm + "%"
+			args = append(args, likeTerm, likeTerm, likeTerm)
+			countArgs = append(countArgs, likeTerm, likeTerm, likeTerm)
+		}
 	}
 	if category != "" {
-		query += " AND category = ?"
-		countQuery += " AND category = ?"
+		query += " AND LOWER(category) = LOWER(?)"
+		countQuery += " AND LOWER(category) = LOWER(?)"
 		args = append(args, category)
 		countArgs = append(countArgs, category)
 	}
 	if supplier != "" {
-		query += " AND supplier = ?"
-		countQuery += " AND supplier = ?"
+		query += " AND LOWER(supplier) = LOWER(?)"
+		countQuery += " AND LOWER(supplier) = LOWER(?)"
 		args = append(args, supplier)
 		countArgs = append(countArgs, supplier)
 	}
 	if status != "" {
-		query += " AND status = ?"
-		countQuery += " AND status = ?"
+		query += " AND LOWER(status) = LOWER(?)"
+		countQuery += " AND LOWER(status) = LOWER(?)"
 		args = append(args, status)
 		countArgs = append(countArgs, status)
 	}
