@@ -6,10 +6,8 @@ import (
 	"time"
 
 	"oop/internal/models"
+	"oop/internal/config"
 )
-
-// Default image to use when no image is provided
-const DefaultImageURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQU0N_pZ1FmfWhbnKjb-rlqcfOO65_PRLhvTg&s"
 
 // MaterialRepository defines the interface for material database operations
 type MaterialRepository interface {
@@ -75,7 +73,7 @@ func (r *materialRepository) GetAll(searchTerm string, category string, supplier
 		if imageSQL.Valid && imageSQL.String != "" {
 			m.Image = imageSQL.String
 		} else {
-			m.Image = DefaultImageURL
+			m.Image = config.DefaultImageURL
 		}
 		
 		materials = append(materials, m)
@@ -109,7 +107,7 @@ func (r *materialRepository) GetByID(id int) (*models.Material, error) {
 	if imageSQL.Valid && imageSQL.String != "" {
 		m.Image = imageSQL.String
 	} else {
-		m.Image = DefaultImageURL
+		m.Image = config.DefaultImageURL
 	}
 	
 	return &m, nil
@@ -121,7 +119,7 @@ func (r *materialRepository) Create(material *models.Material) (int, error) {
 	now := time.Now()
 	
 	var imageValue interface{}
-	if material.Image == "" || material.Image == DefaultImageURL {
+	if material.Image == "" || material.Image == config.DefaultImageURL {
 		imageValue = nil // Use NULL if image is empty or default
 	} else {
 		imageValue = material.Image
@@ -148,7 +146,7 @@ func (r *materialRepository) Update(material *models.Material) error {
 	now := time.Now()
 	
 	var imageValue interface{}
-	if material.Image == "" || material.Image == DefaultImageURL {
+	if material.Image == "" || material.Image == config.DefaultImageURL {
 		imageValue = nil // Use NULL if image is empty or default
 	} else {
 		imageValue = material.Image

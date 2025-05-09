@@ -5,13 +5,10 @@ import (
 	"fmt"
 	"log"
 	"oop/internal/models"
+	"oop/internal/config"
 	"strings"
 	"time"
 )
-
-// DefaultImageURL is already defined in other repositories, but we're including it here for completeness
-// For a production app, consider moving this to a common constants package
-const DefaultImageURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQU0N_pZ1FmfWhbnKjb-rlqcfOO65_PRLhvTg&s"
 
 // CabsRepository defines the interface for cab data operations.
 type CabsRepository interface {
@@ -97,7 +94,7 @@ func (r *cabsRepository) GetCabs(filters map[string]interface{}) ([]models.Multi
 		if imageSQL.Valid && imageSQL.String != "" {
 			cab.Image = imageSQL.String
 		} else {
-			cab.Image = DefaultImageURL
+			cab.Image = config.DefaultImageURL
 		}
 		
 		cabs = append(cabs, cab)
@@ -146,7 +143,7 @@ func (r *cabsRepository) GetCabByID(id int) (*models.MultiCab, error) {
 	if imageSQL.Valid && imageSQL.String != "" {
 		cab.Image = imageSQL.String
 	} else {
-		cab.Image = DefaultImageURL
+		cab.Image = config.DefaultImageURL
 	}
 	
 	return &cab, nil
@@ -165,7 +162,7 @@ func (r *cabsRepository) AddCab(cab models.MultiCab) (*models.MultiCab, error) {
 	now := time.Now()
 	
 	var imageValue interface{}
-	if cab.Image == "" || cab.Image == DefaultImageURL {
+	if cab.Image == "" || cab.Image == config.DefaultImageURL {
 		imageValue = nil // Use NULL if image is empty or default
 	} else {
 		imageValue = cab.Image
@@ -203,7 +200,7 @@ func (r *cabsRepository) AddCab(cab models.MultiCab) (*models.MultiCab, error) {
 	
 	// Ensure image is set to default if it was empty
 	if cab.Image == "" {
-		cab.Image = DefaultImageURL
+		cab.Image = config.DefaultImageURL
 	}
 
 	return &cab, nil
@@ -228,7 +225,7 @@ func (r *cabsRepository) UpdateCab(id int, cab models.MultiCab) (*models.MultiCa
 	now := time.Now()
 	
 	var imageValue interface{}
-	if cab.Image == "" || cab.Image == DefaultImageURL {
+	if cab.Image == "" || cab.Image == config.DefaultImageURL {
 		imageValue = nil // Use NULL if image is empty or default
 	} else {
 		imageValue = cab.Image
@@ -259,7 +256,7 @@ func (r *cabsRepository) UpdateCab(id int, cab models.MultiCab) (*models.MultiCa
 	
 	// Ensure image is set to default if it was empty
 	if cab.Image == "" {
-		cab.Image = DefaultImageURL
+		cab.Image = config.DefaultImageURL
 	}
 
 	return &cab, nil

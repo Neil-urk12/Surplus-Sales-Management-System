@@ -5,10 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"oop/internal/models"
+	"oop/internal/config"
 )
-
-// Default image to use when no image is provided
-const DefaultImageURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQU0N_pZ1FmfWhbnKjb-rlqcfOO65_PRLhvTg&s"
 
 // Helper function to determine status based on quantity
 func determineStatus(quantity int) models.AccessoryStatus {
@@ -95,7 +93,7 @@ func (r *AccessoryRepositoryImpl) GetAll(ctx context.Context) ([]models.Accessor
 		if imageSQL.Valid && imageSQL.String != "" {
 			a.Image = imageSQL.String
 		} else {
-			a.Image = DefaultImageURL
+			a.Image = config.DefaultImageURL
 		}
 
 		accessories = append(accessories, a)
@@ -154,7 +152,7 @@ func (r *AccessoryRepositoryImpl) GetByID(ctx context.Context, id int) (models.A
 	if imageSQL.Valid && imageSQL.String != "" {
 		a.Image = imageSQL.String
 	} else {
-		a.Image = DefaultImageURL
+		a.Image = config.DefaultImageURL
 	}
 
 	return a, nil
@@ -176,7 +174,7 @@ func (r *AccessoryRepositoryImpl) Create(ctx context.Context, input models.NewAc
 	defer stmt.Close()
 	
 	var imageValue interface{}
-	if input.Image == "" || input.Image == DefaultImageURL {
+	if input.Image == "" || input.Image == config.DefaultImageURL {
 		imageValue = nil // Use NULL if image is empty or default
 	} else {
 		imageValue = input.Image
@@ -233,7 +231,7 @@ func (r *AccessoryRepositoryImpl) Update(ctx context.Context, id int, input mode
 	if input.Image != nil {
 		// If image is empty string or "null", use the default image URL
 		if *input.Image == "" || *input.Image == "null" {
-			accessory.Image = DefaultImageURL
+			accessory.Image = config.DefaultImageURL
 		} else {
 		accessory.Image = *input.Image
 		}
@@ -252,7 +250,7 @@ func (r *AccessoryRepositoryImpl) Update(ctx context.Context, id int, input mode
 	defer stmt.Close()
 	
 	var imageValue interface{}
-	if accessory.Image == "" || accessory.Image == DefaultImageURL {
+	if accessory.Image == "" || accessory.Image == config.DefaultImageURL {
 		imageValue = nil // Use NULL if image is empty or default
 	} else {
 		imageValue = accessory.Image
