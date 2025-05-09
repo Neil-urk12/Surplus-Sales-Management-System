@@ -1,6 +1,8 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 type User struct {
 	Id        string    `json:"id"`
@@ -14,14 +16,14 @@ type User struct {
 }
 
 type Customer struct {
-	ID             string
-	Name           string
-	Email          string
-	Phone          string
-	Address        string
-	DateRegistered string
-	CreatedAt      string
-	UpdatedAt      string
+	ID             string    `json:"id"`
+	FullName       string    `json:"fullName"`
+	Email          string    `json:"email"`
+	Phone          string    `json:"phone"`
+	Address        string    `json:"address"`
+	DateRegistered time.Time `json:"dateRegistered"`
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
 }
 
 type Sale struct {

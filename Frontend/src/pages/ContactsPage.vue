@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, defineAsyncComponent, computed, watch } from 'vue';
+import { ref, onMounted, defineAsyncComponent, computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
 import type { Customer } from '../types/models';
@@ -30,18 +30,7 @@ const isConfirmDialogOpen = ref(false);
 const selectedCustomerId = ref<string | null>(null);
 const customerToDelete = ref<Customer | null>(null);
 
-// Search functionality with debounce
-const searchInput = ref('');
 const searchQuery = ref('');
-
-// Debounce the search input to prevent excessive recalculations
-watch(searchInput, (newValue) => {
-  const timeoutId = setTimeout(() => {
-    searchQuery.value = newValue;
-  }, 300);
-
-  return () => clearTimeout(timeoutId);
-});
 
 const filteredCustomers = computed(() => {
   if (!searchQuery.value.trim()) return customers.value || [];
@@ -93,9 +82,9 @@ const handleEditCustomer = async () => {
   }
 };
 
-const executeDelete = () => {
+const executeDelete = async () => {
   if (selectedCustomerId.value) {
-    deleteCustomer(selectedCustomerId.value);
+    await deleteCustomer(selectedCustomerId.value);
     if (!error.value) {
       $q.notify({ type: 'positive', message: 'Customer deleted successfully!' });
     } else {
@@ -146,8 +135,8 @@ const viewPurchaseHistory = (customerId: string) => {
   isHistoryModalOpen.value = true;
 };
 
-const handleSearch = (query: string) => {
-  searchInput.value = query;
+const handleSearch = (debouncedQuery: string) => {
+  searchQuery.value = debouncedQuery;
 };
 </script>
 
@@ -166,8 +155,11 @@ const handleSearch = (query: string) => {
 
       <!-- Search Box -->
       <div class="q-mb-md">
-        <AdvancedSearch v-model="searchInput" placeholder="Search customers by name, email, phone or address..."
-          @search="handleSearch" :debounce-time="300" />
+        <AdvancedSearch
+          placeholder="Search customers by name, email, phone or address..."
+          @search="handleSearch"
+          :debounce-time="300"
+        />
       </div>
 
       <div v-if="isLoading && !customers.length" class="text-center q-pa-md">
