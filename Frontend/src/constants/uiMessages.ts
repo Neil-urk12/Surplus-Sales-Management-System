@@ -33,5 +33,6 @@ export const alertMessages = {
     markAllAsRead: 'Mark all as read',
     markAsRead: 'Mark as read',
     viewAll: (count: number) => `View all ${count} read notifications`,
+    loadMore: (remaining: number) => `Load more (${remaining} remaining)`,
   },
 };

@@ -30,7 +30,7 @@
             >
               {{ unreadAlertsCount }}
             </q-badge>
-              <q-menu anchor="bottom right" self="top right">
+              <q-menu anchor="bottom right" self="top right" @hide="resetReadAlertsLimit">
                 <q-list style="min-width: 350px">
                   <q-item-label header class="row items-center justify-between">
                     <span>{{ alertMessages.sections.systemAlerts }}</span>
@@ -134,9 +134,23 @@
                           </q-item-section>
                         </q-item>
 
-                        <!-- View All Button -->
+                        <!-- Load More Button - Improves performance by loading read alerts incrementally -->
                         <q-item
                           v-if="hasMoreReadAlerts"
+                          clickable
+                          class="text-primary"
+                          @click="loadMoreReadAlerts"
+                        >
+                          <q-item-section class="text-center">
+                            <q-item-label>
+                              {{ alertMessages.actions.loadMore(remainingReadAlerts) }}
+                            </q-item-label>
+                          </q-item-section>
+                        </q-item>
+
+                        <!-- View All Button -->
+                        <q-item
+                          v-if="allReadAlerts.length > 0"
                           clickable
                           class="text-primary"
                           @click="showAllReadAlerts"
@@ -464,15 +478,58 @@ const allReadAlerts = computed(() => {
     .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Sort by timestamp, newest first
 })
 
-// Computed property for read alerts (limit to 5 most recent)
+// State variable to track how many read alerts to display
+const readAlertsLimit = ref(5);
+
+/**
+ * Computed property for read alerts with dynamic limit
+ * This implements a pagination-like approach where we initially show a limited number
+ * of read alerts and allow the user to load more as needed, improving performance
+ * when there are many read alerts in the system.
+ */
 const readAlerts = computed(() => {
-  return allReadAlerts.value.slice(0, 5); // Limit to 5 most recent read alerts
+  return allReadAlerts.value.slice(0, readAlertsLimit.value); // Limit to the current readAlertsLimit
 })
 
 // Check if there are more read alerts than we're showing
 const hasMoreReadAlerts = computed(() => {
-  return allReadAlerts.value.length > 5;
+  return allReadAlerts.value.length > readAlertsLimit.value;
 })
+
+// Calculate the number of remaining read alerts
+const remainingReadAlerts = computed(() => {
+  return allReadAlerts.value.length - readAlertsLimit.value;
+})
+
+/**
+ * Function to load more read alerts
+ * Increases the limit by 5 each time, up to a maximum of 20 at a time
+ * to prevent performance issues with loading too many alerts at once
+ */
+function loadMoreReadAlerts() {
+  // Define a maximum number of alerts to show at once to prevent performance issues
+  const MAX_ALERTS_TO_SHOW = 20;
+
+  // Increase the limit by 5 each time, but don't exceed the maximum
+  readAlertsLimit.value = Math.min(readAlertsLimit.value + 5, MAX_ALERTS_TO_SHOW);
+
+  // If we've reached the maximum but there are still more alerts,
+  // show a notification to the user
+  if (readAlertsLimit.value === MAX_ALERTS_TO_SHOW && remainingReadAlerts.value > 0) {
+    $q.notify({
+      type: 'info',
+      message: `Showing ${MAX_ALERTS_TO_SHOW} most recent read alerts. Use "View All" to see all ${allReadAlerts.value.length} alerts.`,
+      position: 'top',
+      timeout: 3000
+    });
+  }
+}
+
+// Function to reset the read alerts limit when the menu is closed
+function resetReadAlertsLimit() {
+  // Reset to the initial limit
+  readAlertsLimit.value = 5;
+}
 
 // Computed property to count unread alerts
 const unreadAlertsCount = computed(() => {
