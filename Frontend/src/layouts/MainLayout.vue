@@ -41,10 +41,10 @@
                   <q-separator />
                   <template v-if="systemAlerts.length">
                     <q-scroll-area style="height: 300px;">
-                      <!-- Unread Alerts Section -->
+                      <!-- Unread Notifications Section -->
                       <div>
                         <q-item-label header class="text-primary q-px-md">
-                          Unread Alerts
+                          Unread Notifications
                         </q-item-label>
 
                         <template v-if="unreadAlerts.length > 0">
@@ -54,18 +54,18 @@
                             clickable
                             v-close-popup
                             @click="handleAlertAction(alert.id)"
-                            class="alert-item"
-                            :class="`alert-unread alert-unread-${getAlertColor(alert.severity)}`"
+                            class="notification-item"
+                            :class="`notification-unread notification-unread-${getAlertColor(alert.severity)}`"
                           >
                             <q-item-section avatar>
                               <q-icon
                                 :name="alert.icon"
                                 :color="getAlertColor(alert.severity)"
-                                class="alert-icon-unread"
+                                class="notification-icon-unread"
                               />
                             </q-item-section>
                             <q-item-section>
-                              <q-item-label class="alert-title-unread">
+                              <q-item-label class="notification-title-unread">
                                 {{ alert.title }}
                               </q-item-label>
                               <q-item-label caption>{{ alert.message }}</q-item-label>
@@ -89,17 +89,17 @@
 
                         <q-item v-else>
                           <q-item-section class="text-center text-grey q-py-sm">
-                            <div>No unread alerts</div>
+                            <div>No unread notifications</div>
                           </q-item-section>
                         </q-item>
                       </div>
 
                       <q-separator v-if="unreadAlerts.length > 0 && readAlerts.length > 0" class="q-my-sm" />
 
-                      <!-- Read Alerts Section -->
+                      <!-- Read Notifications Section -->
                       <div>
                         <q-item-label header class="text-grey q-px-md q-pt-md">
-                          Read Alerts
+                          Read Notifications
                         </q-item-label>
 
                         <template v-if="readAlerts.length > 0">
@@ -109,17 +109,17 @@
                             clickable
                             v-close-popup
                             @click="handleAlertAction(alert.id)"
-                            class="alert-item alert-read"
+                            class="notification-item notification-read"
                           >
                             <q-item-section avatar>
                               <q-icon
                                 :name="alert.icon"
                                 :color="getAlertColor(alert.severity)"
-                                class="alert-icon-read"
+                                class="notification-icon-read"
                               />
                             </q-item-section>
                             <q-item-section>
-                              <q-item-label class="alert-title-read">
+                              <q-item-label class="notification-title-read">
                                 {{ alert.title }}
                               </q-item-label>
                               <q-item-label caption>{{ alert.message }}</q-item-label>
@@ -130,7 +130,7 @@
 
                         <q-item v-else>
                           <q-item-section class="text-center text-grey q-py-sm">
-                            <div>No read alerts</div>
+                            <div>No read notifications</div>
                           </q-item-section>
                         </q-item>
 
@@ -143,7 +143,7 @@
                         >
                           <q-item-section class="text-center">
                             <q-item-label>
-                              View all {{ allReadAlerts.length }} read alerts
+                              View all {{ allReadAlerts.length }} read notifications
                             </q-item-label>
                           </q-item-section>
                         </q-item>
@@ -153,7 +153,7 @@
                   <q-item v-else>
                     <q-item-section class="text-center text-grey q-py-md flex content-center row">
                       <q-icon class="col" name="notifications_none" size="48px" color="grey-4" />
-                      <div class="q-mt-sm col">No active alerts</div>
+                      <div class="q-mt-sm col">No active notifications</div>
                     </q-item-section>
                   </q-item>
                 </q-list>
@@ -413,8 +413,8 @@ async function fetchInventoryAlerts() {
     // Add a fallback alert if there's an error
     systemAlerts.value = [{
       id: 'error',
-      title: 'Error Loading Alerts',
-      message: 'Failed to load inventory alerts',
+      title: 'Error Loading Notifications',
+      message: 'Failed to load inventory notifications',
       severity: 'error',
       icon: 'error',
       actionIcon: 'refresh',
@@ -592,8 +592,8 @@ function markInventoryCheckScheduled(): void {
 }
 
 /**
- * Marks a specific alert as read
- * @param alertId The ID of the alert to mark as read
+ * Marks a specific notification as read
+ * @param alertId The ID of the notification to mark as read
  */
 function markAlertAsRead(alertId: string) {
   const alertIndex = systemAlerts.value.findIndex(a => a.id === alertId);
@@ -606,10 +606,10 @@ function markAlertAsRead(alertId: string) {
 }
 
 /**
- * Shows a dialog with all read alerts
+ * Shows a dialog with all read notifications
  */
 function showAllReadAlerts() {
-  // Create a list of all read alerts for the dialog
+  // Create a list of all read notifications for the dialog
   const alertsList = allReadAlerts.value.map(alert => {
     return `<div class="q-mb-md">
       <div class="text-weight-medium">${alert.title}</div>
@@ -618,9 +618,9 @@ function showAllReadAlerts() {
     </div>`;
   }).join('');
 
-  // Show dialog with all read alerts
+  // Show dialog with all read notifications
   $q.dialog({
-    title: 'All Read Alerts',
+    title: 'All Read Notifications',
     message: `<div class="q-pa-md">${alertsList}</div>`,
     html: true,
     style: 'width: 500px; max-width: 80vw',
@@ -633,7 +633,7 @@ function showAllReadAlerts() {
 }
 
 /**
- * Marks all alerts as read
+ * Marks all notifications as read
  */
 function markAllAsRead() {
   systemAlerts.value = systemAlerts.value.map(alert => ({
@@ -642,10 +642,10 @@ function markAllAsRead() {
   }));
 }
 
-// Update handleAlertAction to handle alert clicks
+// Update handleAlertAction to handle notification clicks
 async function handleAlertAction(alertId: string) {
   try {
-    // Mark the alert as read
+    // Mark the notification as read
     const alertIndex = systemAlerts.value.findIndex(a => a.id === alertId);
     if (alertIndex !== -1) {
       const alert = systemAlerts.value[alertIndex];
@@ -710,7 +710,7 @@ async function handleAlertAction(alertId: string) {
         // Mark the inventory check as scheduled for this month
         markInventoryCheckScheduled();
 
-        // Remove the alert from the list
+        // Remove the notification from the list
         const alertIndex = systemAlerts.value.findIndex(a => a.id === alertId);
         if (alertIndex !== -1) {
           systemAlerts.value.splice(alertIndex, 1);
@@ -725,12 +725,12 @@ async function handleAlertAction(alertId: string) {
     }
     // Handle error alert
     else if (alertId === 'error') {
-      // Refresh alerts
+      // Refresh notifications
       await fetchInventoryAlerts();
 
       $q.notify({
         type: 'info',
-        message: 'Refreshing alerts',
+        message: 'Refreshing notifications',
         position: 'top',
         timeout: 2000
       });
@@ -766,60 +766,60 @@ async function handleAlertAction(alertId: string) {
   display: none !important;
 }
 
-/* Alert styling */
-.alert-item {
+/* Notification styling */
+.notification-item {
   transition: all 0.3s ease;
 }
 
-.alert-unread {
+.notification-unread {
   border-left: 4px solid;
   background-color: rgba(var(--q-primary-rgb), 0.05);
 }
 
-.alert-unread-error {
+.notification-unread-error {
   border-left-color: var(--q-negative);
 }
 
-.alert-unread-warning {
+.notification-unread-warning {
   border-left-color: var(--q-warning);
 }
 
-.alert-unread-info {
+.notification-unread-info {
   border-left-color: var(--q-info);
 }
 
-.alert-unread-success {
+.notification-unread-success {
   border-left-color: var(--q-positive);
 }
 
-.alert-read {
+.notification-read {
   opacity: 0.7;
   background-color: transparent;
   border-left: 4px solid transparent;
 }
 
-.q-dark .alert-unread {
+.q-dark .notification-unread {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-.q-dark .alert-read {
+.q-dark .notification-read {
   background-color: transparent;
   opacity: 0.5;
 }
 
-.alert-title-unread {
+.notification-title-unread {
   font-weight: 600;
 }
 
-.alert-title-read {
+.notification-title-read {
   font-weight: 400;
 }
 
-.alert-icon-unread {
+.notification-icon-unread {
   transform: scale(1.1);
 }
 
-.alert-icon-read {
+.notification-icon-read {
   opacity: 0.7;
 }
 </style>
