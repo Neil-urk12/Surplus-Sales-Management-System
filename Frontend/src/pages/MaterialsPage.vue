@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, defineAsyncComponent } from 'vue';
+import { ref, watch, onMounted, defineAsyncComponent } from 'vue';
 import type { QTableColumn } from 'quasar';
 import { useQuasar } from 'quasar';
 import { useMaterialsStore } from '../stores/materials';
@@ -58,17 +58,6 @@ const defaultImageUrl = 'https://loremflickr.com/600/400/material';
 
 // Available options from store
 const { categories, suppliers, statuses } = store;
-
-const capitalizedName = computed({
-  get: () => newMaterial.value.name,
-  set: (value: string) => {
-    if (value) {
-      newMaterial.value.name = value.charAt(0).toUpperCase() + value.slice(1);
-    } else {
-      newMaterial.value.name = value;
-    }
-  }
-});
 
 const materialColumns: QTableColumn[] = [
   { name: 'id', align: 'center', label: 'ID', field: 'id', sortable: true },
@@ -139,17 +128,18 @@ async function handleAddMaterial(materialData: NewMaterialInput) {
       return;
     }
 
-    // If image URL is empty, use default (only relevant if image is part of update)
-    if (!newMaterial.value.image) {
-      newMaterial.value.image = defaultImageUrl;
+    // If image URL is empty, use default
+    if (!materialData.image) {
+      materialData.image = defaultImageUrl;
     }
 
     // Execute the store action and await its completion
-    const result = await store.addMaterial(newMaterial.value);
+    const result = await store.addMaterial(materialData);
 
     // Only close dialog and show notification after operation successfully completes
     if (result.success) {
       showAddDialog.value = false;
+      operationNotifications.add.success('material');
     }
   } catch (error) {
     console.error('Error adding material:', error);
@@ -236,17 +226,20 @@ async function confirmDelete() {
       return;
     }
 
-    await store.deleteMaterial(materialToDelete.value.id);
-    showDeleteDialog.value = false;
-    materialToDelete.value = {
-      id: 0,
-      name: '',
-      category: 'Building',
-      supplier: 'Steel Co.',
-      quantity: 0,
-      status: 'Out of Stock',
-      image: ''
-    };
+    const result = await store.deleteMaterial(materialToDelete.value.id);
+    if (result.success) {
+      showDeleteDialog.value = false;
+      materialToDelete.value = {
+        id: 0,
+        name: '',
+        category: 'Building',
+        supplier: 'Steel Co.',
+        quantity: 0,
+        status: 'Out of Stock',
+        image: ''
+      };
+      operationNotifications.delete.success('material');
+    }
   } catch (error) {
     console.error('Error deleting material:', error);
     operationNotifications.delete.error('material');
@@ -301,33 +294,7 @@ async function handleUpdateMaterial(materialData: NewMaterialInput) {
   }
 }
 
-// Function to trigger file input
-function triggerFileInput() {
-  fileInput.value?.click();
-}
-
 // Add missing image handling functions
-async function handleFileSelect(event: Event) {
-  const target = event.target as HTMLInputElement;
-  if (target.files && target.files[0]) {
-    const file = target.files[0];
-    try {
-      await handleFile(file);
-    } catch (error) {
-      console.error('Error handling file:', error);
-    }
-  }
-}
-
-
-// Add missing refs and constants
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const fileInput = ref<HTMLInputElement | null>(null);
-const imageUrlValid = ref(true);
-const validatingImage = ref(false);
-const isDragging = ref(false);
-
-// Fix the handleFile function signature
 async function handleFile(fileToHandle: File): Promise<void> {
   if (fileToHandle.size > MAX_FILE_SIZE) {
     $q.notify({
@@ -378,58 +345,11 @@ async function handleFile(fileToHandle: File): Promise<void> {
   }
 }
 
-function handleDragLeave(event: DragEvent) {
-  if (event.target === event.currentTarget) {
-    isDragging.value = false;
-  }
-}
-
-async function handleDrop(event: DragEvent) {
-  isDragging.value = false;
-  const dt = event.dataTransfer;
-  if (dt?.files && dt.files[0]) {
-    try {
-      await handleFile(dt.files[0]);
-    } catch (error) {
-      console.error('Error handling dropped file:', error);
-    }
-  }
-}
-
-function removeImage() {
-  newMaterial.value.image = defaultImageUrl;
-  imageUrlValid.value = true;
-}
-
-async function validateImageUrl(url: string): Promise<void> {
-  if (!url || url === defaultImageUrl) {
-    imageUrlValid.value = true;
-    return;
-  }
-
-  validatingImage.value = true;
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = url;
-    });
-
-    imageUrlValid.value = true;
-    validatingImage.value = false;
-  } catch (error) {
-    imageUrlValid.value = false;
-    validatingImage.value = false;
-    console.error('Error validating image URL:', error);
-    $q.notify({
-      type: 'negative',
-      message: 'Invalid image URL',
-      position: 'top',
-      timeout: 3000
-    });
-  }
-}
+// Add missing refs and constants
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const fileInput = ref<HTMLInputElement | null>(null);
+const imageUrlValid = ref(true);
+const validatingImage = ref(false);
 
 // Add a computed property for status color mapping
 const getStatusColor = (status: string) => {
@@ -608,55 +528,54 @@ function addMaterialToCart() {
             </div>
           </template>
 
-          <template v-slot:body-cell-status="props">
-            <q-td :props="props">
-              <q-chip
-                dense
-                :color="getStatusColor(props.value)"
-                text-color="white"
-                class="q-px-sm"
-              >
-                {{ props.value }}
-              </q-chip>
-            </q-td>
-          </template>
-
-          <template v-slot:body-cell-actions="props">
-            <q-td :props="props" auto-width>
-              <q-btn flat round dense color="grey" icon="more_vert" class="action-button"
-                :aria-label="'Actions for ' + props.row.name">
-                <q-menu class="action-menu" :aria-label="'Available actions for ' + props.row.name">
-                  <q-list style="min-width: 100px">
-                    <q-item clickable v-close-popup @click.stop="editMaterial(props.row)" role="button"
-                      :aria-label="'Edit ' + props.row.name">
-                      <q-item-section>
-                        <q-item-label>
-                          <q-icon name="edit" size="xs" class="q-mr-sm" aria-hidden="true" />
-                          Edit
-                        </q-item-label>
-                      </q-item-section>
-                    </q-item>
-                    <q-item clickable v-close-popup @click.stop="deleteMaterial(props.row)" role="button"
-                      :aria-label="'Delete ' + props.row.name" class="text-negative">
-                      <q-item-section>
-                        <q-item-label class="text-negative">
-                          <q-icon name="delete" size="xs" class="q-mr-sm" aria-hidden="true" />
-                          Delete
-                        </q-item-label>
-                      </q-item-section>
-                    </q-item>
-                  </q-list>
-                </q-menu>
-              </q-btn>
-            </q-td>
+          <template v-slot:body="props">
+            <q-tr :props="props" @click="() => {
+              selectedMaterial = props.row;
+              showMaterial = true;
+            }" class="cursor-pointer">
+              <q-td key="id" :props="props">{{ props.row.id }}</q-td>
+              <q-td key="materialName" :props="props">{{ props.row.name }}</q-td>
+              <q-td key="category" :props="props">{{ props.row.category }}</q-td>
+              <q-td key="supplier" :props="props">{{ props.row.supplier }}</q-td>
+              <q-td key="quantity" :props="props">{{ props.row.quantity }}</q-td>
+              <q-td key="status" :props="props">
+                <q-chip dense :color="getStatusColor(props.row.status)" text-color="white" class="q-px-sm">
+                  {{ props.row.status }}
+                </q-chip>
+              </q-td>
+              <q-td key="actions" :props="props" @click.stop>
+                <q-btn flat round dense color="grey" icon="more_vert" class="action-button">
+                  <q-menu class="action-menu">
+                    <q-list style="min-width: 100px">
+                      <q-item clickable v-close-popup @click="editMaterial(props.row)">
+                        <q-item-section>
+                          <q-item-label>
+                            <q-icon name="edit" size="xs" class="q-mr-sm" />
+                            Edit
+                          </q-item-label>
+                        </q-item-section>
+                      </q-item>
+                      <q-item clickable v-close-popup @click="deleteMaterial(props.row)" class="text-negative">
+                        <q-item-section>
+                          <q-item-label class="text-negative">
+                            <q-icon name="delete" size="xs" class="q-mr-sm" />
+                            Delete
+                          </q-item-label>
+                        </q-item-section>
+                      </q-item>
+                    </q-list>
+                  </q-menu>
+                </q-btn>
+              </q-td>
+            </q-tr>
           </template>
         </q-table>
 
         <!-- Existing Material Modal -->
         <ProductCardModal v-model="showMaterial" :image="selectedMaterial?.image || ''"
-          :title="selectedMaterial?.name || ''" :price="0" :quantity="selectedMaterial?.quantity || 0"
+          :title="selectedMaterial?.name || ''" :quantity="selectedMaterial?.quantity || 0"
           :details="`Supplier: ${selectedMaterial?.supplier}`" :unit_color="selectedMaterial?.category || ''"
-          @addItem="addMaterialToCart" />
+          :status="selectedMaterial?.status || ''" @addItem="addMaterialToCart" />
 
         <!-- Add Material Dialog -->
         <AddMaterialDialog
@@ -664,128 +583,8 @@ function addMaterialToCart() {
           :categories="categories"
           :suppliers="suppliers"
           :default-image-url="defaultImageUrl"
-          :disable="!imageUrlValid || validatingImage"
           @add-material="handleAddMaterial"
-        >
-          <q-input
-            v-model="capitalizedName"
-            label="Material Name"
-            dense
-            outlined
-            :rules="[val => !!val || 'Field is required']"
-          />
-          <q-select
-            v-model="newMaterial.category"
-            label="Category"
-            :options="categories"
-            dense
-            outlined
-            :rules="[val => !!val || 'Field is required']"
-          />
-          <q-select
-            v-model="newMaterial.supplier"
-            label="Supplier"
-            :options="suppliers"
-            dense
-            outlined
-            :rules="[val => !!val || 'Field is required']"
-          />
-          <q-input
-            v-model.number="newMaterial.quantity"
-            label="Quantity"
-            type="number"
-            dense
-            outlined
-            :rules="[val => val >= 0 || 'Quantity cannot be negative']"
-          />
-          <q-input
-            v-model="newMaterial.status"
-            label="Status"
-            dense
-            outlined
-            readonly
-          />
-          <!-- Enhanced Image Input Section -->
-          <div class="column q-gutter-y-sm">
-            <div class="row items-center q-gutter-x-sm">
-              <q-input
-                v-model="newMaterial.image"
-                label="Image URL"
-                dense
-                outlined
-                class="col"
-                :rules="[val => imageUrlValid || 'Invalid image URL']"
-                :loading="validatingImage"
-                @blur="validateImageUrl(newMaterial.image)"
-                clearable
-                @clear="removeImage"
-              >
-                <template v-slot:prepend>
-                  <q-icon name="link" />
-                </template>
-                <template v-slot:append>
-                  <q-icon v-if="imageUrlValid && newMaterial.image && newMaterial.image !== defaultImageUrl" name="check_circle" color="positive" />
-                  <q-icon v-else-if="!imageUrlValid" name="error" color="negative" />
-                </template>
-              </q-input>
-              <q-btn
-                icon="upload_file"
-                flat
-                round
-                dense
-                @click="triggerFileInput"
-                title="Upload Image"
-              />
-            </div>
-            <div
-              class="upload-container q-pa-md"
-              :class="{ 'dragging': isDragging }"
-              @dragover.prevent
-              @dragenter.prevent="isDragging = true"
-              @dragleave.prevent="handleDragLeave"
-              @drop.prevent="handleDrop"
-            >
-              <div class="text-center">
-                <q-icon name="cloud_upload" size="lg" color="grey-7" />
-                <p class="q-mt-sm text-grey-7">Drag & drop an image here, or click upload icon</p>
-              </div>
-              <input
-                ref="fileInput"
-                type="file"
-                accept="image/png, image/jpeg, image/gif, image/webp"
-                @change="handleFileSelect"
-                style="display: none;"
-              />
-            </div>
-            <!-- Image Preview and Remove Button -->
-            <div v-if="newMaterial.image && imageUrlValid" class="row items-center justify-center q-mt-sm relative-position">
-              <q-img
-                :src="newMaterial.image"
-                spinner-color="primary"
-                style="max-height: 150px; max-width: 100%; border-radius: 4px;"
-                alt="Image Preview"
-                @error="imageUrlValid = false"
-              >
-                <template v-slot:error>
-                  <div class="absolute-full flex flex-center bg-negative text-white">
-                    Cannot load image
-                  </div>
-                </template>
-              </q-img>
-              <q-btn
-                icon="close"
-                flat
-                round
-                dense
-                color="negative"
-                size="sm"
-                class="absolute-top-right q-ma-xs bg-white"
-                @click="removeImage"
-                style="z-index: 1; border-radius: 50%;"
-              />
-            </div>
-          </div>
-        </AddMaterialDialog>
+        />
 
         <!-- Filter Dialog -->
         <FilterMaterialDialog
@@ -825,6 +624,10 @@ function addMaterialToCart() {
 <style lang="sass">
 .my-sticky-column-table
   max-width: 100%
+  color: rgba(255, 255, 255, 0.9) !important
+
+  .body--light &
+    color: rgba(0, 0, 0, 0.87) !important
 
   thead tr:first-child th:nth-child(2)
     background-color: var(--sticky-column-bg)
@@ -864,4 +667,20 @@ function addMaterialToCart() {
     .q-badge
       font-size: 0.9em
       font-weight: 600
+
+:deep(.q-pagination)
+  .q-btn
+    color: #ffffff !important
+    &.text-primary
+      color: #ffffff !important
+      background: var(--q-primary)
+      font-weight: bold
+
+  .body--light &
+    .q-btn
+      color: rgba(0, 0, 0, 0.87) !important
+      &.text-primary
+        color: var(--q-primary) !important
+        background: transparent
+        font-weight: bold
 </style>

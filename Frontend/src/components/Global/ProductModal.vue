@@ -6,7 +6,7 @@ const props = defineProps<{
   modelValue: boolean
   image: string
   title: string
-  price: number
+  price?: number
   unit_color: string
   quantity?: number  // Add quantity prop
   details?: string
@@ -134,9 +134,6 @@ function close() {
                   <div class="text-h6 text-bold">{{ title }}</div>
                   <div class="text-body2">{{ details }}</div>
                   <div class="text-body2">{{ unit_color }}</div>
-                  <div class="text-h6 text-bold q-mt-md">
-                    ₱{{ price.toLocaleString() }}
-                  </div>
                   <div class="text-subtitle2">Quantity: {{ quantity }}</div>
                   <div class="text-h5 text-bold" :class="getStatusColor">{{ status }}</div>
                 </div>
@@ -146,8 +143,8 @@ function close() {
         </div>
       </q-card-section>
       <!-- Close button in the top-right -->
-      <q-btn flat dense round class="absolute-top-right z-top q-mt-xs q-mr-xs" @click="close">
-        <q-icon name="close" class="text-primary"/>
+      <q-btn flat dense round class="close-btn" @click="close">
+        <q-icon name="close" class="close-icon" />
       </q-btn>
     </q-card>
   </q-dialog>
@@ -157,6 +154,25 @@ function close() {
 <style scoped>
 .z-top {
   z-index: 1000;
+}
+
+.close-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+}
+
+.close-icon {
+  font-size: 1.5rem;
+}
+
+:deep(.q-dark) .close-icon {
+  color: #fff !important;
+}
+
+body.body--light .close-icon {
+  color: rgba(0, 0, 0, 0.7) !important;
 }
 
 .product-rounded {

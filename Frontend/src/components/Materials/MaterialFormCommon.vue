@@ -57,7 +57,7 @@ watch(localQuantity, (newVal) => {
   // Update the materialData quantity
   const numValue = typeof newVal === 'string' ? (Number.isFinite(Number(newVal)) ? Number(newVal) : 0) : newVal;
   const updatedData = { ...props.materialData, quantity: numValue };
-  
+
   // Update status based on quantity
   if (numValue === 0) {
     updatedData.status = 'Out of Stock';
@@ -66,7 +66,7 @@ watch(localQuantity, (newVal) => {
   } else {
     updatedData.status = 'In Stock';
   }
-  
+
   emit('update:materialData', updatedData);
 });
 
@@ -75,14 +75,14 @@ watch(() => props.materialData.quantity, (newVal) => {
   localQuantity.value = newVal ?? 0;
 }, { immediate: true });
 
-// --- Computed --- 
+// --- Computed ---
 const capitalizedName = computed({
   get: () => props.materialData.name,
   set: (value: string) => {
     if (value) {
-      const updatedData = { 
-        ...props.materialData, 
-        name: value.charAt(0).toUpperCase() + value.slice(1) 
+      const updatedData = {
+        ...props.materialData,
+        name: value.charAt(0).toUpperCase() + value.slice(1)
       };
       emit('update:materialData', updatedData);
     } else {
@@ -110,11 +110,11 @@ const status = computed({
 
 // Computed for button disable condition
 const isSubmitDisabled = computed(() => {
-  return !props.materialData.name || 
-         !props.materialData.category || 
-         !props.materialData.supplier || 
-         props.materialData.quantity < 0 || 
-         !imageUrlValid.value || 
+  return !props.materialData.name ||
+         !props.materialData.category ||
+         !props.materialData.supplier ||
+         props.materialData.quantity < 0 ||
+         !imageUrlValid.value ||
          isUploadingImage.value;
 });
 
@@ -137,13 +137,13 @@ onBeforeUnmount(() => {
       console.error('Error revoking object URL:', error);
     }
   }
-  
+
   // Clear any pending timers
   if (dragLeaveTimer !== null) {
     clearTimeout(dragLeaveTimer);
     dragLeaveTimer = null;
   }
-  
+
   if (quantityUpdateTimer !== null) {
     clearTimeout(quantityUpdateTimer);
     quantityUpdateTimer = null;
@@ -155,12 +155,12 @@ function handleQuantityInput(event: Event) {
   // Get the value directly from the input element
   const input = event.target as HTMLInputElement;
   const value = input.value;
-  
+
   // Clear any existing debounce timer
   if (quantityUpdateTimer !== null) {
     clearTimeout(quantityUpdateTimer);
   }
-  
+
   // Debounce the update
   quantityUpdateTimer = window.setTimeout(() => {
     // Update local quantity ref
@@ -173,16 +173,16 @@ function handleQuantityBlur(event: Event) {
   // Get the value directly from the input element
   const input = event.target as HTMLInputElement;
   const value = input.value;
-  
+
   // Clear any pending debounce timer
   if (quantityUpdateTimer !== null) {
     clearTimeout(quantityUpdateTimer);
     quantityUpdateTimer = null;
   }
-  
+
   // Ensure the quantity is updated in the materialData
   const numValue = value === '' ? 0 : (Number.isFinite(Number(value)) ? Number(value) : 0);
-  
+
   // Find the appropriate status
   let newStatus: MaterialStatus;
   if (numValue === 0) {
@@ -192,14 +192,14 @@ function handleQuantityBlur(event: Event) {
   } else {
     newStatus = 'In Stock';
   }
-  
+
   // Update both quantity and status
-  const updatedData = { 
-    ...props.materialData, 
+  const updatedData = {
+    ...props.materialData,
     quantity: numValue,
     status: newStatus
   };
-  
+
   // Emit the update
   emit('update:materialData', updatedData);
 }
@@ -214,10 +214,10 @@ function clearImageInput() {
   }
   previewUrl.value = props.defaultImageUrl;
   isPreviewBlobUrl.value = false;
-  
+
   const updatedData = { ...props.materialData, image: props.defaultImageUrl };
   emit('update:materialData', updatedData);
-  
+
   imageUrlValid.value = true;
   if (fileInput.value) {
     fileInput.value.value = '';
@@ -258,7 +258,7 @@ function updateField<T extends keyof NewMaterialInput>(field: T, value: NewMater
   emit('update:materialData', updatedData);
 }
 
-// --- Image Handling --- 
+// --- Image Handling ---
 function validateAndProcessImage(file: File): Promise<{success: boolean, result?: string, error?: string}> {
   return validateFileUpload(file, {
     maxFileSize: MAX_FILE_SIZE,
@@ -293,9 +293,9 @@ function handleFile(file: File) {
     .then(response => {
       if (response.success && response.result) {
         isPreviewBlobUrl.value = response.result.startsWith('blob:');
-        const updatedData = { 
-          ...props.materialData, 
-          image: response.result 
+        const updatedData = {
+          ...props.materialData,
+          image: response.result
         };
         emit('update:materialData', updatedData);
         previewUrl.value = response.result;
@@ -329,22 +329,22 @@ function removeImage() {
   clearImageInput();
 }
 
-// --- Drag & Drop --- 
+// --- Drag & Drop ---
 function handleDragLeave(event: DragEvent) {
   // Improve drag leave detection by checking related target
   const related = event.relatedTarget as Node | null;
   const container = event.currentTarget as HTMLElement;
-  
+
   // If the related target is a child of the container, don't set isDragging to false
   if (related && container.contains(related)) {
     return;
   }
-  
+
   // Clear any existing timer
   if (dragLeaveTimer !== null) {
     clearTimeout(dragLeaveTimer);
   }
-  
+
   // Set a new timer for debouncing
   dragLeaveTimer = window.setTimeout(() => {
     const rect = container.getBoundingClientRect();
@@ -378,17 +378,22 @@ function handleDrop(event: DragEvent) {
 
     <div class="row q-col-gutter-sm">
       <div class="col-12 col-sm-6">
-        <q-select 
-          v-model="category" 
-          :options="categories" 
-          label="Category" 
-          dense 
+        <q-select
+          v-model="category"
+          :options="props.categories.map(cat => ({ label: cat, value: cat }))"
+          label="Category"
+          dense
           outlined
-          required 
-          emit-value 
-          map-options 
-          placeholder="Select a category" 
+          required
+          emit-value
+          map-options
+          placeholder="Select a category"
           lazy-rules
+          menu-self="top start"
+          self="top start"
+          anchor="bottom"
+          popup-content-style="min-width: fit-content"
+          class="material-select"
           :rules="[val => !!val || 'Category is required']">
           <template v-slot:prepend>
             <q-icon name="category" />
@@ -402,22 +407,26 @@ function handleDrop(event: DragEvent) {
           </template>
         </q-select>
       </div>
-
       <div class="col-12 col-sm-6">
-        <q-select 
-          v-model="supplier" 
-          :options="suppliers" 
-          label="Supplier" 
-          dense 
+        <q-select
+          v-model="supplier"
+          :options="props.suppliers.map(sup => ({ label: sup, value: sup }))"
+          label="Supplier"
+          dense
           outlined
-          required 
-          emit-value 
-          map-options 
-          placeholder="Select a supplier" 
+          required
+          emit-value
+          map-options
+          menu-self="top start"
+          self="top start"
+          anchor="bottom"
+          popup-content-style="min-width: fit-content"
+          placeholder="Select a supplier"
           lazy-rules
+          class="material-select"
           :rules="[val => !!val || 'Supplier is required']">
           <template v-slot:prepend>
-            <q-icon name="local_shipping" />
+            <q-icon name="business" />
           </template>
           <template v-slot:no-option>
             <q-item>
@@ -432,17 +441,17 @@ function handleDrop(event: DragEvent) {
 
     <div class="row q-col-gutter-sm">
       <div class="col-12 col-sm-6">
-        <q-input 
-          v-model="localQuantity" 
-          type="number" 
-          min="0" 
-          label="Quantity" 
+        <q-input
+          v-model="localQuantity"
+          type="number"
+          min="0"
+          label="Quantity"
           dense
-          outlined 
+          outlined
           required
           @input="handleQuantityInput"
           @blur="handleQuantityBlur"
-          :rules="[(val: any) => val !== null && val !== undefined && val >= 0 || 'Quantity must be positive']">
+          :rules="[val => val !== null && val !== undefined && val >= 0 || 'Quantity must be positive']">
           <template v-slot:prepend>
             <q-icon name="numbers" />
           </template>
@@ -450,11 +459,11 @@ function handleDrop(event: DragEvent) {
       </div>
 
       <div class="col-12 col-sm-6">
-        <q-input 
-          v-model="status" 
-          label="Status" 
-          dense 
-          outlined 
+        <q-input
+          v-model="status"
+          label="Status"
+          dense
+          outlined
           readonly>
           <template v-slot:prepend>
             <q-icon name="info" />
@@ -498,7 +507,7 @@ function handleDrop(event: DragEvent) {
 
     <div class="row justify-end q-gutter-sm q-mt-md">
       <q-btn flat label="Cancel" @click="handleCancel" />
-      <slot name="submitButton" 
+      <slot name="submitButton"
             :disabled="isSubmitDisabled"
             :loading="isProcessing">
         <q-btn unelevated color="primary" label="Submit" type="submit" :loading="isProcessing"
@@ -550,4 +559,28 @@ function handleDrop(event: DragEvent) {
 
 .hidden
   display: none
-</style> 
+
+.material-select
+  :deep(.q-field__native)
+    line-height: 1.2
+    padding: 4px 0
+  :deep(.q-field__control)
+    height: 40px
+
+:deep(.q-menu)
+  min-width: 100% !important
+  width: fit-content !important
+  background: var(--q-dark)
+  color: white
+
+  .q-item
+    min-width: 100%
+    padding: 8px 16px
+    white-space: nowrap
+
+    &:hover
+      background: rgba(255, 255, 255, 0.1)
+
+  .q-item__section--main
+    color: white
+</style>
