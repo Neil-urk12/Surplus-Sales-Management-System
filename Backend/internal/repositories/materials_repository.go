@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"oop/internal/models"
+	"oop/internal/config"
 )
 
 // MaterialRepository defines the interface for material database operations
@@ -71,10 +72,20 @@ func (r *materialRepository) GetAll(searchTerm string, category string, supplier
 	materials := []models.Material{}
 	for rows.Next() {
 		var m models.Material
-		if err := rows.Scan(&m.ID, &m.Name, &m.Category, &m.Supplier, &m.Quantity, &m.Status, &m.Image, &m.CreatedAt, &m.UpdatedAt); err != nil {
+		var imageSQL sql.NullString
+		
+		if err := rows.Scan(&m.ID, &m.Name, &m.Category, &m.Supplier, &m.Quantity, &m.Status, &imageSQL, &m.CreatedAt, &m.UpdatedAt); err != nil {
 			log.Printf("Error scanning material row: %v", err)
 			return nil, err
 		}
+		
+		// Handle NULL image values with default image
+		if imageSQL.Valid && imageSQL.String != "" {
+			m.Image = imageSQL.String
+		} else {
+			m.Image = config.DefaultImageURL
+		}
+		
 		materials = append(materials, m)
 	}
 
@@ -92,13 +103,23 @@ func (r *materialRepository) GetByID(id int) (*models.Material, error) {
 	row := r.DB.QueryRow(query, id)
 
 	var m models.Material
-	if err := row.Scan(&m.ID, &m.Name, &m.Category, &m.Supplier, &m.Quantity, &m.Status, &m.Image, &m.CreatedAt, &m.UpdatedAt); err != nil {
+	var imageSQL sql.NullString
+	
+	if err := row.Scan(&m.ID, &m.Name, &m.Category, &m.Supplier, &m.Quantity, &m.Status, &imageSQL, &m.CreatedAt, &m.UpdatedAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil // Return nil if no material found
 		}
 		log.Printf("Error scanning material row by ID %d: %v", id, err)
 		return nil, err
 	}
+	
+	// Handle NULL image values with default image
+	if imageSQL.Valid && imageSQL.String != "" {
+		m.Image = imageSQL.String
+	} else {
+		m.Image = config.DefaultImageURL
+	}
+	
 	return &m, nil
 }
 
@@ -106,7 +127,15 @@ func (r *materialRepository) GetByID(id int) (*models.Material, error) {
 func (r *materialRepository) Create(material *models.Material) (int, error) {
 	query := `INSERT INTO materials (name, category, supplier, quantity, status, image, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 	now := time.Now()
-	res, err := r.DB.Exec(query, material.Name, material.Category, material.Supplier, material.Quantity, material.Status, material.Image, now, now)
+	
+	var imageValue interface{}
+	if material.Image == "" || material.Image == config.DefaultImageURL {
+		imageValue = nil // Use NULL if image is empty or default
+	} else {
+		imageValue = material.Image
+	}
+	
+	res, err := r.DB.Exec(query, material.Name, material.Category, material.Supplier, material.Quantity, material.Status, imageValue, now, now)
 	if err != nil {
 		log.Printf("Error creating material: %v", err)
 		return 0, err
@@ -125,7 +154,15 @@ func (r *materialRepository) Create(material *models.Material) (int, error) {
 func (r *materialRepository) Update(material *models.Material) error {
 	query := `UPDATE materials SET name = ?, category = ?, supplier = ?, quantity = ?, status = ?, image = ?, updated_at = ? WHERE id = ?`
 	now := time.Now()
-	_, err := r.DB.Exec(query, material.Name, material.Category, material.Supplier, material.Quantity, material.Status, material.Image, now, material.ID)
+	
+	var imageValue interface{}
+	if material.Image == "" || material.Image == config.DefaultImageURL {
+		imageValue = nil // Use NULL if image is empty or default
+	} else {
+		imageValue = material.Image
+	}
+	
+	_, err := r.DB.Exec(query, material.Name, material.Category, material.Supplier, material.Quantity, material.Status, imageValue, now, material.ID)
 	if err != nil {
 		log.Printf("Error updating material ID %d: %v", material.ID, err)
 		return err

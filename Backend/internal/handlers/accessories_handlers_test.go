@@ -386,7 +386,18 @@ func TestCreateAccessory(t *testing.T) {
 			Price:     10.0,
 			UnitColor: models.ColorBlack,
 		}
-		mockRepo.On("Create", mock.Anything, input).Return(0, errors.New("database create error"))
+
+		// Create a matcher function that ignores the Image field
+		matcher := mock.MatchedBy(func(actual models.NewAccessoryInput) bool {
+			return actual.Name == input.Name &&
+				actual.Make == input.Make &&
+				actual.Quantity == input.Quantity &&
+				actual.Price == input.Price &&
+				actual.UnitColor == input.UnitColor
+			// Intentionally not checking Image field
+		})
+
+		mockRepo.On("Create", mock.Anything, matcher).Return(0, errors.New("database create error"))
 
 		app := setupTestApp(mockRepo)
 		resp, body, err := makeRequest(app, "POST", "/api/accessories", input)
@@ -411,8 +422,18 @@ func TestCreateAccessory(t *testing.T) {
 			UnitColor: models.ColorBlack,
 		}
 
+		// Create a matcher function that ignores the Image field
+		matcher := mock.MatchedBy(func(actual models.NewAccessoryInput) bool {
+			return actual.Name == input.Name &&
+				actual.Make == input.Make &&
+				actual.Quantity == input.Quantity &&
+				actual.Price == input.Price &&
+				actual.UnitColor == input.UnitColor
+			// Intentionally not checking Image field
+		})
+
 		createdID := 123
-		mockRepo.On("Create", mock.Anything, input).Return(createdID, nil)
+		mockRepo.On("Create", mock.Anything, matcher).Return(createdID, nil)
 		mockRepo.On("GetByID", mock.Anything, createdID).Return(models.Accessory{}, errors.New("error fetching accessory"))
 
 		app := setupTestApp(mockRepo)

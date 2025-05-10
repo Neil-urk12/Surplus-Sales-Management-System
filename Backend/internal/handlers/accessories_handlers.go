@@ -8,6 +8,7 @@ import (
 	"oop/internal/models"
 	"oop/internal/repositories"
 	"strings"
+	"oop/internal/config"
 
 	// Added for Timestamp in ErrorResponse/SuccessResponse
 	"github.com/gofiber/fiber/v2"
@@ -162,6 +163,11 @@ func (h *AccessoriesHandler) CreateAccessory(c *fiber.Ctx) error {
 		})
 	}
 
+	// Handle null or empty image with default image URL
+	if input.Image == "null" || input.Image == "" {
+		input.Image = config.DefaultImageURL
+	}
+
 	// Create accessory
 	createdAccessoryID, err := h.Repo.Create(c.Context(), input)
 	if err != nil {
@@ -222,6 +228,14 @@ func (h *AccessoriesHandler) UpdateAccessory(c *fiber.Ctx) error {
 		}
 		// Handle other potential BodyParser errors
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("Failed to parse request body: %v", err)})
+	}
+
+	// Handle null image values
+	if input.Image != nil {
+		if *input.Image == "null" || *input.Image == "" {
+			defaultImage := config.DefaultImageURL
+			input.Image = &defaultImage
+		}
 	}
 
 	// Update accessory

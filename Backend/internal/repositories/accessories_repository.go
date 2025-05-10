@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"oop/internal/models"
+	"oop/internal/config"
 )
 
 // Helper function to determine status based on quantity
@@ -66,6 +67,7 @@ func (r *AccessoryRepositoryImpl) GetAll(ctx context.Context) ([]models.Accessor
 	for rows.Next() {
 		var a models.Accessory
 		var makeStr, colorStr, statusStr string
+		var imageSQL sql.NullString
 
 		err := rows.Scan(
 			&a.ID,
@@ -75,7 +77,7 @@ func (r *AccessoryRepositoryImpl) GetAll(ctx context.Context) ([]models.Accessor
 			&a.Price,
 			&statusStr,
 			&colorStr,
-			&a.Image,
+			&imageSQL,
 			&a.CreatedAt,
 			&a.UpdatedAt,
 		)
@@ -86,6 +88,13 @@ func (r *AccessoryRepositoryImpl) GetAll(ctx context.Context) ([]models.Accessor
 		a.Make = models.AccessoryMake(makeStr)
 		a.UnitColor = models.AccessoryColor(colorStr)
 		a.Status = models.AccessoryStatus(statusStr)
+		
+		// Handle NULL image values with default image
+		if imageSQL.Valid && imageSQL.String != "" {
+			a.Image = imageSQL.String
+		} else {
+			a.Image = config.DefaultImageURL
+		}
 
 		accessories = append(accessories, a)
 	}
@@ -113,6 +122,7 @@ func (r *AccessoryRepositoryImpl) GetByID(ctx context.Context, id int) (models.A
 
 	var a models.Accessory
 	var makeStr, colorStr, statusStr string
+	var imageSQL sql.NullString
 
 	err = stmt.QueryRowContext(ctx, id).Scan(
 		&a.ID,
@@ -122,7 +132,7 @@ func (r *AccessoryRepositoryImpl) GetByID(ctx context.Context, id int) (models.A
 		&a.Price,
 		&statusStr,
 		&colorStr,
-		&a.Image,
+		&imageSQL,
 		&a.CreatedAt,
 		&a.UpdatedAt,
 	)
@@ -137,6 +147,13 @@ func (r *AccessoryRepositoryImpl) GetByID(ctx context.Context, id int) (models.A
 	a.Make = models.AccessoryMake(makeStr)
 	a.UnitColor = models.AccessoryColor(colorStr)
 	a.Status = models.AccessoryStatus(statusStr)
+	
+	// Handle NULL image values with default image
+	if imageSQL.Valid && imageSQL.String != "" {
+		a.Image = imageSQL.String
+	} else {
+		a.Image = config.DefaultImageURL
+	}
 
 	return a, nil
 }
@@ -155,6 +172,13 @@ func (r *AccessoryRepositoryImpl) Create(ctx context.Context, input models.NewAc
 		return 0, err
 	}
 	defer stmt.Close()
+	
+	var imageValue interface{}
+	if input.Image == "" || input.Image == config.DefaultImageURL {
+		imageValue = nil // Use NULL if image is empty or default
+	} else {
+		imageValue = input.Image
+	}
 
 	res, err := stmt.ExecContext(
 		ctx,
@@ -164,7 +188,7 @@ func (r *AccessoryRepositoryImpl) Create(ctx context.Context, input models.NewAc
 		input.Price,
 		string(status),
 		string(input.UnitColor),
-		input.Image,
+		imageValue,
 	)
 
 	if err != nil {
@@ -205,7 +229,12 @@ func (r *AccessoryRepositoryImpl) Update(ctx context.Context, id int, input mode
 		accessory.UnitColor = *input.UnitColor
 	}
 	if input.Image != nil {
+		// If image is empty string or "null", use the default image URL
+		if *input.Image == "" || *input.Image == "null" {
+			accessory.Image = config.DefaultImageURL
+		} else {
 		accessory.Image = *input.Image
+		}
 	}
 
 	updateQuery := `
@@ -219,6 +248,13 @@ func (r *AccessoryRepositoryImpl) Update(ctx context.Context, id int, input mode
 		return models.Accessory{}, err
 	}
 	defer stmt.Close()
+	
+	var imageValue interface{}
+	if accessory.Image == "" || accessory.Image == config.DefaultImageURL {
+		imageValue = nil // Use NULL if image is empty or default
+	} else {
+		imageValue = accessory.Image
+	}
 
 	_, err = stmt.ExecContext(
 		ctx,
@@ -228,7 +264,7 @@ func (r *AccessoryRepositoryImpl) Update(ctx context.Context, id int, input mode
 		accessory.Price,
 		string(accessory.Status),
 		string(accessory.UnitColor),
-		accessory.Image,
+		imageValue,
 		id,
 	)
 
