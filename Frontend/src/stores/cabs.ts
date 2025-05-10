@@ -13,6 +13,8 @@ import type {
   CabColorInput
 } from 'src/types/cabs'
 import { cabsService } from 'src/services/cabsService'
+import { salesService } from 'src/services/salesApi'
+import type { CabSalePayload, SalesOperationResponse } from 'src/types/salesTypes'
 import { useSearch } from 'src/utils/useSearch'
 import { useDashboardStore } from 'src/stores/dashboardStore'
 
@@ -349,6 +351,64 @@ export const useCabsStore = defineStore('cabs', () => {
     void initializeCabs()
   })
 
+  /**
+   * Sell a cab with optional accessories
+   * @param cabId - ID of the cab being sold
+   * @param payload - Sale details including customer, quantity, and accessories
+   * @returns Promise with the sale operation response
+   */
+  async function sellCab(cabId: number, payload: CabSalePayload): Promise<SalesOperationResponse> {
+    try {
+      isLoading.value = true;
+      
+      // Get the existing cab to verify stock
+      const existingCab = cabRows.value.find(c => c.id === cabId);
+      if (!existingCab) {
+        return {
+          success: false,
+          error: 'Cab not found'
+        };
+      }
+      
+      // Verify stock availability
+      if (existingCab.quantity < payload.quantity) {
+        return {
+          success: false,
+          error: `Not enough stock. Available: ${existingCab.quantity}, Requested: ${payload.quantity}`
+        };
+      }
+      
+      // Process the sale through the API
+      const result = await salesService.sellCab(cabId, payload);
+      
+      if (result.success) {
+        // Update local cab inventory after successful sale
+        const newQuantity = existingCab.quantity - payload.quantity;
+        const newStatus = updateCabStatus(cabId, newQuantity);
+        
+        // Update the cab in the store
+        const updateResult = await updateCab(cabId, {
+          quantity: newQuantity,
+          status: newStatus
+        });
+        
+        if (!updateResult.success) {
+          console.error('Failed to update cab inventory after sale:', updateResult.error);
+          // Even if the local update fails, the sale was processed successfully
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred during sale'
+      };
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   return {
     // State
     cabRows,
@@ -374,5 +434,6 @@ export const useCabsStore = defineStore('cabs', () => {
     resetFilters,
     updateCabStatus,
     getCabDetailsById
+    sellCab
   }
 }) 

@@ -232,6 +232,9 @@ func main() {
 	// Initialize cabs repository directly with DB
 	cabsRepo := repositories.NewCabsRepository(dbClient.DB)
 
+	// Initialize sales repository
+	saleRepo := repositories.NewSalesRepository(dbClient.DB)
+
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userRepo, jwtSecret)
 	materialHandler := handlers.NewMaterialHandlers(materialRepo, jwtSecret)
@@ -239,6 +242,8 @@ func main() {
 	// Initialize cabs handler
 	cabsHandler := handlers.NewCabsHandlers(cabsRepo)
 	accessoryHandler := handlers.NewAccessoriesHandler(accessoryRepo)
+	// Initialize sales handler
+	saleHandler := handlers.NewSaleHandlers(saleRepo, cabsRepo, accessoryRepo, customerRepo, jwtSecret)
 
 	// --- Route Registration ---
 	api := app.Group("/api") // Base group for API routes
@@ -279,6 +284,9 @@ func main() {
 	api.Post("/accessories", accessoryHandler.CreateAccessory)       // POST /api/accessories
 	api.Put("/accessories/:id", accessoryHandler.UpdateAccessory)    // PUT /api/accessories/:id
 	api.Delete("/accessories/:id", accessoryHandler.DeleteAccessory) // DELETE /api/accessories/:id
+
+	// Register Sale routes - Detailed Swagger annotations are in sales_handlers.go
+	saleHandler.RegisterSaleRoutes(api)
 
 	// Protected User Routes (require JWT)
 	authMiddleware := middleware.JWTMiddleware(jwtSecret)

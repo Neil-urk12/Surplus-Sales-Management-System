@@ -32,8 +32,8 @@ type Sale struct {
 	SoldBy     string
 	SaleDate   string
 	TotalPrice float64
-	CreatedAt  string
-	UpdatedAt  string
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
 type SaleItem struct {
@@ -46,8 +46,8 @@ type SaleItem struct {
 	Quantity    int
 	UnitPrice   float64
 	Subtotal    float64
-	CreatedAt   string
-	UpdatedAt   string
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
 type StockTransaction struct {
@@ -59,8 +59,8 @@ type StockTransaction struct {
 	Remarks        string
 	AccessoryID    int
 	MaterialID     string
-	CreatedAt      string
-	UpdatedAt      string
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
 }
 
 // AccessoryMake represents the available accessory brands/makes
@@ -175,4 +175,30 @@ type MultiCab struct {
 	Image     string    `json:"image"`      // URL or base64 string of the image
 	CreatedAt time.Time `json:"createdAt"`  // Timestamp of creation
 	UpdatedAt time.Time `json:"updatedAt"`  // Timestamp of last update
+}
+
+// AccessoryForSale represents an accessory included in a cab sale
+type AccessoryForSale struct {
+	ID        int     `json:"id"`        // Accessory ID
+	Name      string  `json:"name"`      // Name of the accessory
+	Price     float64 `json:"price"`     // Price per unit
+	Quantity  int     `json:"quantity"`  // Quantity being sold
+	UnitPrice float64 `json:"unitPrice"` // Price per unit (same as Price)
+}
+
+// CabSalePayload represents the data sent from the frontend to record a cab sale
+type CabSalePayload struct {
+	CustomerID  string            `json:"customerId" validate:"required"` // ID of the customer making the purchase
+	Quantity    int               `json:"quantity" validate:"required,min=1"` // Number of cabs being sold
+	Accessories []AccessoryForSale `json:"accessories"` // Optional accessories included in the sale
+}
+
+// CabSale represents a completed cab sale transaction
+type CabSale struct {
+	CabID      int               `json:"cabId"`      // ID of the cab that was sold
+	CustomerID string            `json:"customerId"` // ID of the customer who made the purchase
+	Quantity   int               `json:"quantity"`   // Number of cabs sold
+	Accessories []map[string]interface{} `json:"accessories"` // Accessories included in the sale
+	TotalPrice float64           `json:"totalPrice"` // Total price of the sale
+	SaleDate   string            `json:"saleDate"`   // Date of the sale
 }
