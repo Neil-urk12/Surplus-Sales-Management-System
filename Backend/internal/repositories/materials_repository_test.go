@@ -42,6 +42,7 @@ func TestGetAllMaterials(t *testing.T) {
 		materials, err := repo.GetAll("", "", "", "")
 		assert.NoError(t, err)
 		assert.Equal(t, expectedMaterials, materials)
+		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	t.Run("With Search Term", func(t *testing.T) {
@@ -54,6 +55,7 @@ func TestGetAllMaterials(t *testing.T) {
 		materials, err := repo.GetAll("term", "", "", "")
 		assert.NoError(t, err)
 		assert.Equal(t, []models.Material{expectedMaterials[0]}, materials)
+		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	t.Run("With Category", func(t *testing.T) {
@@ -66,6 +68,7 @@ func TestGetAllMaterials(t *testing.T) {
 		materials, err := repo.GetAll("", "Cat A", "", "")
 		assert.NoError(t, err)
 		assert.Equal(t, []models.Material{expectedMaterials[0]}, materials)
+		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	t.Run("With Supplier", func(t *testing.T) {
@@ -78,6 +81,7 @@ func TestGetAllMaterials(t *testing.T) {
 		materials, err := repo.GetAll("", "", "Sup 1", "")
 		assert.NoError(t, err)
 		assert.Equal(t, []models.Material{expectedMaterials[0]}, materials)
+		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	t.Run("With Status", func(t *testing.T) {
@@ -90,6 +94,7 @@ func TestGetAllMaterials(t *testing.T) {
 		materials, err := repo.GetAll("", "", "", "Active")
 		assert.NoError(t, err)
 		assert.Equal(t, []models.Material{expectedMaterials[0]}, materials)
+		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	t.Run("All Filters", func(t *testing.T) {
@@ -102,6 +107,7 @@ func TestGetAllMaterials(t *testing.T) {
 		materials, err := repo.GetAll("term", "Cat A", "Sup 1", "Active")
 		assert.NoError(t, err)
 		assert.Equal(t, []models.Material{expectedMaterials[0]}, materials)
+		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	t.Run("Query Error", func(t *testing.T) {
@@ -109,11 +115,9 @@ func TestGetAllMaterials(t *testing.T) {
 		mock.ExpectQuery(regexp.QuoteMeta(query)).WillReturnError(sql.ErrConnDone)
 
 		materials, err := repo.GetAll("", "", "", "")
-		assert.ErrorIs(t, err, sql.ErrConnDone)
+		assert.ErrorIs(t, err, sql.ErrConnDone) 
 		assert.Nil(t, materials)
 	})
-
-	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestGetMaterialByID(t *testing.T) {
@@ -124,30 +128,33 @@ func TestGetMaterialByID(t *testing.T) {
 	now := time.Now()
 	expectedMaterial := &models.Material{ID: 1, Name: "Material 1", Category: "Cat A", Supplier: "Sup 1", Quantity: 10, Status: "Active", Image: "img1.jpg", CreatedAt: now, UpdatedAt: now}
 
-	rows := sqlmock.NewRows([]string{"id", "name", "category", "supplier", "quantity", "status", "image", "created_at", "updated_at"}).
-		AddRow(expectedMaterial.ID, expectedMaterial.Name, expectedMaterial.Category, expectedMaterial.Supplier, expectedMaterial.Quantity, expectedMaterial.Status, expectedMaterial.Image, expectedMaterial.CreatedAt, expectedMaterial.UpdatedAt)
-
 	query := "SELECT id, name, category, supplier, quantity, status, image, created_at, updated_at FROM materials WHERE id = ?"
 
-	// Test case 1: Found
-	mock.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(1).WillReturnRows(rows)
-	material, err := repo.GetByID(1)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedMaterial, material)
+	t.Run("Found", func(t *testing.T) {
+		rows := sqlmock.NewRows([]string{"id", "name", "category", "supplier", "quantity", "status", "image", "created_at", "updated_at"}).
+			AddRow(expectedMaterial.ID, expectedMaterial.Name, expectedMaterial.Category, expectedMaterial.Supplier, expectedMaterial.Quantity, expectedMaterial.Status, expectedMaterial.Image, expectedMaterial.CreatedAt, expectedMaterial.UpdatedAt)
+		mock.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(1).WillReturnRows(rows)
+		material, err := repo.GetByID(1)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedMaterial, material)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
 
-	// Test case 2: Not Found
-	mock.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(2).WillReturnError(sql.ErrNoRows)
-	material, err = repo.GetByID(2)
-	assert.NoError(t, err) // Expecting nil error for not found as per repo logic
-	assert.Nil(t, material)
+	t.Run("Not Found", func(t *testing.T) {
+		mock.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(2).WillReturnError(sql.ErrNoRows)
+		material, err := repo.GetByID(2)
+		assert.NoError(t, err) // GetByID itself doesn't return sql.ErrNoRows directly, it returns nil material
+		assert.Nil(t, material)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
 
-	// Test case 3: Query Error
-	mock.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(3).WillReturnError(sql.ErrConnDone)
-	material, err = repo.GetByID(3)
-	assert.ErrorIs(t, err, sql.ErrConnDone) // Be specific about the error type
-	assert.Nil(t, material)
-
-	assert.NoError(t, mock.ExpectationsWereMet())
+	t.Run("Query Error", func(t *testing.T) {
+		mock.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(3).WillReturnError(sql.ErrConnDone)
+		material, err := repo.GetByID(3)
+		assert.ErrorIs(t, err, sql.ErrConnDone)
+		assert.Nil(t, material)
+		// No mock.ExpectationsWereMet() here
+	})
 }
 
 func TestCreateMaterial(t *testing.T) {
@@ -166,35 +173,39 @@ func TestCreateMaterial(t *testing.T) {
 
 	query := "INSERT INTO materials (name, category, supplier, quantity, status, image, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
 
-	// Test case 1: Success
-	mock.ExpectExec(regexp.QuoteMeta(query)).
-		WithArgs(newMaterial.Name, newMaterial.Category, newMaterial.Supplier, newMaterial.Quantity, newMaterial.Status, newMaterial.Image, sqlmock.AnyArg(), sqlmock.AnyArg()). // Use AnyArg for time.Now()
-		WillReturnResult(sqlmock.NewResult(1, 1))                                                                                                                                // Insert ID 1, 1 row affected
+	t.Run("Success", func(t *testing.T) {
+		mock.ExpectExec(regexp.QuoteMeta(query)).
+			WithArgs(newMaterial.Name, newMaterial.Category, newMaterial.Supplier, newMaterial.Quantity, newMaterial.Status, newMaterial.Image, sqlmock.AnyArg(), sqlmock.AnyArg()).
+			WillReturnResult(sqlmock.NewResult(1, 1))
 
-	id, err := repo.Create(newMaterial)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, id)
+		id, err := repo.Create(newMaterial)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, id)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
 
-	// Test case 2: Exec Error
-	mock.ExpectExec(regexp.QuoteMeta(query)).
-		WithArgs(newMaterial.Name, newMaterial.Category, newMaterial.Supplier, newMaterial.Quantity, newMaterial.Status, newMaterial.Image, sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnError(sql.ErrConnDone)
+	t.Run("Exec Error", func(t *testing.T) {
+		mock.ExpectExec(regexp.QuoteMeta(query)).
+			WithArgs(newMaterial.Name, newMaterial.Category, newMaterial.Supplier, newMaterial.Quantity, newMaterial.Status, newMaterial.Image, sqlmock.AnyArg(), sqlmock.AnyArg()).
+			WillReturnError(sql.ErrConnDone)
 
-	id, err = repo.Create(newMaterial)
-	assert.ErrorIs(t, err, sql.ErrConnDone) // Be specific about the error type
-	assert.Equal(t, 0, id)
+		id, err := repo.Create(newMaterial)
+		assert.ErrorIs(t, err, sql.ErrConnDone)
+		assert.Equal(t, 0, id)
+		// No mock.ExpectationsWereMet() here
+	})
 
-	// Test case 3: Result Error (e.g., driver doesn't support LastInsertId)
-	expectedErr := sql.ErrNoRows // Simulate the error returned by mock when getting LastInsertId fails
-	mock.ExpectExec(regexp.QuoteMeta(query)).
-		WithArgs(newMaterial.Name, newMaterial.Category, newMaterial.Supplier, newMaterial.Quantity, newMaterial.Status, newMaterial.Image, sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnResult(sqlmock.NewErrorResult(expectedErr)) // Simulate error getting LastInsertId
+	t.Run("Result Error", func(t *testing.T) {
+		expectedErr := sql.ErrNoRows // Simulate driver not supporting LastInsertId or other result errors
+		mock.ExpectExec(regexp.QuoteMeta(query)).
+			WithArgs(newMaterial.Name, newMaterial.Category, newMaterial.Supplier, newMaterial.Quantity, newMaterial.Status, newMaterial.Image, sqlmock.AnyArg(), sqlmock.AnyArg()).
+			WillReturnResult(sqlmock.NewErrorResult(expectedErr))
 
-	id, err = repo.Create(newMaterial)
-	assert.ErrorIs(t, err, expectedErr) // Check for the specific result error
-	assert.Equal(t, 0, id)
-
-	assert.NoError(t, mock.ExpectationsWereMet())
+		id, err := repo.Create(newMaterial)
+		assert.ErrorIs(t, err, expectedErr)
+		assert.Equal(t, 0, id)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
 func TestUpdateMaterial(t *testing.T) {
@@ -214,31 +225,35 @@ func TestUpdateMaterial(t *testing.T) {
 
 	query := "UPDATE materials SET name = ?, category = ?, supplier = ?, quantity = ?, status = ?, image = ?, updated_at = ? WHERE id = ?"
 
-	// Test case 1: Success
-	mock.ExpectExec(regexp.QuoteMeta(query)).
-		WithArgs(updatedMaterial.Name, updatedMaterial.Category, updatedMaterial.Supplier, updatedMaterial.Quantity, updatedMaterial.Status, updatedMaterial.Image, sqlmock.AnyArg(), updatedMaterial.ID). // Use AnyArg for time.Now()
-		WillReturnResult(sqlmock.NewResult(0, 1))                                                                                                                                                          // 1 row affected
+	t.Run("Success", func(t *testing.T) {
+		mock.ExpectExec(regexp.QuoteMeta(query)).
+			WithArgs(updatedMaterial.Name, updatedMaterial.Category, updatedMaterial.Supplier, updatedMaterial.Quantity, updatedMaterial.Status, updatedMaterial.Image, sqlmock.AnyArg(), updatedMaterial.ID).
+			WillReturnResult(sqlmock.NewResult(0, 1)) // 1 row affected
 
-	err := repo.Update(updatedMaterial)
-	assert.NoError(t, err)
+		err := repo.Update(updatedMaterial)
+		assert.NoError(t, err)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
 
-	// Test case 2: Exec Error
-	mock.ExpectExec(regexp.QuoteMeta(query)).
-		WithArgs(updatedMaterial.Name, updatedMaterial.Category, updatedMaterial.Supplier, updatedMaterial.Quantity, updatedMaterial.Status, updatedMaterial.Image, sqlmock.AnyArg(), updatedMaterial.ID).
-		WillReturnError(sql.ErrConnDone)
+	t.Run("Exec Error", func(t *testing.T) {
+		mock.ExpectExec(regexp.QuoteMeta(query)).
+			WithArgs(updatedMaterial.Name, updatedMaterial.Category, updatedMaterial.Supplier, updatedMaterial.Quantity, updatedMaterial.Status, updatedMaterial.Image, sqlmock.AnyArg(), updatedMaterial.ID).
+			WillReturnError(sql.ErrConnDone)
 
-	err = repo.Update(updatedMaterial)
-	assert.ErrorIs(t, err, sql.ErrConnDone) // Be specific about the error type
+		err := repo.Update(updatedMaterial)
+		assert.ErrorIs(t, err, sql.ErrConnDone)
+		// No mock.ExpectationsWereMet() here
+	})
 
-	// Test case 3: No Rows Affected (could indicate material not found, though current repo doesn't check)
-	mock.ExpectExec(regexp.QuoteMeta(query)).
-		WithArgs(updatedMaterial.Name, updatedMaterial.Category, updatedMaterial.Supplier, updatedMaterial.Quantity, updatedMaterial.Status, updatedMaterial.Image, sqlmock.AnyArg(), updatedMaterial.ID).
-		WillReturnResult(sqlmock.NewResult(0, 0)) // 0 rows affected
+	t.Run("No Rows Affected", func(t *testing.T) {
+		mock.ExpectExec(regexp.QuoteMeta(query)).
+			WithArgs(updatedMaterial.Name, updatedMaterial.Category, updatedMaterial.Supplier, updatedMaterial.Quantity, updatedMaterial.Status, updatedMaterial.Image, sqlmock.AnyArg(), updatedMaterial.ID).
+			WillReturnResult(sqlmock.NewResult(0, 0)) // 0 rows affected
 
-	err = repo.Update(updatedMaterial)
-	assert.NoError(t, err) // The repository currently doesn't return an error if no rows are affected
-
-	assert.NoError(t, mock.ExpectationsWereMet())
+		err := repo.Update(updatedMaterial)
+		assert.NoError(t, err) // Update itself doesn't error on 0 rows affected, usually
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
 func TestDeleteMaterial(t *testing.T) {
@@ -249,23 +264,27 @@ func TestDeleteMaterial(t *testing.T) {
 	materialID := 1
 	query := "DELETE FROM materials WHERE id = ?"
 
-	// Test case 1: Success
-	mock.ExpectExec(regexp.QuoteMeta(query)).WithArgs(materialID).WillReturnResult(sqlmock.NewResult(0, 1)) // 1 row affected
+	t.Run("Success", func(t *testing.T) {
+		mock.ExpectExec(regexp.QuoteMeta(query)).WithArgs(materialID).WillReturnResult(sqlmock.NewResult(0, 1)) // 1 row affected
 
-	err := repo.Delete(materialID)
-	assert.NoError(t, err)
+		err := repo.Delete(materialID)
+		assert.NoError(t, err)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
 
-	// Test case 2: Exec Error
-	mock.ExpectExec(regexp.QuoteMeta(query)).WithArgs(materialID).WillReturnError(sql.ErrConnDone)
+	t.Run("Exec Error", func(t *testing.T) {
+		mock.ExpectExec(regexp.QuoteMeta(query)).WithArgs(materialID).WillReturnError(sql.ErrConnDone)
 
-	err = repo.Delete(materialID)
-	assert.ErrorIs(t, err, sql.ErrConnDone) // Be specific about the error type
+		err := repo.Delete(materialID)
+		assert.ErrorIs(t, err, sql.ErrConnDone)
+		// No mock.ExpectationsWereMet() here
+	})
 
-	// Test case 3: No Rows Affected (could indicate material not found)
-	mock.ExpectExec(regexp.QuoteMeta(query)).WithArgs(materialID).WillReturnResult(sqlmock.NewResult(0, 0)) // 0 rows affected
+	t.Run("No Rows Affected", func(t *testing.T) {
+		mock.ExpectExec(regexp.QuoteMeta(query)).WithArgs(materialID).WillReturnResult(sqlmock.NewResult(0, 0)) // 0 rows affected
 
-	err = repo.Delete(materialID)
-	assert.NoError(t, err) // Repository doesn't currently return error for 0 rows affected
-
-	assert.NoError(t, mock.ExpectationsWereMet())
+		err := repo.Delete(materialID)
+		assert.NoError(t, err) // Delete itself doesn't error on 0 rows affected
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
 }
