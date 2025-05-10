@@ -3,6 +3,7 @@ import { computed, ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import * as TurnstileCaptchaComponent from '../components/Global/TurnstileCaptcha.vue'
+import { useQuasar } from 'quasar'
 
 // Define Turnstile interface for TypeScript
 interface TurnstileOptions {
@@ -29,7 +30,7 @@ const showModal = ref(false)
 const recoveryEmail = ref('')
 const recoveryPhone = ref('')
 const showCaptchaDialog = ref(false)
-const captchaToken = ref<string|null>(null)
+const captchaToken = ref<string | null>(null)
 
 const isSendingRecovery = ref(false)
 const recoverySent = ref(false)
@@ -66,14 +67,17 @@ const isRecoveryInputValid = computed(() => {
 
 const router = useRouter()
 const authStore = useAuthStore()
+const $q = useQuasar()
 
 const form = reactive({
-  email: '',
+  username: '',
   password: ''
 })
 
+const isPageLoading = ref(true)
+
 const errors = reactive({
-  email: '',
+  username: '',
   password: '',
 })
 
@@ -83,27 +87,45 @@ const loginError = ref('')
 const isCaptchaLoading = ref(false)
 const isLoginValidated = ref(false)
 
-onMounted( async () => {
-  if (authStore.isAuthenticated) await router.push('/')
+onMounted(async () => {
+  // Show page loader
+  isPageLoading.value = true
 
-  // Load Turnstile script if not already loaded
-  if (!window.turnstile) {
-    const script = document.createElement('script')
-    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
-    script.async = true
-    script.defer = true
-    document.head.appendChild(script)
+  try {
+    if (authStore.isAuthenticated) await router.push('/')
+
+    // Load Turnstile script if not already loaded
+    if (!window.turnstile) {
+      const script = document.createElement('script')
+      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+      script.async = true
+      script.defer = true
+      document.head.appendChild(script)
+    }
+
+    // Simulate a minimum loading time for better UX
+    await new Promise(resolve => setTimeout(resolve, 800))
+  } catch (error) {
+    console.error('Error during page initialization:', error)
+  } finally {
+    // Hide page loader
+    isPageLoading.value = false
   }
 })
 
-const validateEmail = () => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!form.email) {
-    errors.email = 'Email is required'
-  } else if (!emailRegex.test(form.email)) {
-    errors.email = 'Please enter a valid email'
+const validateUsername = () => {
+  if (!form.username) {
+    errors.username = 'Username or email is required'
   } else {
-    errors.email = ''
+    // Allow either email or username format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/
+
+    if (!emailRegex.test(form.username) && !usernameRegex.test(form.username)) {
+      errors.username = 'Please enter a valid username or email'
+    } else {
+      errors.username = ''
+    }
   }
 }
 
@@ -130,6 +152,13 @@ const handleCaptchaError = () => {
 
 const proceedLogin = async () => {
   isSubmitting.value = true
+  // Show loading overlay during login
+  $q.loading.show({
+    message: 'Signing in...',
+    spinnerColor: 'primary',
+    spinnerSize: 80
+  })
+
   try {
     const result = await authStore.login(form)
     if (result.success) {
@@ -139,9 +168,9 @@ const proceedLogin = async () => {
     } else {
       captchaToken.value = null
       form.password = ''
-      let msg = result.message || 'Invalid email or password. Please try again.'
+      let msg = result.message || 'Invalid username/email or password. Please try again.'
       if (msg === 'Invalid credentials') {
-        msg = 'Invalid email or password.'
+        msg = 'Invalid username/email or password.'
       }
       loginError.value = msg
       showShake.value = true
@@ -154,15 +183,17 @@ const proceedLogin = async () => {
     setTimeout(() => showShake.value = false, 500)
   } finally {
     isSubmitting.value = false
+    // Hide loading overlay
+    $q.loading.hide()
   }
 }
 
 const handleSubmit = () => {
-  validateEmail()
+  validateUsername()
   validatePassword()
   loginError.value = ''
 
-  if (errors.email || errors.password) {
+  if (errors.username || errors.password) {
     showShake.value = true
     setTimeout(() => showShake.value = false, 500)
     return
@@ -174,13 +205,13 @@ const handleSubmit = () => {
 
 // Watch for when both email and password are filled to set captcha loading
 watch(
-  () => [form.email, form.password],
-  ([email, password], [oldEmail, oldPassword]) => {
-    if (email && password && (!oldEmail || !oldPassword)) {
+  () => [form.username, form.password],
+  ([username, password], [oldUsername, oldPassword]) => {
+    if (username && password && (!oldUsername || !oldPassword)) {
       isCaptchaLoading.value = true
     }
     // Optionally, if either is cleared, reset loading state
-    if (!email || !password) {
+    if (!username || !password) {
       isCaptchaLoading.value = false
     }
   }
@@ -189,7 +220,13 @@ watch(
 
 <template>
   <div class="login-page">
-    <div class="login-container" :class="{ 'shake-animation': showShake }">
+      <div class="login-container" :class="{ 'shake-animation': showShake }">
+      <!-- Spinner overlay when page is loading -->
+      <div v-if="isPageLoading" class="spinner-overlay">
+        <q-spinner-dots color="primary" size="80px" />
+      </div>
+
+      <!-- Actual content -->
       <div class="logo">
         <q-icon name="account_circle" size="48px" />
       </div>
@@ -203,29 +240,18 @@ watch(
         </div>
 
         <div class="input-group">
-          <input
-            v-model="form.email"
-            id="email"
-            placeholder="Enter your email"
-            @blur="validateEmail"
-            :class="{ 'error': errors.email }"
-          >
-          <span class="error-message" v-if="errors.email">{{ errors.email }}</span>
+          <input v-model="form.username" id="username" placeholder="Enter your username or email"
+            @blur="validateUsername" :class="{ 'error': errors.username }">
+          <span class="error-message" v-if="errors.username">{{ errors.username }}</span>
         </div>
 
         <div class="input-group">
-          <input
-            v-model="form.password"
-            type="password"
-            id="password"
-            placeholder="Enter your password"
-            @blur="validatePassword"
-            :class="{ 'error': errors.password }"
-          >
+          <input v-model="form.password" type="password" id="password" placeholder="Enter your password"
+            @blur="validatePassword" :class="{ 'error': errors.password }">
           <span class="error-message" v-if="errors.password">{{ errors.password }}</span>
           <div class="col flex content-center justify-end">
-                <a href="#" class="forgot-password" @click.prevent="showModal = true">Forgot password?</a>
-              </div>
+            <a href="#" class="forgot-password" @click.prevent="showModal = true">Forgot password?</a>
+          </div>
         </div>
 
         <button type="submit" :disabled="isSubmitting">
@@ -241,21 +267,11 @@ watch(
       <q-card class="recovery-card">
         <q-card-section class="header-section">
           <div class="text-h6">Password Recovery</div>
-          <q-icon
-            name="close"
-            class="close-icon"
-            @click="showModal = false"
-          />
+          <q-icon name="close" class="close-icon" @click="showModal = false" />
         </q-card-section>
 
-        <q-tabs
-          v-model="tab"
-          dense
-          class="bg-grey-1 text-dark"
-          active-color="primary"
-          indicator-color="primary"
-          align="justify"
-        >
+        <q-tabs v-model="tab" dense class="bg-grey-1 text-dark" active-color="primary" indicator-color="primary"
+          align="justify">
           <q-tab name="email" icon="mail" label="Email" />
           <q-tab name="phone" icon="phone" label="Phone" />
         </q-tabs>
@@ -264,11 +280,8 @@ watch(
 
         <q-card-section class="content-section">
           <div class="illustration-container">
-            <q-img
-              src="https://cdn-icons-png.flaticon.com/512/6195/6195699.png"
-              alt="Password Recovery"
-              style="width: 120px; height: 120px"
-            />
+            <q-img src="https://cdn-icons-png.flaticon.com/512/6195/6195699.png" alt="Password Recovery"
+              style="width: 120px; height: 120px" />
           </div>
 
           <div class="text-center text-body1 q-mb-md">
@@ -280,46 +293,24 @@ watch(
             </template>
           </div>
 
-          <q-input
-            v-if="tab === 'email'"
-            v-model="recoveryEmail"
-            type="email"
-            label="Email Address"
-            outlined
-            dense
+          <q-input v-if="tab === 'email'" v-model="recoveryEmail" type="email" label="Email Address" outlined dense
             class="q-mb-md"
-            :rules="[val => !!val || 'Email is required', val => /.+@.+\..+/.test(val) || 'Invalid email']"
-          >
+            :rules="[val => !!val || 'Email is required', val => /.+@.+\..+/.test(val) || 'Invalid email']">
             <template v-slot:prepend>
               <q-icon name="mail" />
             </template>
           </q-input>
 
-          <q-input
-            v-else
-            v-model="recoveryPhone"
-            type="tel"
-            label="Phone Number"
-            mask="(###) ###-####"
-            fill-mask
-            outlined
-            dense
-            class="q-mb-md"
-            :rules="[val => val.replace(/\D/g,'').length === 10 || 'Valid phone number required']"
-          >
+          <q-input v-else v-model="recoveryPhone" type="tel" label="Phone Number" mask="(###) ###-####" fill-mask
+            outlined dense class="q-mb-md"
+            :rules="[val => val.replace(/\D/g, '').length === 10 || 'Valid phone number required']">
             <template v-slot:prepend>
               <q-icon name="phone" />
             </template>
           </q-input>
 
-          <q-btn
-            label="Send Recovery Link"
-            color="primary"
-            class="full-width q-mt-md"
-            :loading="isSendingRecovery"
-            :disable="!isRecoveryInputValid"
-            @click="handleRecoveryRequest"
-          />
+          <q-btn label="Send Recovery Link" color="primary" class="full-width q-mt-md" :loading="isSendingRecovery"
+            :disable="!isRecoveryInputValid" @click="handleRecoveryRequest" />
 
           <div class="text-center text-caption q-mt-md">
             Remember your password?
@@ -347,11 +338,8 @@ watch(
           <div class="text-h6">CAPTCHA Verification</div>
         </q-card-section>
         <q-card-section>
-          <TurnstileCaptchaComponent.default
-            @verify="handleCaptchaVerified"
-            @error="handleCaptchaError"
-            @expired="handleCaptchaError"
-          />
+          <TurnstileCaptchaComponent.default @verify="handleCaptchaVerified" @error="handleCaptchaError"
+            @expired="handleCaptchaError" />
         </q-card-section>
       </q-card>
     </q-dialog>
@@ -364,14 +352,40 @@ watch(
 @import '../assets/styles/LoginPage.dark.css';
 
 /* Keep only animation-related styles here */
+
+/* Spinner overlay styles */
+.spinner-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.26);
+  z-index: 10;
+}
+
 .shake-animation {
   animation: shake 0.5s;
 }
 
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  20%, 60% { transform: translateX(-5px); }
-  40%, 80% { transform: translateX(5px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20%,
+  60% {
+    transform: translateX(-5px);
+  }
+
+  40%,
+  80% {
+    transform: translateX(5px);
+  }
 }
 
 .spinner {
@@ -415,7 +429,9 @@ watch(
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .captcha-placeholder {

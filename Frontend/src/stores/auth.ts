@@ -37,9 +37,9 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('user')
   }
 
-  async function login(credentials: { email: string; password: string }): Promise<{ success: boolean; message?: string }> {
+  async function login(credentials: { username: string; password: string }): Promise<{ success: boolean; message?: string }> {
     clearAuth();
-    console.log('Attempting login with:', credentials.email);
+    console.log('Attempting login with:', credentials.username);
     try {
       const response = await axios.post<LoginResponse>('/api/users/login', credentials);
 
@@ -50,8 +50,6 @@ export const useAuthStore = defineStore('auth', () => {
         if (response.data.user) {
           setUser(response.data.user);
         }
-        // TODO: Alternatively, fetch user details in a separate request using the token
-
         console.log('Login successful');
         return { success: true };
       } else {
