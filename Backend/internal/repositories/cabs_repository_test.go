@@ -68,6 +68,7 @@ func TestGetCabs_WithFilters(t *testing.T) {
 		require.NoError(t, errMake)
 		assert.Len(t, cabsMake, 2)
 		assert.Equal(t, []models.MultiCab{cabPorsche911, cabPorscheCayenne}, cabsMake)
+		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	// Filter by Status
@@ -83,6 +84,7 @@ func TestGetCabs_WithFilters(t *testing.T) {
 		require.NoError(t, errStatus)
 		assert.Len(t, cabsStatus, 1)
 		assert.Equal(t, []models.MultiCab{cabMustang}, cabsStatus)
+		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	// Filter by Search (Name)
@@ -90,8 +92,6 @@ func TestGetCabs_WithFilters(t *testing.T) {
 		rowsSearchName := sqlmock.NewRows(cols).
 			AddRow(cabRX7.ID, cabRX7.Name, cabRX7.Make, cabRX7.Quantity, cabRX7.Price, cabRX7.Status, cabRX7.UnitColor, cabRX7.Image, cabRX7.CreatedAt, cabRX7.UpdatedAt)
 
-		// Note: The actual query uses LIKE which needs % in args
-		// Also need to escape parenthesis in regex for the OR condition
 		querySearchName := "SELECT id, name, make, quantity, price, status, unit_color, image, created_at, updated_at FROM multicabs WHERE 1=1 AND \\(name LIKE \\? OR make LIKE \\?\\) ORDER BY created_at DESC"
 		searchTerm := "%RX%"
 		mock.ExpectQuery(querySearchName).WithArgs(searchTerm, searchTerm).WillReturnRows(rowsSearchName)
@@ -101,6 +101,7 @@ func TestGetCabs_WithFilters(t *testing.T) {
 		require.NoError(t, errSearchName)
 		assert.Len(t, cabsSearchName, 1)
 		assert.Equal(t, []models.MultiCab{cabRX7}, cabsSearchName)
+		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	// Filter by Search (Make)
@@ -108,8 +109,6 @@ func TestGetCabs_WithFilters(t *testing.T) {
 		rowsSearchMake := sqlmock.NewRows(cols).
 			AddRow(cabMustang.ID, cabMustang.Name, cabMustang.Make, cabMustang.Quantity, cabMustang.Price, cabMustang.Status, cabMustang.UnitColor, cabMustang.Image, cabMustang.CreatedAt, cabMustang.UpdatedAt)
 
-		// Note: The actual query uses LIKE which needs % in args
-		// Also need to escape parenthesis in regex for the OR condition
 		querySearchMake := "SELECT id, name, make, quantity, price, status, unit_color, image, created_at, updated_at FROM multicabs WHERE 1=1 AND \\(name LIKE \\? OR make LIKE \\?\\) ORDER BY created_at DESC"
 		searchTerm := "%ford%"
 		mock.ExpectQuery(querySearchMake).WithArgs(searchTerm, searchTerm).WillReturnRows(rowsSearchMake)
@@ -119,6 +118,7 @@ func TestGetCabs_WithFilters(t *testing.T) {
 		require.NoError(t, errSearchMake)
 		assert.Len(t, cabsSearchMake, 1)
 		assert.Equal(t, []models.MultiCab{cabMustang}, cabsSearchMake)
+		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	// Combined Filters
@@ -134,6 +134,7 @@ func TestGetCabs_WithFilters(t *testing.T) {
 		require.NoError(t, errCombined)
 		assert.Len(t, cabsCombined, 1)
 		assert.Equal(t, []models.MultiCab{cabPorsche911}, cabsCombined)
+		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	// No results
@@ -147,6 +148,7 @@ func TestGetCabs_WithFilters(t *testing.T) {
 		cabsNone, errNone := repo.GetCabs(filtersNone)
 		require.NoError(t, errNone)
 		assert.Len(t, cabsNone, 0)
+		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	// Query Error
@@ -158,9 +160,8 @@ func TestGetCabs_WithFilters(t *testing.T) {
 		cabsErr, err := repo.GetCabs(filtersErr)
 		assert.ErrorIs(t, err, sql.ErrConnDone)
 		assert.Nil(t, cabsErr)
+		// No mock.ExpectationsWereMet() here as the mock connection is intentionally "closed"
 	})
-
-	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestGetCabByID_Exists(t *testing.T) {

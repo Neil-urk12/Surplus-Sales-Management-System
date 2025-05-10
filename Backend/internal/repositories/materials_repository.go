@@ -3,6 +3,7 @@ package repositories
 import (
 	"database/sql"
 	"log"
+	"strconv"
 	"time"
 
 	"oop/internal/models"
@@ -16,6 +17,7 @@ type MaterialRepository interface {
 	Create(material *models.Material) (int, error)
 	Update(material *models.Material) error
 	Delete(id int) error
+	GetPaginated(page, limit int, searchTerm, category, supplier, status string) ([]models.Material, int64, error)
 }
 
 // materialRepository implements the MaterialRepository interface
@@ -34,19 +36,27 @@ func (r *materialRepository) GetAll(searchTerm string, category string, supplier
 	args := []interface{}{}
 
 	if searchTerm != "" {
-		query += " AND name ILIKE ?"
-		args = append(args, "%"+searchTerm+"%")
+		// First try to convert searchTerm to integer for direct ID comparison
+		if id, err := strconv.Atoi(searchTerm); err == nil {
+			query += " AND id = ?"
+			args = append(args, id)
+		} else {
+			// If not an integer, search in text fields with case-insensitive comparison
+			query += " AND (LOWER(name) LIKE LOWER(?) OR LOWER(category) LIKE LOWER(?) OR LOWER(supplier) LIKE LOWER(?))"
+			likeTerm := "%" + searchTerm + "%"
+			args = append(args, likeTerm, likeTerm, likeTerm)
+		}
 	}
 	if category != "" {
-		query += " AND category = ?"
+		query += " AND LOWER(category) = LOWER(?)"
 		args = append(args, category)
 	}
 	if supplier != "" {
-		query += " AND supplier = ?"
+		query += " AND LOWER(supplier) = LOWER(?)"
 		args = append(args, supplier)
 	}
 	if status != "" {
-		query += " AND status = ?"
+		query += " AND LOWER(status) = LOWER(?)"
 		args = append(args, status)
 	}
 
@@ -169,4 +179,76 @@ func (r *materialRepository) Delete(id int) error {
 		return err
 	}
 	return nil
+}
+
+// GetPaginated retrieves paginated materials with optional filtering
+func (r *materialRepository) GetPaginated(page, limit int, searchTerm, category, supplier, status string) ([]models.Material, int64, error) {
+	offset := (page - 1) * limit
+	query := `SELECT id, name, category, supplier, quantity, status, image, created_at, updated_at FROM materials WHERE 1=1`
+	countQuery := `SELECT COUNT(*) FROM materials WHERE 1=1`
+	args := []interface{}{}
+	countArgs := []interface{}{}
+
+	if searchTerm != "" {
+		// First try to convert searchTerm to integer for direct ID comparison
+		if id, err := strconv.Atoi(searchTerm); err == nil {
+			query += " AND id = ?"
+			countQuery += " AND id = ?"
+			args = append(args, id)
+			countArgs = append(countArgs, id)
+		} else {
+			// If not an integer, search in text fields with case-insensitive comparison
+			query += " AND (LOWER(name) LIKE LOWER(?) OR LOWER(category) LIKE LOWER(?) OR LOWER(supplier) LIKE LOWER(?))"
+			countQuery += " AND (LOWER(name) LIKE LOWER(?) OR LOWER(category) LIKE LOWER(?) OR LOWER(supplier) LIKE LOWER(?))"
+			likeTerm := "%" + searchTerm + "%"
+			args = append(args, likeTerm, likeTerm, likeTerm)
+			countArgs = append(countArgs, likeTerm, likeTerm, likeTerm)
+		}
+	}
+	if category != "" {
+		query += " AND LOWER(category) = LOWER(?)"
+		countQuery += " AND LOWER(category) = LOWER(?)"
+		args = append(args, category)
+		countArgs = append(countArgs, category)
+	}
+	if supplier != "" {
+		query += " AND LOWER(supplier) = LOWER(?)"
+		countQuery += " AND LOWER(supplier) = LOWER(?)"
+		args = append(args, supplier)
+		countArgs = append(countArgs, supplier)
+	}
+	if status != "" {
+		query += " AND LOWER(status) = LOWER(?)"
+		countQuery += " AND LOWER(status) = LOWER(?)"
+		args = append(args, status)
+		countArgs = append(countArgs, status)
+	}
+
+	query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
+
+	// Get total count
+	var total int64
+	err := r.DB.QueryRow(countQuery, countArgs...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated results
+	rows, err := r.DB.Query(query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	materials := []models.Material{}
+	for rows.Next() {
+		var m models.Material
+		if err := rows.Scan(&m.ID, &m.Name, &m.Category, &m.Supplier, &m.Quantity, &m.Status, &m.Image, &m.CreatedAt, &m.UpdatedAt); err != nil {
+			return nil, 0, err
+		}
+		materials = append(materials, m)
+	}
+
+	return materials, total, nil
 }

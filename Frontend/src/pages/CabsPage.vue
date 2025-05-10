@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, defineAsyncComponent } from 'vue';
-import type { QTableColumn, QTableProps } from 'quasar';
+import type { QTableColumn } from 'quasar';
 const ProductCardModal = defineAsyncComponent(() => import('src/components/Global/ProductModal.vue'));
 const AddCabDialog = defineAsyncComponent(() => import('src/components/Cabs/AddCabDialog.vue'));
 const EditCabDialog = defineAsyncComponent(() => import('src/components/Cabs/EditCabDialog.vue'));
@@ -8,6 +8,7 @@ const FilterDialog = defineAsyncComponent(() => import('src/components/Cabs/Filt
 const DeleteDialog = defineAsyncComponent(() => import('src/components/Cabs/DeleteDialog.vue'));
 const SellCabDialog = defineAsyncComponent(() => import('src/components/Cabs/SellCabDialog.vue'));
 const AdvancedSearch = defineAsyncComponent(() => import('src/components/Global/AdvancedSearch.vue'));
+const CabsTable = defineAsyncComponent(() => import('src/components/Cabs/CabsTable.vue'));
 import { useQuasar } from 'quasar';
 import { useCabsStore } from 'src/stores/cabs';
 import { useAccessoriesStore } from 'src/stores/accessories';
@@ -81,13 +82,8 @@ const columns: QTableColumn[] = [
   }
 ];
 
-const onRowClick: QTableProps['onRowClick'] = (evt, row) => {
-  const target = evt.target as HTMLElement;
-  if (target.closest('.action-button') || target.closest('.action-menu')) {
-    return;
-  }
-  selected.value = { ...row as CabsRow };
-
+function handleRowClick(evt: Event, row: CabsRow) {
+  selected.value = { ...row };
   selected.value.image = getValidatedImage(selected.value.image);
   showProductCardModal.value = true;
 }
@@ -206,20 +202,7 @@ function sellCab(cab: CabsRow) {
   showSellDialog.value = true;
 }
 
-function calculateNewCabState(currentQuantity: number, soldQuantity: number): { newQuantity: number; newStatus: CabStatus } {
-  const newQuantity = currentQuantity - soldQuantity;
-  let newStatus: CabStatus;
-
-  if (newQuantity === 0) {
-    newStatus = 'Out of Stock';
-  } else if (newQuantity <= 7) {
-    newStatus = 'Low Stock';
-  } else {
-    newStatus = 'In Stock';
-  }
-
-  return { newQuantity, newStatus };
-}
+// Function removed as it's now handled by the store's sellCab function
 
 async function updateAccessoryStock(accessories: Array<{ id: number; quantity: number }>) {
   const updatePromises = accessories.map(async (acc) => {
@@ -256,17 +239,7 @@ async function processCabSale(
     );
   }
 
-  const { newQuantity, newStatus } = calculateNewCabState(cab.quantity, soldQuantity);
-  const updatedCabData: NewCabInput = {
-    name: cab.name,
-    make: cab.make,
-    quantity: newQuantity,
-    price: cab.price,
-    unit_color: cab.unit_color,
-    status: newStatus,
-    image: cab.image
-  };
-
+  // Record the purchase in customer records
   const purchaseResult = await customerStore.recordCabPurchase(customerId, {
     cabId: cab.id,
     cabName: cab.name,
@@ -283,14 +256,27 @@ async function processCabSale(
     );
   }
 
+  // Update accessory stock
   await updateAccessoryStock(accessories);
 
-  const result = await store.updateCab(cab.id, updatedCabData);
-  if (!result.success) {
+  // Process the cab sale using the new sellCab function
+  const saleResult = await store.sellCab(cab.id, {
+    customerId,
+    quantity: soldQuantity,
+    accessories: accessories.map(acc => ({
+      id: acc.id,
+      name: acc.name,
+      price: acc.price,
+      quantity: acc.quantity,
+      unitPrice: acc.unitPrice
+    }))
+  });
+
+  if (!saleResult.success) {
     throw new AppError(
-      'Failed to update cab inventory after purchase recorded',
+      'Failed to process cab sale',
       'inventory',
-      'Failed to update cab inventory. The purchase was recorded but inventory not updated.',
+      saleResult.error || 'Failed to update cab inventory. The purchase was recorded but inventory not updated.',
       'critical'
     );
   }
@@ -344,18 +330,6 @@ function handleDownloadCsv() {
   ];
 
   exportToCsv(store.filteredCabRows, 'cabs-inventory', csvColumns);
-}
-
-function filterCabs(rows: readonly CabsRow[], terms: string): CabsRow[] {
-  return rows.filter(row => {
-    const searchTerms = terms.toLowerCase();
-    return (
-      row.name.toLowerCase().includes(searchTerms) ||
-      row.make.toLowerCase().includes(searchTerms) ||
-      row.status.toLowerCase().includes(searchTerms) ||
-      row.unit_color.toLowerCase().includes(searchTerms)
-    );
-  });
 }
 
 onMounted(async () => {
@@ -443,61 +417,16 @@ onMounted(async () => {
         </div>
       </div>
 
-      <template v-if="store.isLoading">
-        <q-inner-loading showing color="primary">
-          <q-spinner-gears size="50px" color="primary" />
-        </q-inner-loading>
-      </template>
-
-      <template v-else>
-        <q-table class="my-sticky-column-table custom-table-text" flat bordered :rows="store.filteredCabRows || []"
-          :columns="columns" row-key="id" :filter="store.search.searchValue" @row-click="onRowClick"
-          :filter-method="filterCabs" :pagination="{ rowsPerPage: 10 }" :rows-per-page-options="[10]">
-          <template v-slot:body-cell-actions="props">
-            <q-td :props="props" auto-width :key="props.row.id">
-              <q-btn flat round dense color="grey" icon="more_vert" class="action-button"
-                :aria-label="'Actions for ' + props.row.name">
-                <q-menu class="action-menu" :aria-label="'Available actions for ' + props.row.name">
-                  <q-list style="min-width: 100px">
-                    <q-item clickable v-close-popup @click.stop="sellCab(props.row)" role="button"
-                      :aria-label="'Sell ' + props.row.name" v-if="props.row.quantity > 0">
-                      <q-item-section>
-                        <q-item-label>
-                          <q-icon name="sell" size="xs" class="q-mr-sm" aria-hidden="true" />
-                          Sell
-                        </q-item-label>
-                      </q-item-section>
-                    </q-item>
-                    <q-item clickable v-close-popup @click.stop="editCab(props.row)" role="button"
-                      :aria-label="'Edit ' + props.row.name">
-                      <q-item-section>
-                        <q-item-label>
-                          <q-icon name="edit" size="xs" class="q-mr-sm" aria-hidden="true" />
-                          Edit
-                        </q-item-label>
-                      </q-item-section>
-                    </q-item>
-                    <q-item clickable v-close-popup @click.stop="deleteCab(props.row)" role="button"
-                      :aria-label="'Delete ' + props.row.name" class="text-negative">
-                      <q-item-section>
-                        <q-item-label class="text-negative">
-                          <q-icon name="delete" size="xs" class="q-mr-sm" aria-hidden="true" />
-                          Delete
-                        </q-item-label>
-                      </q-item-section>
-                    </q-item>
-                  </q-list>
-                </q-menu>
-              </q-btn>
-            </q-td>
-          </template>
-          <template v-slot:body-cell-status="props">
-            <q-td :props="props">
-              <q-badge :color="props.row.status === 'In Stock' ? 'green' : (props.row.status === 'Out of Stock' || props.row.status === 'Low Stock' ? 'red' : 'grey')" :label="props.row.status" />
-            </q-td>
-          </template>
-        </q-table>
-      </template>
+      <CabsTable 
+        :rows="store.filteredCabRows || []"
+        :columns="columns"
+        :is-loading="store.isLoading"
+        :search-value="store.search.searchValue"
+        @row-click="handleRowClick"
+        @edit="editCab"
+        @delete="deleteCab"
+        @sell="sellCab"
+      />
 
       <ProductCardModal v-model="showProductCardModal" :image="selected?.image || ''" :title="selected?.name || ''"
         :unit_color="selected?.unit_color || ''" :price="selected?.price || 0" :quantity="selected?.quantity || 0"
@@ -526,34 +455,8 @@ onMounted(async () => {
 </template>
 
 <style lang="sass">
-.my-sticky-column-table
-  max-width: 100%
-
-  thead tr:first-child th:nth-child(2)
-    background-color: var(--sticky-column-bg)
-
-  td:nth-child(2)
-    background-color: var(--sticky-column-bg)
-
-  th:nth-child(2),
-  td:nth-child(2)
-    position: sticky
-    left: 0
-    z-index: 1
-    color: white
-
-    .body--dark &
-      color: black
-
 .cab-page-z-top
   z-index: 1000
-
-.action-button
-  position: relative
-  z-index: 1
-
-.action-menu
-  z-index: 1001 !important
 
 .upload-container
   position: relative

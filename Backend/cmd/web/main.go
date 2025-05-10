@@ -124,6 +124,48 @@ func getEnv(key, fallback string) string {
 	return value
 }
 
+// turnstileMiddleware creates a middleware that verifies Cloudflare Turnstile tokens
+func turnstileMiddleware() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		// 1) grab the Turnstile token from the client
+		token := c.FormValue("cf-turnstile-response")
+		if token == "" {
+			log.Printf("Error: Missing Turnstile token in request")
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "captcha token missing",
+			})
+		}
+
+		// Log token for debugging (truncate for security)
+		tokenLength := len(token)
+		truncatedToken := ""
+		if tokenLength > 10 {
+			truncatedToken = token[:5] + "..." + token[tokenLength-5:]
+		} else {
+			truncatedToken = token
+		}
+		log.Printf("Debug: Processing Turnstile token: %s", truncatedToken)
+
+		// 2) verify with Cloudflare
+		ok, err := handlers.VerifyTurnstile(token)
+		if err != nil {
+			log.Printf("Error: Turnstile verification failed: %v, token: %s", err, truncatedToken)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+		if !ok {
+			log.Printf("Error: Invalid Turnstile captcha with token: %s", truncatedToken)
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": "invalid captcha",
+			})
+		}
+
+		log.Printf("Success: Turnstile verification passed for token: %s", truncatedToken)
+		return c.Next()
+	}
+}
+
 func main() {
 	// Load env variables
 	err := godotenv.Load()
@@ -190,6 +232,9 @@ func main() {
 	// Initialize cabs repository directly with DB
 	cabsRepo := repositories.NewCabsRepository(dbClient.DB)
 
+	// Initialize sales repository
+	saleRepo := repositories.NewSalesRepository(dbClient.DB)
+
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userRepo, jwtSecret)
 	materialHandler := handlers.NewMaterialHandlers(materialRepo, jwtSecret)
@@ -197,6 +242,8 @@ func main() {
 	// Initialize cabs handler
 	cabsHandler := handlers.NewCabsHandlers(cabsRepo)
 	accessoryHandler := handlers.NewAccessoriesHandler(accessoryRepo)
+	// Initialize sales handler
+	saleHandler := handlers.NewSaleHandlers(saleRepo, cabsRepo, accessoryRepo, customerRepo, jwtSecret)
 
 	// --- Route Registration ---
 	api := app.Group("/api") // Base group for API routes
@@ -215,49 +262,7 @@ func main() {
 	// @Failure 403 {object} fiber.Map{"error=invalid captcha"}
 	// @Failure 500 {object} fiber.Map{"error=verification failed"}
 	// @Router /submit [post]
-	app.Post("/submit", func(c *fiber.Ctx) error {
-		// 1) grab the Turnstile token from the client
-		token := c.FormValue("cf-turnstile-response")
-		if token == "" {
-			log.Printf("Error: Missing Turnstile token in request")
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "captcha token missing",
-			})
-		}
-
-		// Log token for debugging (truncate for security)
-		tokenLength := len(token)
-		truncatedToken := ""
-		if tokenLength > 10 {
-			truncatedToken = token[:5] + "..." + token[tokenLength-5:]
-		} else {
-			truncatedToken = token
-		}
-		log.Printf("Debug: Processing Turnstile token: %s", truncatedToken)
-
-		// 2) verify with Cloudflare
-		ok, err := handlers.VerifyTurnstile(token)
-		if err != nil {
-			log.Printf("Error: Turnstile verification failed: %v, token: %s", err, truncatedToken)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": err.Error(),
-			})
-		}
-		if !ok {
-			log.Printf("Error: Invalid Turnstile captcha with token: %s", truncatedToken)
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": "invalid captcha",
-			})
-		}
-
-		// 3) CAPTCHA passed — now invoke your normal form logic.
-		//    e.g., parse the rest of the body and save to DB:
-		//
-		//    var payload YourPayloadType
-		//    if err := c.BodyParser(&payload); err != nil { … }
-		//    // do your business logic here…
-		//
-		log.Printf("Success: Turnstile verification passed for token: %s", truncatedToken)
+	app.Post("/submit", turnstileMiddleware(), func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
 
@@ -279,6 +284,9 @@ func main() {
 	api.Post("/accessories", accessoryHandler.CreateAccessory)       // POST /api/accessories
 	api.Put("/accessories/:id", accessoryHandler.UpdateAccessory)    // PUT /api/accessories/:id
 	api.Delete("/accessories/:id", accessoryHandler.DeleteAccessory) // DELETE /api/accessories/:id
+
+	// Register Sale routes - Detailed Swagger annotations are in sales_handlers.go
+	saleHandler.RegisterSaleRoutes(api)
 
 	// Protected User Routes (require JWT)
 	authMiddleware := middleware.JWTMiddleware(jwtSecret)
