@@ -9,12 +9,14 @@ const EditAccessoryDialog = defineAsyncComponent(() => import('src/components/ac
 const AdvancedSearch = defineAsyncComponent(() => import('src/components/Global/AdvancedSearch.vue'));
 const FilterDialog = defineAsyncComponent(() => import('src/components/Global/FilterDialog.vue'));
 import { useAccessoriesStore } from 'src/stores/accessories';
+import { useCustomerStore } from 'src/stores/customerStore';
 import type { AccessoryRow, NewAccessoryInput, AccessoryMakeInput, AccessoryColorInput, AccessoryStatus } from 'src/types/accessories';
 import { getDefaultImage } from 'src/config/defaultImages';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
 import { operationNotifications } from '../utils/notifications';
 
 const store = useAccessoriesStore();
+const customerStore = useCustomerStore();
 const $q = useQuasar();
 const showFilterDialog = ref(false);
 const showAddDialog = ref(false);
@@ -242,7 +244,10 @@ function handleApplyFilters(filters: Record<string, string | null>) {
 onMounted(async () => {
   pageLoading.value = true;
   try {
-    await store.initializeAccessories();
+    await Promise.all([
+      store.initializeAccessories(),
+      customerStore.fetchCustomers()
+    ]);
   } finally {
     pageLoading.value = false;
   }
@@ -298,7 +303,7 @@ onMounted(async () => {
                 @click="openAddDialog"
                 :disable="pageLoading"
                 :class="[
-                  $q.dark.isActive ? 'text-black bg-white' : 'text-white bg-primary', 
+                  $q.dark.isActive ? 'text-black bg-white' : 'text-white bg-primary',
                   { 'full-width': $q.screen.lt.md }
                 ]"
               >
@@ -310,8 +315,8 @@ onMounted(async () => {
                 flat
                 :disable="pageLoading"
                 :class="[
-                  $q.dark.isActive ? 'bg-white text-black' : 'bg-primary text-white', 
-                  'q-pa-sm', 
+                  $q.dark.isActive ? 'bg-white text-black' : 'bg-primary text-white',
+                  'q-pa-sm',
                   { 'full-width': $q.screen.lt.md }
                 ]"
               >
@@ -377,7 +382,7 @@ onMounted(async () => {
       </div>
 
       <!--ACCESSORIES TABLE - Only show when not loading and no errors -->
-      <q-table v-if="!pageLoading && !hasApiError" class="my-sticky-column-table custom-table-text" flat bordered 
+      <q-table v-if="!pageLoading && !hasApiError" class="my-sticky-column-table custom-table-text" flat bordered
         :rows="store.filteredAccessoryRows" :columns="columns" row-key="id" :filter="store.search.searchValue"
         @row-click="onRowClick" :pagination="{ rowsPerPage: 10 }" :rows-per-page-options="[10]" :loading="store.isLoading">
         <template v-slot:loading>

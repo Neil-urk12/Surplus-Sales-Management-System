@@ -390,6 +390,7 @@ const monthlySalesData = computed(() => {
   const months = ['Jun 24', 'Jul 24', 'Aug 24', 'Sep 24', 'Oct 24', 'Nov 24', 'Dec 24', 'Jan 25', 'Feb 25', 'Mar 25', 'Apr 25', 'May 25'];
   const monthlySales = new Array(12).fill(0);
   const monthlyRevenue = new Array(12).fill(0);
+  const monthlyAccessories = new Array(12).fill(0);
 
   mockSales.value.forEach(sale => {
     const date = new Date(sale.saleDate);
@@ -407,22 +408,35 @@ const monthlySalesData = computed(() => {
 
     monthlySales[index]++;
     monthlyRevenue[index] += sale.totalPrice;
+    
+    // Generate deterministic accessory count based on sale ID
+    // This creates reproducible data instead of using Math.random()
+    const saleIdNumber = parseInt(sale.id.replace(/\D/g, '')) || 0;
+    const accessoryCount = (saleIdNumber % 3) + 1; // Generates 1-3 accessories consistently for the same sale
+    monthlyAccessories[index] += accessoryCount;
   });
 
   return {
     labels: months,
     datasets: [
       {
-        label: 'Total Revenue',
-        data: monthlyRevenue,
-        borderColor: '#36A2EB',
+        label: 'Cabs Sold',
+        data: monthlySales,
+        borderColor: '#7B66FF',
         tension: 0.4,
         fill: false
       },
       {
-        label: 'Units Sold',
-        data: monthlySales,
-        borderColor: '#4BC0C0',
+        label: 'Accessories Sold',
+        data: monthlyAccessories,
+        borderColor: '#FFB534',
+        tension: 0.4,
+        fill: false
+      },
+      {
+        label: 'Total Items Sold',
+        data: monthlySales.map((val, idx) => val + monthlyAccessories[idx]),
+        borderColor: '#FF6B6B',
         tension: 0.4,
         fill: false
       }

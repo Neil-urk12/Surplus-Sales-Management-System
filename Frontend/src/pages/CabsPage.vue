@@ -13,6 +13,7 @@ import { useQuasar } from 'quasar';
 import { useCabsStore } from 'src/stores/cabs';
 import { useAccessoriesStore } from 'src/stores/accessories';
 import { useCustomerStore } from 'src/stores/customerStore';
+import { useDashboardStore } from 'src/stores/dashboardStore';
 import type { CabsRow, NewCabInput, CabStatus, CabMake, CabColor } from 'src/types/cabs';
 import { getDefaultImage } from 'src/config/defaultImages';
 import { validateAndSanitizeBase64Image } from '../utils/imageValidation';
@@ -24,6 +25,7 @@ const $q = useQuasar();
 const store = useCabsStore();
 const accessoriesStore = useAccessoriesStore();
 const customerStore = useCustomerStore();
+const dashboardStore = useDashboardStore();
 const showFilterDialog = ref(false);
 const showAddDialog = ref(false);
 const showEditDialog = ref(false);
@@ -52,6 +54,14 @@ function getValidatedImage(image: string | null | undefined): string {
   return image || defaultImageUrl;
 }
 
+// Utility function for formatting currency
+function formatCurrency(value: number): string {
+  return `₱ ${value.toLocaleString('en-PH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })}`;
+}
+
 const columns: QTableColumn[] = [
   { name: 'id', align: 'center', label: 'ID', field: 'id', sortable: true },
   {
@@ -65,11 +75,8 @@ const columns: QTableColumn[] = [
   { name: 'make', label: 'Make', field: 'make' },
   { name: 'quantity', label: 'Quantity', field: 'quantity', sortable: true },
   {
-    name: 'price', label: 'Price', field: 'price', sortable: true, format: (val: number) =>
-      `₱ ${val.toLocaleString('en-PH', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      })}`
+    name: 'price', label: 'Price', field: 'price', sortable: true, 
+    format: (val: number) => formatCurrency(val)
   },
   { name: 'status', label: 'Status', field: 'status' },
   { name: 'color', label: 'Color', field: 'unit_color' },
@@ -206,6 +213,12 @@ function sellCab(cab: CabsRow) {
 
 async function updateAccessoryStock(accessories: Array<{ id: number; quantity: number }>) {
   const updatePromises = accessories.map(async (acc) => {
+    // Validate that quantity is non-negative
+    if (acc.quantity < 0) {
+      const errorMessage = `Invalid negative quantity for accessory ID ${acc.id}`;
+      throw new AppError(errorMessage, 'validation', errorMessage, 'warning');
+    }
+    
     const accessory = accessoriesStore.accessoryRows.find(a => a.id === acc.id);
     if (accessory && accessory.quantity >= acc.quantity) {
       await accessoriesStore.updateAccessory(acc.id, {
@@ -230,13 +243,35 @@ async function processCabSale(
   soldQuantity: number,
   accessories: Array<{ id: number; name: string; price: number; quantity: number; unitPrice: number }>
 ): Promise<void> {
-  if (soldQuantity <= 0 || soldQuantity > cab.quantity) {
+  // Validate that quantity is positive and not more than available stock
+  if (soldQuantity <= 0) {
     throw new AppError(
-      `Invalid quantity: ${soldQuantity} for cab with available quantity: ${cab.quantity}`,
+      `Invalid quantity: ${soldQuantity}. Quantity must be positive`,
       'validation',
-      'Invalid quantity or not enough stock',
+      'Invalid quantity. Must be positive',
       'warning'
     );
+  }
+  
+  if (soldQuantity > cab.quantity) {
+    throw new AppError(
+      `Not enough stock: requested ${soldQuantity}, available ${cab.quantity}`,
+      'validation',
+      'Not enough stock available',
+      'warning'
+    );
+  }
+
+  // Validate that all accessory quantities are non-negative
+  for (const acc of accessories) {
+    if (acc.quantity < 0) {
+      throw new AppError(
+        `Invalid quantity for accessory ${acc.name}: ${acc.quantity}`,
+        'validation',
+        'Accessory quantities must be non-negative',
+        'warning'
+      );
+    }
   }
 
   // Record the purchase in customer records
@@ -280,6 +315,41 @@ async function processCabSale(
       'critical'
     );
   }
+  
+  // Calculate the total sale amount including the cab and accessories
+  const cabTotal = cab.price * soldQuantity;
+  const accessoriesTotal = accessories.reduce((total, acc) => total + (acc.price * acc.quantity), 0);
+  
+  // Get customer info for the activity record
+  const customer = customerStore.customers.find(c => c.id === customerId);
+  const customerName = customer ? customer.fullName : 'a customer';
+  
+  // Record the cab sale in the dashboard
+  dashboardStore.recordSale({
+    itemName: cab.name,
+    amount: cabTotal,
+    quantity: soldQuantity,
+    type: 'cab',
+    customerName
+  });
+  
+  // If accessories were sold, record them separately
+  if (accessoriesTotal > 0) {
+    // Create a concatenated name for multiple accessories
+    const accessoryNames = accessories.map(a => a.name).join(', ');
+    
+    // Calculate total quantity of accessories
+    const totalAccessoryQuantity = accessories.reduce((total, acc) => total + acc.quantity, 0);
+    
+    // Record the accessories sale
+    dashboardStore.recordSale({
+      itemName: accessoryNames,
+      amount: accessoriesTotal,
+      quantity: totalAccessoryQuantity,
+      type: 'accessory',
+      customerName
+    });
+  }
 }
 
 async function handleConfirmSell(payload: {
@@ -295,6 +365,16 @@ async function handleConfirmSell(payload: {
   }
 
   try {
+    // Validate quantity is positive
+    if (payload.quantity <= 0) {
+      throw new AppError(
+        'Quantity must be greater than zero',
+        'validation',
+        'Invalid quantity. Please enter a positive number.',
+        'warning'
+      );
+    }
+    
     await processCabSale(
       cabToSell.value,
       payload.customerId,
@@ -302,8 +382,16 @@ async function handleConfirmSell(payload: {
       payload.accessories
     );
 
+    // Calculate total value for the notification
+    const cabTotal = cabToSell.value.price * payload.quantity;
+    const accessoriesTotal = payload.accessories.reduce((total, acc) => total + (acc.price * acc.quantity), 0);
+    const totalAmount = cabTotal + accessoriesTotal;
+    
+    // Format the price for display using the reusable function
+    const formattedTotal = formatCurrency(totalAmount);
+
     showSellDialog.value = false;
-    operationNotifications.update.success(`Sold ${payload.quantity} ${cabToSell.value.name}`);
+    operationNotifications.update.success(`Sold ${payload.quantity} ${cabToSell.value.name} for ${formattedTotal}`);
   } catch (error) {
     const { type } = errorHandler.handleOperation(error, 'update', 'cab sale');
 
