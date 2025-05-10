@@ -58,6 +58,11 @@ const isAdminOrStaff = computed(() => {
   return role === 'admin' || role === 'staff'
 })
 
+// Check if current user is admin
+const isAdmin = computed(() => {
+  return authStore.user?.role === 'admin'
+})
+
 // Highlight current user row
 const rowClass = (row: User) => row.id === authStore.user?.id ? 'bg-grey-2' : ''
 
@@ -230,7 +235,7 @@ function formatStatus(status: boolean) {
             <template v-slot:body-cell-actions="props">
               <q-td :props="props" class="text-center">
                 <q-btn
-                  v-if="isAdminOrStaff"
+                  v-if="isAdmin"
                   flat
                   round
                   color="primary"
@@ -240,6 +245,7 @@ function formatStatus(status: boolean) {
                 >
                   <q-tooltip>Edit User</q-tooltip>
                 </q-btn>
+                <span v-else-if="isAdminOrStaff">View Only</span>
               </q-td>
             </template>
 
