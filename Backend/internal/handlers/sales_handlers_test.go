@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -75,6 +76,92 @@ func (m *MockSaleRepository) Delete(id string) error {
 	return args.Error(0)
 }
 
+func (m *MockSaleRepository) SellCab(cabID int, customerID string, quantity int, soldBy string, accessories []models.AccessoryForSale) (*models.Sale, error) {
+	args := m.Called(cabID, customerID, quantity, soldBy, accessories)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Sale), args.Error(1)
+}
+
+// SaleRepository interface is already defined in the main code
+// We're using it here for the mock implementation
+
+// MockCabsRepositoryForSales is a mock implementation of repositories.CabsRepository for sales tests
+type MockCabsRepositoryForSales struct {
+	mock.Mock
+}
+
+func (m *MockCabsRepositoryForSales) GetCabs(filters map[string]interface{}) ([]models.MultiCab, error) {
+	args := m.Called(filters)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.MultiCab), args.Error(1)
+}
+
+func (m *MockCabsRepositoryForSales) GetCabByID(id int) (*models.MultiCab, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.MultiCab), args.Error(1)
+}
+
+func (m *MockCabsRepositoryForSales) AddCab(cab models.MultiCab) (*models.MultiCab, error) {
+	args := m.Called(cab)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.MultiCab), args.Error(1)
+}
+
+func (m *MockCabsRepositoryForSales) UpdateCab(id int, cab models.MultiCab) (*models.MultiCab, error) {
+	args := m.Called(id, cab)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.MultiCab), args.Error(1)
+}
+
+func (m *MockCabsRepositoryForSales) DeleteCab(id int) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
+// MockAccessoryRepositoryForSales is a mock implementation of repositories.AccessoryRepository for sales tests
+type MockAccessoryRepositoryForSales struct {
+	mock.Mock
+}
+
+func (m *MockAccessoryRepositoryForSales) GetAll(ctx context.Context) ([]models.Accessory, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.Accessory), args.Error(1)
+}
+
+func (m *MockAccessoryRepositoryForSales) GetByID(ctx context.Context, id int) (models.Accessory, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(models.Accessory), args.Error(1)
+}
+
+func (m *MockAccessoryRepositoryForSales) Create(ctx context.Context, input models.NewAccessoryInput) (int, error) {
+	args := m.Called(ctx, input)
+	return args.Int(0), args.Error(1)
+}
+
+func (m *MockAccessoryRepositoryForSales) Update(ctx context.Context, id int, input models.UpdateAccessoryInput) (models.Accessory, error) {
+	args := m.Called(ctx, id, input)
+	return args.Get(0).(models.Accessory), args.Error(1)
+}
+
+func (m *MockAccessoryRepositoryForSales) Delete(ctx context.Context, id int) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
 // Helper function to create a test Fiber app and SaleHandlers
 // It also includes a mock middleware to simulate authentication
 func setupSaleTestApp(mockRepo *MockSaleRepository, t *testing.T) (*fiber.App, *SaleHandlers) {
@@ -88,7 +175,19 @@ func setupSaleTestApp(mockRepo *MockSaleRepository, t *testing.T) (*fiber.App, *
 		},
 	})
 	jwtSecret := []byte("testsecret") // Dummy secret for tests
-	handlers := NewSaleHandlers(mockRepo, nil, nil, nil, jwtSecret)
+
+	// Create mock repositories for cabs and accessories
+	mockCabRepo := new(MockCabsRepositoryForSales)
+	mockAccRepo := new(MockAccessoryRepositoryForSales)
+
+	// Create a new SaleHandlers instance with the correct repository types
+	handlers := &SaleHandlers{
+		Repo:      mockRepo,
+		CabRepo:   mockCabRepo,
+		AccRepo:   mockAccRepo,
+		CustRepo:  nil,
+		jwtSecret: jwtSecret,
+	}
 
 	// Mock middleware to set user_id for authenticated routes
 	// This simulates what middleware.JWTMiddleware would do after successful auth
@@ -572,7 +671,7 @@ func TestDeleteSaleHandler(t *testing.T) {
 func TestSellCabHandler(t *testing.T) {
 	t.Parallel()
 	mockRepo := new(MockSaleRepository)
-	app, _ := setupSaleTestApp(mockRepo, t)
+	app, handlers := setupSaleTestApp(mockRepo, t)
 	cabID := 123
 
 	t.Run("success", func(t *testing.T) {
@@ -587,17 +686,49 @@ func TestSellCabHandler(t *testing.T) {
 		expectedSaleID := "newSaleFromCab"
 		expectedSaleDate := time.Now().Format("2006-01-02")
 
+		// Mock the sale repository Create method
 		mockRepo.On("Create", mock.MatchedBy(func(s *models.Sale) bool {
 			return s.CustomerID == salePayload.CustomerID &&
 				s.SoldBy == "test_user_id" && // From mock middleware
 				s.SaleDate == expectedSaleDate &&
-				s.TotalPrice == 0 && // Current implementation sets totalPrice to 0
 				!s.CreatedAt.IsZero() &&
 				!s.UpdatedAt.IsZero()
 		})).Return(expectedSaleID, nil).Once()
 
-		// TODO: Add mocks for CabRepo.GetByID, AccRepo.GetByID, and Repo.CreateSaleItem
-		// if/when those parts of SellCabHandler are fully implemented.
+		// Mock the sale repository CreateSaleItem method for the cab
+		mockRepo.On("CreateSaleItem", mock.AnythingOfType("*models.SaleItem")).Return("item1", nil).Once()
+
+		// Mock the sale repository CreateSaleItem method for each accessory
+		for range salePayload.Accessories {
+			mockRepo.On("CreateSaleItem", mock.AnythingOfType("*models.SaleItem")).Return("item2", nil).Once()
+		}
+
+		// Mock the cab repository GetCabByID method
+		mockCabRepo := handlers.CabRepo.(*MockCabsRepositoryForSales)
+		mockCabRepo.On("GetCabByID", cabID).Return(&models.MultiCab{
+			ID:    cabID,
+			Name:  "Test Cab",
+			Price: 5000.0,
+		}, nil).Once()
+
+		// Mock the accessory repository GetByID method for each accessory
+		// Note: GetByID is called twice for each accessory - once during price calculation and once for response preparation
+		mockAccRepo := handlers.AccRepo.(*MockAccessoryRepositoryForSales)
+		for _, acc := range salePayload.Accessories {
+			// First call during price calculation
+			mockAccRepo.On("GetByID", mock.Anything, acc.ID).Return(models.Accessory{
+				ID:    acc.ID,
+				Name:  acc.Name,
+				Price: acc.Price,
+			}, nil).Once()
+			
+			// Second call during response preparation
+			mockAccRepo.On("GetByID", mock.Anything, acc.ID).Return(models.Accessory{
+				ID:    acc.ID,
+				Name:  acc.Name,
+				Price: acc.Price,
+			}, nil).Once()
+		}
 
 		payload, _ := json.Marshal(salePayload)
 		req := httptest.NewRequest(http.MethodPost, "/api/cabs/"+strconv.Itoa(cabID)+"/sell", bytes.NewBuffer(payload))
@@ -631,30 +762,50 @@ func TestSellCabHandler(t *testing.T) {
 			assert.Equal(t, salePayload.Accessories[i].Name, accMap["name"])
 		}
 
+		// Verify all mock expectations
 		mockRepo.AssertExpectations(t)
+		mockCabRepo.AssertExpectations(t)
+		mockAccRepo.AssertExpectations(t)
 	})
 
+	// Test for invalid cab ID format
 	t.Run("invalid cab ID format", func(t *testing.T) {
+		// Create a new app and handler specifically for this test to avoid interference
+		mockRepoLocal := new(MockSaleRepository)
+		appLocal, _ := setupSaleTestApp(mockRepoLocal, t)
+		
 		salePayload := models.CabSalePayload{CustomerID: "cust123", Quantity: 1}
 		payload, _ := json.Marshal(salePayload)
+		
+		// Create a request with an invalid cab ID
 		req := httptest.NewRequest(http.MethodPost, "/api/cabs/invalidID/sell", bytes.NewBuffer(payload))
 		req.Header.Set("Content-Type", "application/json")
-		resp, err := app.Test(req, -1)
+		
+		// Test the request
+		resp, err := appLocal.Test(req, -1)
 		assert.NoError(t, err)
-
+		
+		// Verify the response
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 		var errResp map[string]interface{}
 		err = json.NewDecoder(resp.Body).Decode(&errResp)
 		assert.NoError(t, err)
 		assert.Equal(t, "Invalid cab ID format", errResp["error"])
+		
+		// No need to verify mock expectations as we don't expect any repository calls
 	})
 
 	t.Run("invalid request payload - missing fields", func(t *testing.T) {
+		// Create a new app and handler specifically for this test to avoid interference
+		mockRepoLocal := new(MockSaleRepository)
+		appLocal, _ := setupSaleTestApp(mockRepoLocal, t)
+		
+		// For this test, we don't need to mock GetCabByID because the validation fails before that call
 		salePayload := models.CabSalePayload{Quantity: 1} // Missing CustomerID
 		payload, _ := json.Marshal(salePayload)
 		req := httptest.NewRequest(http.MethodPost, "/api/cabs/"+strconv.Itoa(cabID)+"/sell", bytes.NewBuffer(payload))
 		req.Header.Set("Content-Type", "application/json")
-		resp, err := app.Test(req, -1)
+		resp, err := appLocal.Test(req, -1)
 		assert.NoError(t, err)
 
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
@@ -665,11 +816,16 @@ func TestSellCabHandler(t *testing.T) {
 	})
 
 	t.Run("invalid request payload - zero quantity", func(t *testing.T) {
+		// Create a new app and handler specifically for this test to avoid interference
+		mockRepoLocal := new(MockSaleRepository)
+		appLocal, _ := setupSaleTestApp(mockRepoLocal, t)
+		
+		// For this test, we don't need to mock GetCabByID because the validation fails before that call
 		salePayload := models.CabSalePayload{CustomerID: "cust123", Quantity: 0}
 		payload, _ := json.Marshal(salePayload)
 		req := httptest.NewRequest(http.MethodPost, "/api/cabs/"+strconv.Itoa(cabID)+"/sell", bytes.NewBuffer(payload))
 		req.Header.Set("Content-Type", "application/json")
-		resp, err := app.Test(req, -1)
+		resp, err := appLocal.Test(req, -1)
 		assert.NoError(t, err)
 
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
@@ -680,14 +836,32 @@ func TestSellCabHandler(t *testing.T) {
 	})
 
 	t.Run("repository error on sale create", func(t *testing.T) {
+		// Create a new app and handler specifically for this test to avoid interference
+		mockRepoLocal := new(MockSaleRepository)
+		appLocal, handlersLocal := setupSaleTestApp(mockRepoLocal, t)
+		
 		salePayload := models.CabSalePayload{CustomerID: "cust123", Quantity: 1}
-		mockRepo.On("Create", mock.AnythingOfType("*models.Sale")).Return("", errors.New("db error creating sale")).Once()
+		
+		// Mock the cab repository GetCabByID method for this test case
+		mockCabRepoLocal := handlersLocal.CabRepo.(*MockCabsRepositoryForSales)
+		mockCabRepoLocal.On("GetCabByID", cabID).Return(&models.MultiCab{
+			ID:    cabID,
+			Name:  "Test Cab",
+			Price: 5000.0,
+		}, nil).Once()
+		
+		// Mock the sale repository Create method to return an error
+		mockRepoLocal.On("Create", mock.AnythingOfType("*models.Sale")).Return("", errors.New("db error creating sale")).Once()
 
 		payload, _ := json.Marshal(salePayload)
 		req := httptest.NewRequest(http.MethodPost, "/api/cabs/"+strconv.Itoa(cabID)+"/sell", bytes.NewBuffer(payload))
 		req.Header.Set("Content-Type", "application/json")
-		resp, err := app.Test(req, -1)
+		resp, err := appLocal.Test(req, -1)
 		assert.NoError(t, err)
+		
+		// Verify mock expectations for this specific test
+		mockRepoLocal.AssertExpectations(t)
+		mockCabRepoLocal.AssertExpectations(t)
 
 		assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 		var errResp map[string]interface{}

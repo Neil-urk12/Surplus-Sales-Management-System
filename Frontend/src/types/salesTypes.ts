@@ -45,9 +45,9 @@ export interface SaleItem {
   id: string;
   saleId: string;
   itemType: string;
-  multiCabId: string;
-  accessoryId: string;
-  materialId: string;
+  multiCabId?: string;
+  accessoryId?: string;
+  materialId?: string;
   quantity: number;
   unitPrice: number;
   subtotal: number;
