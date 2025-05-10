@@ -13,7 +13,7 @@
   border: 1px solid;
   width: 100%;
   max-width: 500px;
-  transition: all 0.3s ease;
+  transition: var(--transition-property) var(--transition-duration) var(--transition-easing);
 }
 
 h1 {
@@ -30,7 +30,7 @@ input {
   border: 1px solid;
   border-radius: 8px;
   font-size: 1rem;
-  transition: all 0.3s ease;
+  transition: var(--transition-property) var(--transition-duration) var(--transition-easing);
 }
 
 .error-message {
@@ -75,7 +75,7 @@ input.error {
   cursor: pointer;
   font-size: 1.5rem;
   opacity: 0.8;
-  transition: opacity 0.3s ease;
+  transition: opacity var(--transition-duration) var(--transition-easing);
 }
 
 .close-icon:hover {
@@ -167,7 +167,7 @@ button {
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: var(--transition-property) var(--transition-duration) var(--transition-easing);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -228,7 +228,7 @@ button {
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.5s ease;
+  transition: opacity var(--transition-duration) var(--transition-easing);
 }
 
 .fade-enter-from,
@@ -268,4 +268,4 @@ button {
     width: 100px;
     height: 100px;
   }
-} 
+}

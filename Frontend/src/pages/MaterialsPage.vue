@@ -351,19 +351,7 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const imageUrlValid = ref(true);
 const validatingImage = ref(false);
 
-// Add a computed property for status color mapping
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'In Stock':
-      return 'positive';
-    case 'Low Stock':
-      return 'warning';
-    case 'Out of Stock':
-      return 'negative';
-    default:
-      return 'grey';
-  }
-};
+// Status colors are now directly applied in the template
 
 // Update onMounted hook
 onMounted(async () => {
@@ -487,7 +475,7 @@ function addMaterialToCart() {
       <div class="q-mt-sm">
         <!--MATERIALS TABLE-->
         <q-table
-          class="my-sticky-column-table"
+          class="my-sticky-column-table custom-table-text"
           flat
           bordered
           title="Materials"
@@ -539,9 +527,7 @@ function addMaterialToCart() {
               <q-td key="supplier" :props="props">{{ props.row.supplier }}</q-td>
               <q-td key="quantity" :props="props">{{ props.row.quantity }}</q-td>
               <q-td key="status" :props="props">
-                <q-chip dense :color="getStatusColor(props.row.status)" text-color="white" class="q-px-sm">
-                  {{ props.row.status }}
-                </q-chip>
+                <q-badge :color="props.row.status === 'In Stock' ? 'green' : (props.row.status === 'Out of Stock' ? 'red' : 'orange')" :label="props.row.status" />
               </q-td>
               <q-td key="actions" :props="props" @click.stop>
                 <q-btn flat round dense color="grey" icon="more_vert" class="action-button">

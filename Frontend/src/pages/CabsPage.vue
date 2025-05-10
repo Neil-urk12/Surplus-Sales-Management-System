@@ -368,7 +368,7 @@ onMounted(async () => {
               <AdvancedSearch
                 v-model="store.search.searchInput"
                 placeholder="Search cabs"
-                @clear="handleResetFilters" 
+                @clear="handleResetFilters"
                 color="primary"
                 :disable="store.isLoading"
                 :style="$q.screen.lt.md ? { width: '100%' } : { width: '400px' }"
@@ -391,7 +391,7 @@ onMounted(async () => {
                 @click="openAddDialog"
                 :disable="store.isLoading"
                 :class="[
-                  $q.dark.isActive ? 'text-black bg-white' : 'text-white bg-primary', 
+                  $q.dark.isActive ? 'text-black bg-white' : 'text-white bg-primary',
                   { 'full-width': $q.screen.lt.md }
                 ]"
               >
@@ -404,8 +404,8 @@ onMounted(async () => {
                 @click="handleDownloadCsv"
                 :disable="store.isLoading"
                 :class="[
-                  $q.dark.isActive ? 'bg-white text-black' : 'bg-primary text-white', 
-                  'q-pa-sm', 
+                  $q.dark.isActive ? 'bg-white text-black' : 'bg-primary text-white',
+                  'q-pa-sm',
                   { 'full-width': $q.screen.lt.md }
                 ]"
               >
@@ -417,7 +417,7 @@ onMounted(async () => {
         </div>
       </div>
 
-      <CabsTable 
+      <CabsTable
         :rows="store.filteredCabRows || []"
         :columns="columns"
         :is-loading="store.isLoading"
@@ -508,7 +508,7 @@ onMounted(async () => {
     font-weight: 500
 
     .q-badge
-      font-size: 1em 
-      font-weight: 600 
+      font-size: 1em
+      font-weight: 600
 
 </style>

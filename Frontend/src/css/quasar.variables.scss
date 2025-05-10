@@ -49,83 +49,93 @@ $grey-9    : #18181b; // Darkest gray
   // Base colors
   --background: #{$white};
   --foreground: #{$grey-9};
-  
+
   // Card colors
   --card: #{$white};
   --card-foreground: #{$grey-9};
-  
+
   // Popover colors
   --popover: #{$white};
   --popover-foreground: #{$grey-9};
-  
+
   // Primary colors
   --primary: #{$primary};
   --primary-foreground: #{$white};
-  
+
   // Secondary colors
   --secondary: #{$grey-2};
   --secondary-foreground: #{$grey-9};
-  
+
   // Muted colors
   --muted: #{$grey-2};
   --muted-foreground: #{$grey-5};
-  
+
   // Accent colors
   --accent: #{$grey-2};
   --accent-foreground: #{$grey-9};
-  
+
   // Destructive colors
   --destructive: #{$negative};
   --destructive-foreground: #{$white};
-  
+
   // Border and input colors
   --border: #{$grey-3};
   --input: #{$grey-3};
-  
+
   // Ring color for focus states
   --ring: #{$primary};
-  
+
   // Border radius
   --radius: 0.5rem;
+
+  // Transition variables for consistent animations
+  --transition-duration: 0.3s;
+  --transition-easing: ease;
+  --transition-property: all;
 }
 
 .dark, body.body--dark {
   // Base colors
   --background: #{$dark};
   --foreground: #{$grey-1};
-  
+
   // Card colors
   --card: #{$dark-card};
   --card-foreground: #{$grey-1};
-  
+
   // Popover colors
   --popover: #{$dark-card};
   --popover-foreground: #{$grey-1};
-  
+
   // Primary colors
   --primary: #{$primary};
   --primary-foreground: #{$white};
-  
+
   // Secondary colors
   --secondary: #{$grey-8};
   --secondary-foreground: #{$grey-1};
-  
+
   // Muted colors
   --muted: #{$grey-8};
   --muted-foreground: #{$grey-4};
-  
+
   // Accent colors
   --accent: #{$grey-8};
   --accent-foreground: #{$grey-1};
-  
+
   // Destructive colors
   --destructive: #{$negative};
   --destructive-foreground: #{$white};
-  
+
   // Border and input colors
   --border: #{$grey-7};
   --input: #{$grey-7};
-  
+
   // Ring color for focus states
   --ring: #{$primary};
+
+  // Transition variables for consistent animations (same as light theme)
+  --transition-duration: 0.3s;
+  --transition-easing: ease;
+  --transition-property: all;
 }

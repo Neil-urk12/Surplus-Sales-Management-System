@@ -4,6 +4,7 @@ import { useQuasar } from 'quasar';
 const MetricsCard = defineAsyncComponent(() => import('../components/dashboard/MetricsCard.vue'));
 const ChartSection = defineAsyncComponent(() => import('../components/dashboard/ChartSection.vue'));
 const RecentActivitiesSection = defineAsyncComponent(() => import('../components/dashboard/RecentActivitiesSection.vue'));
+const DynamicAlertsPanel = defineAsyncComponent(() => import('../components/dashboard/DynamicAlertsPanel.vue'));
 
 const $q = useQuasar();
 
@@ -215,7 +216,7 @@ async function refreshData() {
   try {
     // TODO: Implement actual data fetching
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     // Mock data update
     totalInventoryValue.value = 2748560;
     totalSales.value = 845675;
@@ -269,12 +270,12 @@ const fetchTimeData = () => {
             }
           ]
         };
-        
+
         if (weeklyData.datasets[0] && weeklyData.datasets[1]) {
           const carsData = [...weeklyData.datasets[0].data];
           const accessoriesData = [...weeklyData.datasets[1].data];
           const totalData = carsData.map((val, idx) => val + (accessoriesData[idx] || 0));
-          
+
           weeklyData.datasets.push({
             label: 'Total',
             data: totalData,
@@ -283,11 +284,11 @@ const fetchTimeData = () => {
             fill: false
           });
         }
-        
+
         weeklySalesTrendData.value = weeklyData;
         break;
       }
-      
+
       case 'monthly': {
         const monthlyData: ChartData = {
           labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
@@ -308,12 +309,12 @@ const fetchTimeData = () => {
             }
           ]
         };
-        
+
         if (monthlyData.datasets[0] && monthlyData.datasets[1]) {
           const carsData = [...monthlyData.datasets[0].data];
           const accessoriesData = [...monthlyData.datasets[1].data];
           const totalData = carsData.map((val, idx) => val + (accessoriesData[idx] || 0));
-          
+
           monthlyData.datasets.push({
             label: 'Total',
             data: totalData,
@@ -322,11 +323,11 @@ const fetchTimeData = () => {
             fill: false
           });
         }
-        
+
         salesTrendData.value = monthlyData;
         break;
       }
-      
+
       case 'yearly': {
         const currentYear = new Date().getFullYear();
         const yearlyData: ChartData = {
@@ -353,12 +354,12 @@ const fetchTimeData = () => {
             }
           ]
         };
-        
+
         if (yearlyData.datasets[0] && yearlyData.datasets[1]) {
           const carsData = [...yearlyData.datasets[0].data];
           const accessoriesData = [...yearlyData.datasets[1].data];
           const totalData = carsData.map((val, idx) => val + (accessoriesData[idx] || 0));
-          
+
           yearlyData.datasets.push({
             label: 'Total',
             data: totalData,
@@ -367,7 +368,7 @@ const fetchTimeData = () => {
             fill: false
           });
         }
-        
+
         yearlySalesTrendData.value = yearlyData;
         break;
       }
@@ -414,11 +415,11 @@ watch(
           <p class="text-subtitle1 q-mt-xs">System Overview</p>
         </div>
         <div class="col-auto">
-          <q-btn 
+          <q-btn
             :class="[
               $q.dark.isActive ? 'bg-white text-black' : 'bg-primary text-white'
-            ]" 
-            @click="refreshData" 
+            ]"
+            @click="refreshData"
             :loading="isLoading"
           >
             <q-icon :name="'refresh'" :color="$q.dark.isActive ? 'black' : 'white'" />
@@ -496,10 +497,13 @@ watch(
         :is-loading="isLoading"
       />
 
-      <!-- Activity Feed Section -->
+      <!-- Activity and Alerts Section -->
       <div class="row q-col-gutter-md q-mb-xl">
-        <div class="col-12">
+        <div class="col-12 col-md-8">
           <recent-activities-section :activities="recentActivities" :is-loading="isLoading" />
+        </div>
+        <div class="col-12 col-md-4">
+          <dynamic-alerts-panel />
         </div>
       </div>
     </div>

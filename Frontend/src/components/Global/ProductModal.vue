@@ -69,13 +69,13 @@ const validatedImage = computed(() => {
 const getStatusColor = computed(() => {
   switch (props.status?.toLowerCase()) {
     case 'available':
-      return 'text-positive'
+      return 'text-green'
     case 'in stock':
-      return 'text-positive'
+      return 'text-green'
     case 'low stock':
-      return 'text-warning'
+      return 'text-orange'
     case 'out of stock':
-      return 'text-negative'
+      return 'text-red'
     default:
       return 'text-grey'
   }
