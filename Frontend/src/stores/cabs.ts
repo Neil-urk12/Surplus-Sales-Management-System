@@ -433,7 +433,7 @@ export const useCabsStore = defineStore('cabs', () => {
     deleteCab,
     resetFilters,
     updateCabStatus,
-    getCabDetailsById
+    getCabDetailsById,
     sellCab
   }
 }) 
