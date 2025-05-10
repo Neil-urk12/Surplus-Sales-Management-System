@@ -51,12 +51,13 @@ func (r *UserRepository) Create(user *models.User) error {
 
 	// Insert the user into the database
 	query := `
-		INSERT INTO users (id, full_name, email, password_hash, role, created_at, updated_at, is_active)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO users (id, username, full_name, email, password_hash, role, created_at, updated_at, is_active)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err = r.dbClient.DB.Exec(
 		query,
 		user.Id,
+		user.Username,
 		user.FullName,
 		user.Email,
 		string(hashedPassword),
@@ -76,7 +77,7 @@ func (r *UserRepository) Create(user *models.User) error {
 // GetByID retrieves a user by their ID
 func (r *UserRepository) GetByID(id string) (*models.User, error) {
 	query := `
-		SELECT id, full_name, email, password_hash, role, created_at, updated_at, is_active
+		SELECT id, username, full_name, email, password_hash, role, created_at, updated_at, is_active
 		FROM users
 		WHERE id = ?
 	`
@@ -85,6 +86,7 @@ func (r *UserRepository) GetByID(id string) (*models.User, error) {
 	var user models.User
 	err := row.Scan(
 		&user.Id,
+		&user.Username,
 		&user.FullName,
 		&user.Email,
 		&user.Password,
@@ -107,7 +109,7 @@ func (r *UserRepository) GetByID(id string) (*models.User, error) {
 // GetByEmail retrieves a user by their email address
 func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	query := `
-		SELECT id, full_name, email, password_hash, role, created_at, updated_at, is_active
+		SELECT id, username, full_name, email, password_hash, role, created_at, updated_at, is_active
 		FROM users
 		WHERE email = ?
 	`
@@ -116,6 +118,7 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	var user models.User
 	err := row.Scan(
 		&user.Id,
+		&user.Username,
 		&user.FullName,
 		&user.Email,
 		&user.Password,
@@ -142,11 +145,12 @@ func (r *UserRepository) Update(user *models.User) error {
 
 	query := `
 		UPDATE users
-		SET full_name = ?, email = ?, role = ?, updated_at = ?, is_active = ?
+		SET username = ?, full_name = ?, email = ?, role = ?, updated_at = ?, is_active = ?
 		WHERE id = ?
 	`
 	result, err := r.dbClient.DB.Exec(
 		query,
+		user.Username,
 		user.FullName,
 		user.Email,
 		user.Role,
@@ -233,7 +237,7 @@ func (r *UserRepository) Delete(id string) error {
 // GetAll retrieves all users from the database
 func (r *UserRepository) GetAll() ([]*models.User, error) {
 	query := `
-		SELECT id, full_name, email, password_hash, role, created_at, updated_at, is_active
+		SELECT id, username, full_name, email, password_hash, role, created_at, updated_at, is_active
 		FROM users
 		ORDER BY created_at DESC
 	`
@@ -248,6 +252,7 @@ func (r *UserRepository) GetAll() ([]*models.User, error) {
 		var user models.User
 		err := rows.Scan(
 			&user.Id,
+			&user.Username,
 			&user.FullName,
 			&user.Email,
 			&user.Password,
@@ -269,10 +274,61 @@ func (r *UserRepository) GetAll() ([]*models.User, error) {
 	return users, nil
 }
 
+// GetByUsername retrieves a user by their username
+func (r *UserRepository) GetByUsername(username string) (*models.User, error) {
+	query := `
+		SELECT id, username, full_name, email, password_hash, role, created_at, updated_at, is_active
+		FROM users
+		WHERE username = ?
+	`
+	row := r.dbClient.DB.QueryRow(query, username)
+
+	var user models.User
+	err := row.Scan(
+		&user.Id,
+		&user.Username,
+		&user.FullName,
+		&user.Email,
+		&user.Password,
+		&user.Role,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+		&user.IsActive,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("user not found: %w", err)
+		}
+		return nil, fmt.Errorf("failed to get user by username: %w", err)
+	}
+
+	return &user, nil
+}
+
+// UsernameExists checks if a username already exists in the database
+func (r *UserRepository) UsernameExists(username string) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM users WHERE username = ?)`
+	err := r.dbClient.DB.QueryRow(query, username).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if username exists: %w", err)
+	}
+	return exists, nil
+}
+
 // VerifyPassword checks if the provided password matches the stored hash
 // Note: This method does not check if the user is active - that's the responsibility of the handler
-func (r *UserRepository) VerifyPassword(email, password string) (*models.User, error) {
-	user, err := r.GetByEmail(email)
+func (r *UserRepository) VerifyPassword(identifier, password string) (*models.User, error) {
+	// Try to find user by email first, then by username
+	user, err := r.GetByEmail(identifier)
+	if err != nil {
+		// If not found by email, try username
+		user, err = r.GetByUsername(identifier)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -5,6 +5,7 @@ import "time"
 // UserCreateRequest defines the shape of the request body for user registration and admin/staff creation.
 // It's used when a new user is being added to the system.
 type UserCreateRequest struct {
+	Username string `json:"username" example:"johndoe"`
 	FullName string `json:"fullName" example:"John Doe"`
 	Email    string `json:"email" example:"john.doe@example.com"`
 	Password string `json:"password" example:"securepassword123"`
@@ -13,8 +14,9 @@ type UserCreateRequest struct {
 
 // UserLoginRequest defines the shape of the request body for user login.
 // It contains the credentials required for a user to authenticate.
+// Username field can be either username or email
 type UserLoginRequest struct {
-	Email    string `json:"email" example:"john.doe@example.com"`
+	Username string `json:"username" example:"johndoe or john.doe@example.com"`
 	Password string `json:"password" example:"securepassword123"`
 }
 
@@ -34,6 +36,7 @@ type UserResponse struct {
 // Fields are optional (omitempty), and a pointer is used for boolean 'IsActive'
 // to differentiate between explicitly setting it to false and not providing the field.
 type UserUpdateRequest struct {
+	Username string `json:"username,omitempty" example:"johndoe"`
 	FullName string `json:"fullName,omitempty" example:"Johnathan Doe"`
 	Email    string `json:"email,omitempty" example:"johnathan.doe@example.com"`
 	Role     string `json:"role,omitempty" example:"admin" enums:"staff,admin"`
