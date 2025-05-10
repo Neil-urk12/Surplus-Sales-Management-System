@@ -144,7 +144,10 @@ func TestUserHandler_Register_Success(t *testing.T) {
 		"password": "password123",
 		"role":     "user",
 	}
-	jsonBody, _ := json.Marshal(reqBody)
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		t.Fatalf("Failed to marshal request body: %v", err)
+	}
 
 	// Create request
 	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewReader(jsonBody))
@@ -185,7 +188,10 @@ func TestUserHandler_Register_EmailExists(t *testing.T) {
 		"email":    "test@example.com",
 		"password": "password123",
 	}
-	jsonBody, _ := json.Marshal(reqBody)
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		t.Fatalf("Failed to marshal request body: %v", err)
+	}
 
 	// Create request
 	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewReader(jsonBody))
@@ -228,7 +234,10 @@ func TestUserHandler_Login_Success_WithEmail(t *testing.T) {
 		"username": "test@example.com",
 		"password": "password123",
 	}
-	jsonBody, _ := json.Marshal(reqBody)
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		t.Fatalf("Failed to marshal request body: %v", err)
+	}
 
 	// Create request
 	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(jsonBody))
@@ -273,7 +282,10 @@ func TestUserHandler_Login_Success_WithUsername(t *testing.T) {
 		"username": "testuser",
 		"password": "password123",
 	}
-	jsonBody, _ := json.Marshal(reqBody)
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		t.Fatalf("Failed to marshal request body: %v", err)
+	}
 
 	// Create request
 	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(jsonBody))
@@ -314,10 +326,60 @@ func TestUserHandler_Login_InvalidCredentials(t *testing.T) {
 
 	// Create request body
 	reqBody := map[string]string{
-		"email":    "test@example.com",
+		"username": "test@example.com",
 		"password": "wrong_password",
 	}
-	jsonBody, _ := json.Marshal(reqBody)
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		t.Fatalf("Failed to marshal request body: %v", err)
+	}
+
+	// Create request
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	// Perform request
+	resp, err := app.Test(req)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+
+	// Verify response body
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "Invalid credentials", result["error"])
+
+	// Verify expectations
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUserHandler_Login_InvalidCredentials_WithUsername(t *testing.T) {
+	// Setup
+	app, handler, mockRepo := setupTest()
+
+	// Setup route
+	app.Post("/login", handler.Login)
+
+	// Create test user
+	user := createTestUser() // User exists
+
+	// Setup expectations
+	mockRepo.On("GetByEmail", "testuser").Return(nil, errors.New("not found"))
+	mockRepo.On("GetByUsername", "testuser").Return(user, nil) // Found by username
+	mockRepo.On("VerifyPassword", "testuser", "wrong_password").Return(nil, errors.New("invalid password")) // Password incorrect
+
+	// Create request body
+	reqBody := map[string]string{
+		"username": "testuser",
+		"password": "wrong_password",
+	}
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		t.Fatalf("Failed to marshal request body: %v", err)
+	}
 
 	// Create request
 	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(jsonBody))
@@ -360,7 +422,60 @@ func TestUserHandler_Login_InactiveUser(t *testing.T) {
 		"username": "test@example.com",
 		"password": "password123",
 	}
-	jsonBody, _ := json.Marshal(reqBody)
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		t.Fatalf("Failed to marshal request body: %v", err)
+	}
+
+	// Create request
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	// Perform request
+	resp, err := app.Test(req)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+
+	// Verify response body
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "Account is inactive", result["error"])
+
+	// Verify expectations
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUserHandler_Login_InactiveUser_WithUsername(t *testing.T) {
+	// Setup
+	app, handler, mockRepo := setupTest()
+
+	// Setup route
+	app.Post("/login", handler.Login)
+
+	// Create inactive test user with a specific username
+	inactiveUser := createTestUser()
+	inactiveUser.IsActive = false
+	inactiveUser.Username = "inactive_username" // Ensure this user has the target username
+	// inactiveUser.Email = "inactive_user_specific_email@example.com" // Optional: make email distinct
+
+	// Setup expectations
+	mockRepo.On("GetByEmail", "inactive_username").Return(nil, errors.New("not found"))
+	mockRepo.On("GetByUsername", "inactive_username").Return(inactiveUser, nil)
+	// VerifyPassword should NOT be called
+
+	// Create request body
+	reqBody := map[string]string{
+		"username": "inactive_username",
+		"password": "password123",
+	}
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		t.Fatalf("Failed to marshal request body: %v", err)
+	}
 
 	// Create request
 	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(jsonBody))
@@ -536,7 +651,10 @@ func TestUserHandler_UpdateUser(t *testing.T) {
 		"role":     "staff",
 		"isActive": false,
 	}
-	jsonBody, _ := json.Marshal(reqBody)
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		t.Fatalf("Failed to marshal request body: %v", err)
+	}
 
 	// Create request
 	req := httptest.NewRequest(http.MethodPut, "/users/"+user.Id, bytes.NewReader(jsonBody))
@@ -605,7 +723,10 @@ func TestUserHandler_UpdateUser_InactiveUser(t *testing.T) {
 		"role":     "user",
 		"isActive": true, // Try to activate the user
 	}
-	jsonBody, _ := json.Marshal(reqBody)
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		t.Fatalf("Failed to marshal request body: %v", err)
+	}
 
 	// Create request
 	req := httptest.NewRequest(http.MethodPut, "/users/"+inactiveUser.Id, bytes.NewReader(jsonBody))
@@ -759,7 +880,10 @@ func TestUserHandler_UpdatePassword(t *testing.T) {
 		"current_password": "current_password",
 		"new_password":     "new_password",
 	}
-	jsonBody, _ := json.Marshal(reqBody)
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		t.Fatalf("Failed to marshal request body: %v", err)
+	}
 
 	// Create request
 	req := httptest.NewRequest(http.MethodPut, "/users/"+user.Id+"/password", bytes.NewReader(jsonBody))
@@ -822,7 +946,10 @@ func TestUserHandler_UpdatePassword_InactiveUser(t *testing.T) {
 		"current_password": "current_password",
 		"new_password":     "new_password",
 	}
-	jsonBody, _ := json.Marshal(reqBody)
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		t.Fatalf("Failed to marshal request body: %v", err)
+	}
 
 	// Create request
 	req := httptest.NewRequest(http.MethodPut, "/users/"+inactiveUser.Id+"/password", bytes.NewReader(jsonBody))
@@ -877,7 +1004,10 @@ func TestUserHandler_UpdatePassword_IncorrectCurrentPassword(t *testing.T) {
 		"current_password": "wrong_password",
 		"new_password":     "new_password",
 	}
-	jsonBody, _ := json.Marshal(reqBody)
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		t.Fatalf("Failed to marshal request body: %v", err)
+	}
 
 	// Create request
 	req := httptest.NewRequest(http.MethodPut, "/users/"+user.Id+"/password", bytes.NewReader(jsonBody))

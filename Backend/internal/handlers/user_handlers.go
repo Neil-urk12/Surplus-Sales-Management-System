@@ -235,7 +235,7 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 	// Validate input
 	if input.Username == "" || input.Password == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Error:      "Username/Email and password are required",
+			Error:      "Username or Email and password are required",
 			StatusCode: fiber.StatusBadRequest,
 		})
 	}
