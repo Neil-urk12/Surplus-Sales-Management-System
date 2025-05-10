@@ -1,0 +1,1164 @@
+basePath: /api
+definitions:
+  handlers.AccessoriesListResponse:
+    properties:
+      count:
+        type: integer
+      data:
+        items:
+          $ref: '#/definitions/models.Accessory'
+        type: array
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      totalPages:
+        type: integer
+    type: object
+  handlers.ErrorResponse:
+    properties:
+      error:
+        type: string
+      message:
+        type: string
+      statusCode:
+        type: integer
+      timestamp:
+        type: string
+    type: object
+  handlers.MessageResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  handlers.SingleUserResponse:
+    properties:
+      user:
+        $ref: '#/definitions/models.User'
+    type: object
+  handlers.SuccessResponse:
+    properties:
+      data:
+        description: Changed to interface{} to be more generic
+      message:
+        type: string
+      success:
+        type: boolean
+      timestamp:
+        type: string
+    type: object
+  handlers.UserActionResponse:
+    properties:
+      message:
+        type: string
+      user:
+        $ref: '#/definitions/models.User'
+    type: object
+  handlers.UserAuthResponse:
+    properties:
+      message:
+        type: string
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/models.User'
+    type: object
+  handlers.UserListResponse:
+    properties:
+      users:
+        items:
+          $ref: '#/definitions/models.User'
+        type: array
+    type: object
+  models.Accessory:
+    properties:
+      createdAt:
+        description: Timestamp of creation
+        type: string
+      id:
+        description: Unique identifier
+        type: integer
+      image:
+        description: URL or base64 string of the image
+        type: string
+      make:
+        allOf:
+        - $ref: '#/definitions/models.AccessoryMake'
+        description: Manufacturer/brand of the accessory
+      name:
+        description: Name of the accessory
+        type: string
+      price:
+        description: Price in PHP
+        type: number
+      quantity:
+        description: Number of units available
+        type: integer
+      status:
+        allOf:
+        - $ref: '#/definitions/models.AccessoryStatus'
+        description: Inventory status
+      unit_color:
+        allOf:
+        - $ref: '#/definitions/models.AccessoryColor'
+        description: Color of the accessory
+      updatedAt:
+        description: Timestamp of last update
+        type: string
+    type: object
+  models.AccessoryColor:
+    enum:
+    - Black
+    - White
+    - Silver
+    - Chrome
+    - Custom
+    type: string
+    x-enum-varnames:
+    - ColorBlack
+    - ColorWhite
+    - ColorSilver
+    - ColorChrome
+    - ColorCustom
+  models.AccessoryMake:
+    enum:
+    - Generic
+    - OEM
+    - Aftermarket
+    - Custom
+    type: string
+    x-enum-varnames:
+    - MakeGeneric
+    - MakeOEM
+    - MakeAftermarket
+    - MakeCustom
+  models.AccessoryStatus:
+    enum:
+    - In Stock
+    - Low Stock
+    - Out of Stock
+    - Available
+    type: string
+    x-enum-varnames:
+    - StatusInStock
+    - StatusLowStock
+    - StatusOutOfStock
+    - StatusAvailable
+  models.Material:
+    properties:
+      category:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: integer
+      image:
+        type: string
+      name:
+        type: string
+      quantity:
+        type: integer
+      status:
+        type: string
+      supplier:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  models.MultiCab:
+    properties:
+      createdAt:
+        description: Timestamp of creation
+        type: string
+      id:
+        description: Unique identifier
+        type: integer
+      image:
+        description: URL or base64 string of the image
+        type: string
+      make:
+        description: Manufacturer (e.g., Mazda)
+        type: string
+      name:
+        description: Name of the cab model (e.g., RX-7)
+        type: string
+      price:
+        description: Price in PHP
+        type: number
+      quantity:
+        description: Number of units available
+        type: integer
+      status:
+        description: Inventory status (e.g., In Stock, Low Stock)
+        type: string
+      unit_color:
+        description: Color of the cab unit
+        type: string
+      updatedAt:
+        description: Timestamp of last update
+        type: string
+    type: object
+  models.NewAccessoryInput:
+    properties:
+      image:
+        type: string
+      make:
+        $ref: '#/definitions/models.AccessoryMake'
+      name:
+        type: string
+      price:
+        minimum: 0
+        type: number
+      quantity:
+        minimum: 0
+        type: integer
+      unit_color:
+        $ref: '#/definitions/models.AccessoryColor'
+    required:
+    - make
+    - name
+    - price
+    - quantity
+    - unit_color
+    type: object
+  models.UpdateAccessoryInput:
+    properties:
+      image:
+        type: string
+      make:
+        $ref: '#/definitions/models.AccessoryMake'
+      name:
+        type: string
+      price:
+        minimum: 0
+        type: number
+      quantity:
+        minimum: 0
+        type: integer
+      unit_color:
+        $ref: '#/definitions/models.AccessoryColor'
+    type: object
+  models.User:
+    properties:
+      createdAt:
+        type: string
+      email:
+        type: string
+      fullName:
+        type: string
+      id:
+        type: string
+      isActive:
+        type: boolean
+      role:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  models.UserCreateRequest:
+    properties:
+      email:
+        example: john.doe@example.com
+        type: string
+      fullName:
+        example: John Doe
+        type: string
+      password:
+        example: securepassword123
+        type: string
+      role:
+        enum:
+        - staff
+        - admin
+        example: staff
+        type: string
+    type: object
+  models.UserLoginRequest:
+    properties:
+      email:
+        example: john.doe@example.com
+        type: string
+      password:
+        example: securepassword123
+        type: string
+    type: object
+  models.UserPasswordUpdateRequest:
+    properties:
+      newPassword:
+        example: newsecurepassword123
+        type: string
+    type: object
+  models.UserUpdateRequest:
+    properties:
+      email:
+        example: johnathan.doe@example.com
+        type: string
+      fullName:
+        example: Johnathan Doe
+        type: string
+      isActive:
+        description: Using pointer to distinguish between false and not provided
+        type: boolean
+      role:
+        enum:
+        - staff
+        - admin
+        example: admin
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: This is the API for the Cortes Surplus Inventory Management System.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Cortes Surplus Inventory Management API
+  version: "1.0"
+paths:
+  /accessories:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of all accessories, with optional filtering.
+      parameters:
+      - description: Filter by make
+        in: query
+        name: make
+        type: string
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Filter by unit color
+        in: query
+        name: unit_color
+        type: string
+      - description: General search term
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved list of accessories
+          schema:
+            $ref: '#/definitions/handlers.AccessoriesListResponse'
+        "500":
+          description: Failed to retrieve accessories
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get all accessories
+      tags:
+      - Accessories
+    post:
+      consumes:
+      - application/json
+      description: Add a new accessory to the inventory.
+      parameters:
+      - description: Accessory object to create
+        in: body
+        name: accessory_input
+        required: true
+        schema:
+          $ref: '#/definitions/models.NewAccessoryInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Accessory created successfully
+          schema:
+            $ref: '#/definitions/handlers.SuccessResponse'
+        "400":
+          description: Invalid JSON format or failed to parse request body
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "422":
+          description: Missing required fields or validation error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Failed to create accessory or failed to retrieve details after
+            creation
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create a new accessory
+      tags:
+      - Accessories
+  /accessories/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an accessory by its ID.
+      parameters:
+      - description: Accessory ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Accessory deleted successfully (No Content)
+        "400":
+          description: Invalid ID format. ID must be an integer.
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Accessory not found for deletion
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Failed to delete accessory
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete an accessory
+      tags:
+      - Accessories
+    get:
+      consumes:
+      - application/json
+      description: Get a single accessory by its ID.
+      parameters:
+      - description: Accessory ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved accessory
+          schema:
+            $ref: '#/definitions/models.Accessory'
+        "400":
+          description: Invalid ID format. ID must be an integer.
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Accessory not found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Failed to retrieve accessory
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get accessory by ID
+      tags:
+      - Accessories
+    put:
+      consumes:
+      - application/json
+      description: Update an existing accessory by its ID.
+      parameters:
+      - description: Accessory ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Accessory object with updated fields
+        in: body
+        name: accessory_update
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateAccessoryInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Accessory updated successfully
+          schema:
+            $ref: '#/definitions/handlers.SuccessResponse'
+        "400":
+          description: Invalid ID format or invalid JSON format/parsing error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Accessory not found for update
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Failed to update accessory
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Update an existing accessory
+      tags:
+      - Accessories
+  /cabs:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of all cabs, with optional filtering by make, status,
+        unit color, or a general search term.
+      parameters:
+      - description: Filter by make (e.g., Toyota)
+        in: query
+        name: make
+        type: string
+      - description: Filter by status (e.g., Available, Maintenance)
+        in: query
+        name: status
+        type: string
+      - description: Filter by unit color (e.g., Red)
+        in: query
+        name: unit_color
+        type: string
+      - description: General search term for various fields
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved list of cabs
+          schema:
+            items:
+              $ref: '#/definitions/models.MultiCab'
+            type: array
+        "500":
+          description: Failed to retrieve cabs
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get all cabs
+      tags:
+      - Cabs
+    post:
+      consumes:
+      - application/json
+      description: Add a new cab to the inventory.
+      parameters:
+      - description: Cab object to add. ID is auto-generated and should be omitted.
+        in: body
+        name: cab
+        required: true
+        schema:
+          $ref: '#/definitions/models.MultiCab'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Cab added successfully
+          schema:
+            $ref: '#/definitions/models.MultiCab'
+        "400":
+          description: Invalid JSON format or failed to parse request body
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "422":
+          description: Missing required fields or validation error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Failed to add new cab
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Add a new cab
+      tags:
+      - Cabs
+  /cabs/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a cab by its ID.
+      parameters:
+      - description: Cab ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Cab deleted successfully (No Content)
+        "400":
+          description: Invalid ID format. ID must be an integer.
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Cab not found for deletion
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Failed to delete cab
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete a cab
+      tags:
+      - Cabs
+    get:
+      consumes:
+      - application/json
+      description: Get a single cab by its ID.
+      parameters:
+      - description: Cab ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved cab
+          schema:
+            $ref: '#/definitions/models.MultiCab'
+        "400":
+          description: Invalid ID format. ID must be an integer.
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Cab not found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Failed to retrieve cab
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get cab by ID
+      tags:
+      - Cabs
+    put:
+      consumes:
+      - application/json
+      description: Update an existing cab by its ID. The ID in the path is authoritative.
+      parameters:
+      - description: Cab ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Cab object with updated fields. ID in body is ignored.
+        in: body
+        name: cab_update
+        required: true
+        schema:
+          $ref: '#/definitions/models.MultiCab'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cab updated successfully
+          schema:
+            $ref: '#/definitions/models.MultiCab'
+        "400":
+          description: Invalid ID format or invalid JSON format/parsing error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Cab not found for update
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Failed to update cab
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Update an existing cab
+      tags:
+      - Cabs
+  /materials:
+    get:
+      description: Retrieves a list of materials, with optional filtering.
+      parameters:
+      - description: Search term for material name or description
+        in: query
+        name: search
+        type: string
+      - description: Filter by category
+        in: query
+        name: category
+        type: string
+      - description: Filter by supplier
+        in: query
+        name: supplier
+        type: string
+      - description: Filter by status (e.g., In Stock, Low Stock)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved list of materials
+          schema:
+            items:
+              $ref: '#/definitions/models.Material'
+            type: array
+        "500":
+          description: Failed to retrieve materials
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get all materials
+      tags:
+      - Materials
+    post:
+      consumes:
+      - application/json
+      description: Adds a new material to the inventory.
+      parameters:
+      - description: Material object to create
+        in: body
+        name: material
+        required: true
+        schema:
+          $ref: '#/definitions/models.Material'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Material created successfully
+          schema:
+            $ref: '#/definitions/models.Material'
+        "400":
+          description: Invalid request payload or missing required fields
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Failed to create material
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create a new material
+      tags:
+      - Materials
+  /materials/{id}:
+    delete:
+      description: Deletes a material by its ID.
+      parameters:
+      - description: Material ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Material deleted successfully (No Content)
+        "400":
+          description: Invalid Material ID format
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Failed to delete material
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete a material
+      tags:
+      - Materials
+    get:
+      description: Retrieves a single material by its ID.
+      parameters:
+      - description: Material ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved material
+          schema:
+            $ref: '#/definitions/models.Material'
+        "400":
+          description: Invalid Material ID format
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Material not found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Failed to retrieve material
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get material by ID
+      tags:
+      - Materials
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing material by its ID.
+      parameters:
+      - description: Material ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Material object with updated fields
+        in: body
+        name: material
+        required: true
+        schema:
+          $ref: '#/definitions/models.Material'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Material updated successfully
+          schema:
+            $ref: '#/definitions/models.Material'
+        "204":
+          description: Material updated, but fetch failed (No Content)
+        "400":
+          description: Invalid Material ID format or invalid request payload or missing
+            required fields
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Failed to update material
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update an existing material
+      tags:
+      - Materials
+  /users:
+    get:
+      description: Retrieves a list of all registered users. This is a protected route.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved list of users
+          schema:
+            $ref: '#/definitions/handlers.UserListResponse'
+        "500":
+          description: Failed to retrieve users
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get all users
+      tags:
+      - Users
+    post:
+      consumes:
+      - application/json
+      description: Allows Admin or Staff to create a new user account. This is a protected
+        route.
+      parameters:
+      - description: User Creation Information
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User created successfully
+          schema:
+            $ref: '#/definitions/handlers.UserActionResponse'
+        "400":
+          description: Invalid request body or missing fields
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "403":
+          description: Permission denied
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "409":
+          description: Email already in use
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal server error or failed to create user
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create user (Admin/Staff)
+      tags:
+      - Users
+  /users/{id}:
+    delete:
+      description: Deletes a user by their ID. This is a protected route.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User deleted successfully
+          schema:
+            $ref: '#/definitions/handlers.MessageResponse'
+        "500":
+          description: Failed to delete user
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete user
+      tags:
+      - Users
+    get:
+      description: Retrieves a single user by their ID. This is a protected route.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved user
+          schema:
+            $ref: '#/definitions/handlers.SingleUserResponse'
+        "403":
+          description: Permission denied
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get user by ID
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      description: Updates a user's full name, email, role, or active status. This
+        is a protected route (Admin/Staff only).
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: User Update Information
+        in: body
+        name: user_update
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User updated successfully
+          schema:
+            $ref: '#/definitions/handlers.UserActionResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "403":
+          description: Permission denied
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Failed to update user
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update user information
+      tags:
+      - Users
+  /users/{id}/activate:
+    put:
+      description: Activates a previously deactivated user account. This is a protected
+        route.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User activated successfully
+          schema:
+            $ref: '#/definitions/handlers.MessageResponse'
+        "500":
+          description: Failed to activate user
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Activate user account
+      tags:
+      - Users
+  /users/{id}/deactivate:
+    put:
+      description: Deactivates an active user account. This is a protected route.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User deactivated successfully
+          schema:
+            $ref: '#/definitions/handlers.MessageResponse'
+        "500":
+          description: Failed to deactivate user
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Deactivate user account
+      tags:
+      - Users
+  /users/{id}/password:
+    put:
+      consumes:
+      - application/json
+      description: Updates the password for a given user. This is a protected route.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Password Update Information
+        in: body
+        name: password_update
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserPasswordUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password updated successfully
+          schema:
+            $ref: '#/definitions/handlers.MessageResponse'
+        "400":
+          description: Invalid request body or missing fields
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "403":
+          description: Permission denied
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Failed to update password
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update user password
+      tags:
+      - Users
+  /users/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates a user and returns a JWT token.
+      parameters:
+      - description: User Login Credentials
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful
+          schema:
+            $ref: '#/definitions/handlers.UserAuthResponse'
+        "400":
+          description: Invalid request body or missing fields
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Invalid credentials
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "403":
+          description: Account is inactive
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Log in an existing user
+      tags:
+      - Users
+  /users/register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user account.
+      parameters:
+      - description: User Registration Information
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User registered successfully
+          schema:
+            $ref: '#/definitions/handlers.UserAuthResponse'
+        "400":
+          description: Invalid request body or missing fields
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "409":
+          description: Email already in use
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Register a new user
+      tags:
+      - Users
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -1,0 +1,5 @@
+.env
+node_modules
+.air.toml
+Backend/tmp
+tmp
