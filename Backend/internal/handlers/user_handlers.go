@@ -50,14 +50,16 @@ type UserRepository interface {
 	Create(user *models.User) error
 	GetByID(id string) (*models.User, error)
 	GetByEmail(email string) (*models.User, error)
+	GetByUsername(username string) (*models.User, error)
 	Update(user *models.User) error
 	UpdatePassword(userID string, newPassword string) error
 	Delete(id string) error
 	GetAll() ([]*models.User, error)
-	VerifyPassword(email, password string) (*models.User, error)
+	VerifyPassword(identifier, password string) (*models.User, error)
 	ActivateUser(id string) error
 	DeactivateUser(id string) error
 	EmailExists(email string) (bool, error)
+	UsernameExists(username string) (bool, error)
 }
 
 // UserHandler handles HTTP requests related to users
@@ -110,6 +112,7 @@ func generateToken() (string, error) {
 // @Router /users/register [post]
 func (h *UserHandler) Register(c *fiber.Ctx) error {
 	var input struct {
+		Username string `json:"username"`
 		Name     string `json:"fullName"`
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -124,9 +127,9 @@ func (h *UserHandler) Register(c *fiber.Ctx) error {
 	}
 
 	// Validate input
-	if input.Name == "" || input.Email == "" || input.Password == "" {
+	if input.Username == "" || input.Name == "" || input.Email == "" || input.Password == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Error:      "Name, email, and password are required",
+			Error:      "Username, name, email, and password are required",
 			StatusCode: fiber.StatusBadRequest,
 		})
 	}
@@ -159,9 +162,27 @@ func (h *UserHandler) Register(c *fiber.Ctx) error {
 	}
 
 	// Create user
+	// Check if username already exists
+	exists, err = h.userRepo.UsernameExists(input.Username)
+	if err != nil {
+		log.Printf("Error checking username existence: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error:      "Internal server error",
+			StatusCode: fiber.StatusInternalServerError,
+		})
+	}
+
+	if exists {
+		return c.Status(fiber.StatusConflict).JSON(ErrorResponse{
+			Error:      "Username already in use",
+			StatusCode: fiber.StatusConflict,
+		})
+	}
+
 	user := &models.User{
 		Id:       uuid.New().String(),
-		FullName: input.Name, // Use FullName from input
+		Username: input.Username,
+		FullName: input.Name,
 		Email:    input.Email,
 		Password: input.Password, // Will be hashed in the repository
 		Role:     input.Role,
@@ -200,7 +221,7 @@ func (h *UserHandler) Register(c *fiber.Ctx) error {
 // @Router /users/login [post]
 func (h *UserHandler) Login(c *fiber.Ctx) error {
 	var input struct {
-		Email    string `json:"email"`
+		Username string `json:"username"`
 		Password string `json:"password"`
 	}
 
@@ -212,37 +233,44 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 	}
 
 	// Validate input
-	if input.Email == "" || input.Password == "" {
+	if input.Username == "" || input.Password == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Error:      "Email and password are required",
+			Error:      "Username/Email and password are required",
 			StatusCode: fiber.StatusBadRequest,
 		})
 	}
 
-	// First, get the user by email to check if they exist and if they're active
-	user, err := h.userRepo.GetByEmail(input.Email)
+	// Try to find user by email first, then by username if not found
+	var user *models.User
+	var err error
+
+	// First attempt: try email
+	user, err = h.userRepo.GetByEmail(input.Username)
 	if err != nil {
-		log.Printf("Login failed - user not found for email %s: %v", input.Email, err)
-		// Return a generic error message to avoid revealing which part failed (email or password)
-		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
-			Error:      "Invalid credentials",
-			StatusCode: fiber.StatusUnauthorized,
-		})
+		// If not found by email, try username
+		user, err = h.userRepo.GetByUsername(input.Username)
+		if err != nil {
+			log.Printf("Login failed - user not found for identifier %s: %v", input.Username, err)
+			return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
+				Error:      "Invalid credentials",
+				StatusCode: fiber.StatusUnauthorized,
+			})
+		}
 	}
 
 	// Check if user is active before verifying password
 	if !user.IsActive {
-		log.Printf("Login attempt for inactive user: %s", input.Email)
+		log.Printf("Login attempt for inactive user: %s", input.Username)
 		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
 			Error:      "Account is inactive",
 			StatusCode: fiber.StatusForbidden,
 		})
 	}
 
-	// Verify password
-	user, err = h.userRepo.VerifyPassword(input.Email, input.Password)
+	// Verify password using the identifier (email or username)
+	user, err = h.userRepo.VerifyPassword(input.Username, input.Password)
 	if err != nil {
-		log.Printf("Login failed - invalid password for email %s: %v", input.Email, err)
+		log.Printf("Login failed - invalid password for identifier %s: %v", input.Username, err)
 		// Return a generic error message to avoid revealing which part failed
 		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
 			Error:      "Invalid credentials",

@@ -65,8 +65,21 @@ func (m *MockUserRepository) GetAll() ([]*models.User, error) {
 	return args.Get(0).([]*models.User), args.Error(1)
 }
 
-func (m *MockUserRepository) VerifyPassword(email, password string) (*models.User, error) {
-	args := m.Called(email, password)
+func (m *MockUserRepository) GetByUsername(username string) (*models.User, error) {
+	args := m.Called(username)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.User), args.Error(1)
+}
+
+func (m *MockUserRepository) UsernameExists(username string) (bool, error) {
+	args := m.Called(username)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockUserRepository) VerifyPassword(identifier, password string) (*models.User, error) {
+	args := m.Called(identifier, password)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -100,6 +113,7 @@ func setupTest() (*fiber.App, *UserHandler, *MockUserRepository) {
 func createTestUser() *models.User {
 	return &models.User{
 		Id:        uuid.New().String(),
+		Username:  "testuser",
 		FullName:  "Test User",
 		Email:     "test@example.com",
 		Password:  "hashed_password",
@@ -119,10 +133,12 @@ func TestUserHandler_Register_Success(t *testing.T) {
 
 	// Setup expectations
 	mockRepo.On("EmailExists", "test@example.com").Return(false, nil)
+	mockRepo.On("UsernameExists", "testuser").Return(false, nil)
 	mockRepo.On("Create", mock.AnythingOfType("*models.User")).Return(nil)
 
 	// Create request body
 	reqBody := map[string]string{
+		"username": "testuser",
 		"fullName": "Test User",
 		"email":    "test@example.com",
 		"password": "password123",
@@ -193,7 +209,7 @@ func TestUserHandler_Register_EmailExists(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestUserHandler_Login_Success(t *testing.T) {
+func TestUserHandler_Login_Success_WithEmail(t *testing.T) {
 	// Setup
 	app, handler, mockRepo := setupTest()
 
@@ -209,7 +225,52 @@ func TestUserHandler_Login_Success(t *testing.T) {
 
 	// Create request body
 	reqBody := map[string]string{
-		"email":    "test@example.com",
+		"username": "test@example.com",
+		"password": "password123",
+	}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	// Create request
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	// Perform request
+	resp, err := app.Test(req)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Verify response body
+	var result map[string]interface{}
+	error := json.NewDecoder(resp.Body).Decode(&result)
+	assert.NoError(t, error)
+
+	assert.Equal(t, "Login successful", result["message"])
+	assert.NotNil(t, result["user"])
+
+	// Verify expectations
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUserHandler_Login_Success_WithUsername(t *testing.T) {
+	// Setup
+	app, handler, mockRepo := setupTest()
+
+	// Setup route
+	app.Post("/login", handler.Login)
+
+	// Create test user
+	user := createTestUser()
+
+	// Setup expectations
+	mockRepo.On("GetByEmail", "testuser").Return(nil, errors.New("not found"))
+	mockRepo.On("GetByUsername", "testuser").Return(user, nil)
+	mockRepo.On("VerifyPassword", "testuser", "password123").Return(user, nil)
+
+	// Create request body
+	reqBody := map[string]string{
+		"username": "testuser",
 		"password": "password123",
 	}
 	jsonBody, _ := json.Marshal(reqBody)
@@ -296,7 +357,7 @@ func TestUserHandler_Login_InactiveUser(t *testing.T) {
 
 	// Create request body
 	reqBody := map[string]string{
-		"email":    "test@example.com",
+		"username": "test@example.com",
 		"password": "password123",
 	}
 	jsonBody, _ := json.Marshal(reqBody)
