@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // MockUserRepository is a mock implementation of the UserRepository
@@ -101,6 +102,14 @@ func (m *MockUserRepository) EmailExists(email string) (bool, error) {
 	return args.Bool(0), args.Error(1)
 }
 
+func (m *MockUserRepository) FindByEmailOrUsernameConstantTime(identifier string) (*models.User, error) {
+	args := m.Called(identifier)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.User), args.Error(1)
+}
+
 // Helper function to create a test app and handler
 func setupTest() (*fiber.App, *UserHandler, *MockUserRepository) {
 	app := fiber.New()
@@ -109,14 +118,15 @@ func setupTest() (*fiber.App, *UserHandler, *MockUserRepository) {
 	return app, handler, mockRepo
 }
 
-// Helper function to create a test user
-func createTestUser() *models.User {
+// Helper function to create a test user with a hashed password
+func createTestUser(password string) *models.User {
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	return &models.User{
 		Id:        uuid.New().String(),
 		Username:  "testuser",
 		FullName:  "Test User",
 		Email:     "test@example.com",
-		Password:  "hashed_password",
+		Password:  string(hashedPassword), // Store the hashed password
 		Role:      "user",
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -180,13 +190,17 @@ func TestUserHandler_Register_EmailExists(t *testing.T) {
 	app.Post("/register", handler.Register)
 
 	// Setup expectations
+	// The handler will first validate input, then check username, then email.
+	// For this test, username should not exist, but email should.
 	mockRepo.On("EmailExists", "test@example.com").Return(true, nil)
 
 	// Create request body
 	reqBody := map[string]string{
+		"username": "testuser_email_exists", // Added
 		"fullName": "Test User",
 		"email":    "test@example.com",
 		"password": "password123",
+		"role":     "user", // Added
 	}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
@@ -223,11 +237,10 @@ func TestUserHandler_Login_Success_WithEmail(t *testing.T) {
 	app.Post("/login", handler.Login)
 
 	// Create test user
-	user := createTestUser()
+	user := createTestUser("password123")
 
 	// Setup expectations
-	mockRepo.On("GetByEmail", "test@example.com").Return(user, nil)
-	mockRepo.On("VerifyPassword", "test@example.com", "password123").Return(user, nil)
+	mockRepo.On("FindByEmailOrUsernameConstantTime", "test@example.com").Return(user, nil)
 
 	// Create request body
 	reqBody := map[string]string{
@@ -270,12 +283,10 @@ func TestUserHandler_Login_Success_WithUsername(t *testing.T) {
 	app.Post("/login", handler.Login)
 
 	// Create test user
-	user := createTestUser()
-
 	// Setup expectations
-	mockRepo.On("GetByEmail", "testuser").Return(nil, errors.New("not found"))
-	mockRepo.On("GetByUsername", "testuser").Return(user, nil)
-	mockRepo.On("VerifyPassword", "testuser", "password123").Return(user, nil)
+	// Create a test user with the correct password and active status
+	user := createTestUser("password123")
+	mockRepo.On("FindByEmailOrUsernameConstantTime", "testuser").Return(user, nil)
 
 	// Create request body
 	reqBody := map[string]string{
@@ -318,11 +329,10 @@ func TestUserHandler_Login_InvalidCredentials(t *testing.T) {
 	app.Post("/login", handler.Login)
 
 	// Create test user
-	user := createTestUser()
+	user := createTestUser("password123")
 
 	// Setup expectations
-	mockRepo.On("GetByEmail", "test@example.com").Return(user, nil)
-	mockRepo.On("VerifyPassword", "test@example.com", "wrong_password").Return(nil, errors.New("invalid password"))
+	mockRepo.On("FindByEmailOrUsernameConstantTime", "test@example.com").Return(user, nil)
 
 	// Create request body
 	reqBody := map[string]string{
@@ -364,12 +374,10 @@ func TestUserHandler_Login_InvalidCredentials_WithUsername(t *testing.T) {
 	app.Post("/login", handler.Login)
 
 	// Create test user
-	user := createTestUser() // User exists
+	user := createTestUser("password123") // User exists
 
 	// Setup expectations
-	mockRepo.On("GetByEmail", "testuser").Return(nil, errors.New("not found"))
-	mockRepo.On("GetByUsername", "testuser").Return(user, nil) // Found by username
-	mockRepo.On("VerifyPassword", "testuser", "wrong_password").Return(nil, errors.New("invalid password")) // Password incorrect
+	mockRepo.On("FindByEmailOrUsernameConstantTime", "testuser").Return(user, nil)
 
 	// Create request body
 	reqBody := map[string]string{
@@ -411,11 +419,11 @@ func TestUserHandler_Login_InactiveUser(t *testing.T) {
 	app.Post("/login", handler.Login)
 
 	// Create inactive test user
-	inactiveUser := createTestUser()
+	inactiveUser := createTestUser("password123")
 	inactiveUser.IsActive = false
 
 	// Setup expectations
-	mockRepo.On("GetByEmail", "test@example.com").Return(inactiveUser, nil)
+	mockRepo.On("FindByEmailOrUsernameConstantTime", "test@example.com").Return(inactiveUser, nil)
 
 	// Create request body
 	reqBody := map[string]string{
@@ -457,14 +465,13 @@ func TestUserHandler_Login_InactiveUser_WithUsername(t *testing.T) {
 	app.Post("/login", handler.Login)
 
 	// Create inactive test user with a specific username
-	inactiveUser := createTestUser()
+	inactiveUser := createTestUser("password123")
 	inactiveUser.IsActive = false
 	inactiveUser.Username = "inactive_username" // Ensure this user has the target username
 	// inactiveUser.Email = "inactive_user_specific_email@example.com" // Optional: make email distinct
 
 	// Setup expectations
-	mockRepo.On("GetByEmail", "inactive_username").Return(nil, errors.New("not found"))
-	mockRepo.On("GetByUsername", "inactive_username").Return(inactiveUser, nil)
+	mockRepo.On("FindByEmailOrUsernameConstantTime", "inactive_username").Return(inactiveUser, nil)
 	// VerifyPassword should NOT be called
 
 	// Create request body
@@ -563,7 +570,7 @@ func TestUserHandler_GetUser(t *testing.T) {
 	app.Get("/users/:id", handler.GetUser)
 
 	// Create test user
-	user := createTestUser()
+	user := createTestUser("password123")
 
 	// Setup expectations
 	mockRepo.On("GetByID", user.Id).Return(user, nil)
@@ -634,7 +641,7 @@ func TestUserHandler_UpdateUser(t *testing.T) {
 	app.Put("/users/:id", handler.UpdateUser)
 
 	// Create test user
-	user := createTestUser()
+	user := createTestUser("password123")
 
 	// Setup expectations
 	mockRepo.On("GetByID", user.Id).Return(user, nil)
@@ -697,7 +704,7 @@ func TestUserHandler_UpdateUser_InactiveUser(t *testing.T) {
 	app.Put("/users/:id", handler.UpdateUser)
 
 	// Create inactive test user
-	inactiveUser := createTestUser()
+	inactiveUser := createTestUser("password123")
 	inactiveUser.IsActive = false
 
 	// Setup expectations
@@ -855,7 +862,7 @@ func TestUserHandler_UpdatePassword(t *testing.T) {
 	app, handler, mockRepo := setupTest()
 
 	// Create test user
-	user := createTestUser()
+	user := createTestUser("password123")
 
 	// Setup middleware to simulate authenticated user
 	app.Use(func(c *fiber.Ctx) error {
@@ -912,7 +919,7 @@ func TestUserHandler_UpdatePassword_InactiveUser(t *testing.T) {
 	app, handler, mockRepo := setupTest()
 
 	// Create inactive test user
-	inactiveUser := createTestUser()
+	inactiveUser := createTestUser("password123")
 	inactiveUser.IsActive = false
 
 	// Setup middleware to simulate authenticated user
@@ -967,7 +974,7 @@ func TestUserHandler_UpdatePassword_InactiveUser(t *testing.T) {
 	err = json.NewDecoder(resp.Body).Decode(&result)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "Account is inactive", result["error"]) // Expect inactive account error
+	assert.Equal(t, "Account is inactive", result["error"])
 
 	// Verify expectations
 	mockRepo.AssertExpectations(t)
@@ -978,7 +985,7 @@ func TestUserHandler_UpdatePassword_IncorrectCurrentPassword(t *testing.T) {
 	app, handler, mockRepo := setupTest()
 
 	// Create test user (defaults to active)
-	user := createTestUser()
+	user := createTestUser("password123")
 
 	// Setup middleware to simulate authenticated user
 	app.Use(func(c *fiber.Ctx) error {

@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -60,6 +61,9 @@ type UserRepository interface {
 	DeactivateUser(id string) error
 	EmailExists(email string) (bool, error)
 	UsernameExists(username string) (bool, error)
+	// FindByEmailOrUsernameConstantTime attempts to find a user by email or username
+	// in a way that takes a consistent amount of time.
+	FindByEmailOrUsernameConstantTime(identifier string) (*models.User, error)
 }
 
 // UserHandler handles HTTP requests related to users
@@ -240,22 +244,14 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	// Try to find user by email first, then by username if not found
-	var user *models.User
-	var err error
-
-	// First attempt: try email
-	user, err = h.userRepo.GetByEmail(input.Username)
+	// Find user by email or username using the constant time function
+	user, err := h.userRepo.FindByEmailOrUsernameConstantTime(input.Username)
 	if err != nil {
-		// If not found by email, try username
-		user, err = h.userRepo.GetByUsername(input.Username)
-		if err != nil {
-			log.Printf("Login failed - user not found for identifier %s: %v", input.Username, err)
-			return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
-				Error:      "Invalid credentials",
-				StatusCode: fiber.StatusUnauthorized,
-			})
-		}
+		log.Printf("Login failed - user not found for identifier %s: %v", input.Username, err)
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
+			Error:      "Invalid credentials",
+			StatusCode: fiber.StatusUnauthorized,
+		})
 	}
 
 	// Check if user is active before verifying password
@@ -268,7 +264,9 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 	}
 
 	// Verify password using the identifier (email or username)
-	user, err = h.userRepo.VerifyPassword(input.Username, input.Password)
+	// The FindByEmailOrUsernameConstantTime already returned the user if found,
+	// so we just need to verify the password against the retrieved user.
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password))
 	if err != nil {
 		log.Printf("Login failed - invalid password for identifier %s: %v", input.Username, err)
 		// Return a generic error message to avoid revealing which part failed
