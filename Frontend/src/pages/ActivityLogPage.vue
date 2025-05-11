@@ -163,12 +163,18 @@ watch(totalLogs, (newTotal) => {
   }
 });
 
-watch(qTablePagination, (newVal) => {
+watch(qTablePagination, async (newVal) => {
   if (newVal) {
-    logStore.setCurrentPage(newVal.page ?? 1);
-    logStore.setPageSize(newVal.rowsPerPage ?? 10);
-    // Sorting is handled by q-table client-side from the `paginatedLogs` array for now.
-    // If server-side sorting is needed, this is where you'd trigger it.
+    try {
+      await logStore.setCurrentPage(newVal.page ?? 1);
+      await logStore.setPageSize(newVal.rowsPerPage ?? 10);
+      // Sorting is handled by q-table client-side from the `paginatedLogs` array for now.
+      // If server-side sorting is needed, this is where you'd trigger it.
+    } catch (error) {
+      console.error('Error updating pagination in store:', error);
+      // Optionally, you could add a user-facing error message here
+      // For example, using a toast notification.
+    }
   }
 }, { deep: true });
 

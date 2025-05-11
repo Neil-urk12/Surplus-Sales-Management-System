@@ -1,11 +1,22 @@
 import { defineStore } from 'pinia';
 import { useUsersStore } from './users';
-import type { ActivityLogEntry, UserSnippet, ActionType, LogFilters } from '../types/logTypes';
+import { activityLogsService } from '../services/activityLogsApi';
+import type { ActivityLogEntry, UserSnippet, ActionType, LogFilters, ActionStatus } from '../types/logTypes';
 
 export const actionTypeOptions: ActionType[] = ['All Actions', 'Created', 'Logged In', 'Updated', 'Deleted', 'Login', 'Logout'];
 
-// For generating unique IDs for new logs, very basic for now.
-let logIdCounter = 0;
+// Interface for backend activity log format
+interface BackendActivityLog {
+  id: string;
+  timestamp: string;
+  user: string;
+  action: string;
+  details: string;
+  status: string;
+  isSystemAction: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export const useLogStore = defineStore('activityLogs', {
   state: () => ({
@@ -26,6 +37,8 @@ export const useLogStore = defineStore('activityLogs', {
     error: null as string | null,
     currentPage: 1,
     pageSize: 10,
+    totalLogs: 0,
+    lastPage: 1,
   }),
 
   getters: {
@@ -101,46 +114,172 @@ export const useLogStore = defineStore('activityLogs', {
           this.users.push({
             id: 'system',
             fullName: 'System',
-            role: 'admin'
+            role: 'admin' as const
           });
         }
         
-        // Simulate API call delay if needed, but now initializes logs as empty.
-        await new Promise(resolve => setTimeout(resolve, 200)); 
-        this.logs = []; // Initialize logs as an empty array
+        // Fetch logs from API
+        const response = await activityLogsService.getLogs(this.currentPage, this.pageSize);
+        
+        // Map backend logs to frontend format if needed
+        this.logs = this.mapBackendLogsToFrontend(response.data as unknown as BackendActivityLog[]);
+        
+        this.totalLogs = response.total;
+        this.lastPage = response.last_page;
       } catch (e) {
-        this.error = 'Failed to initialize activity logs.';
+        this.error = 'Failed to fetch activity logs.';
         console.error(e);
-        this.logs = []; // Ensure logs is empty on error too
+        this.logs = []; 
       } finally {
         this.isLoading = false;
       }
     },
-    addLogEntry(entryData: Omit<ActivityLogEntry, 'id' | 'timestamp'>) {
-      const newEntry: ActivityLogEntry = {
-        ...entryData,
-        id: `log_${logIdCounter++}`,
-        timestamp: new Date(),
-      };
-      this.logs.unshift(newEntry); // Add to the beginning of the array
+    
+    async fetchFilteredLogs() {
+      this.isLoading = true;
+      this.error = null;
+      
+      try {
+        const filters: Record<string, string> = {};
+        
+        if (this.filters.selectedUserId) {
+          filters.user = this.filters.selectedUserId;
+        }
+        
+        if (this.filters.selectedActionType !== 'All Actions') {
+          filters.action = this.filters.selectedActionType;
+        }
+        
+        if (this.filters.dateFrom) {
+          const startDate = this.filters.dateFrom.toISOString().split('T')[0];
+          if (startDate) {
+            filters.startDate = startDate;
+          }
+        }
+        
+        if (this.filters.dateTo) {
+          const endDate = this.filters.dateTo.toISOString().split('T')[0];
+          if (endDate) {
+            filters.endDate = endDate;
+          }
+        }
+        
+        // We'll handle showSuccessful/showFailed logic on frontend since
+        // backend might not have this exact filter format
+        
+        const response = await activityLogsService.getFilteredLogs(
+          filters,
+          this.currentPage,
+          this.pageSize
+        );
+        
+        // Map backend logs to frontend format
+        this.logs = this.mapBackendLogsToFrontend(response.data as unknown as BackendActivityLog[]);
+        
+        this.totalLogs = response.total;
+        this.lastPage = response.last_page;
+      } catch (e) {
+        this.error = 'Failed to fetch filtered activity logs.';
+        console.error(e);
+      } finally {
+        this.isLoading = false;
+      }
     },
+    
+    // Helper method to map backend log format to frontend format
+    mapBackendLogsToFrontend(backendLogs: BackendActivityLog[]): ActivityLogEntry[] {
+      return backendLogs.map(log => {
+        // Find user in users array or create default user
+        const userMatch = this.users.find(u => u.id === log.user);
+        const user: UserSnippet = userMatch || {
+          id: log.user,
+          fullName: log.user,
+          role: 'admin' as const
+        };
+        
+        return {
+          id: log.id,
+          timestamp: new Date(log.timestamp),
+          user,
+          actionType: this.mapActionToActionType(log.action),
+          details: log.details,
+          status: log.status as ActionStatus,
+          isSystemAction: log.isSystemAction
+        };
+      });
+    },
+    
+    // Helper method to map backend action string to frontend ActionType
+    mapActionToActionType(action: string): ActionType {
+      // Check if the action is one of our predefined ActionTypes
+      if (actionTypeOptions.includes(action as ActionType)) {
+        return action as ActionType;
+      }
+      // Default to the first non-"All Actions" type if not recognized
+      return actionTypeOptions.find(type => type !== 'All Actions') || 'Created';
+    },
+    
+    async addLogEntry(entryData: Omit<ActivityLogEntry, 'id' | 'timestamp'>) {
+      try {
+        // Format log data for the API
+        const logData = {
+          user: entryData.user.id,
+          action: entryData.actionType,
+          details: entryData.details,
+          status: entryData.status,
+          isSystemAction: entryData.isSystemAction
+        };
+        
+        // Send to API
+        const success = await activityLogsService.createLog(logData);
+        
+        if (success) {
+          // Optionally refresh logs after adding new entry
+          await this.fetchLogs();
+        }
+      } catch (error) {
+        console.error('Error adding log entry:', error);
+        this.error = 'Failed to add log entry.';
+      }
+    },
+    
     updateFilters(newFilters: Partial<LogFilters>) {
       this.filters = { ...this.filters, ...newFilters };
       this.currentPage = 1; 
+      // When filters change, fetch filtered logs
+      void this.fetchFilteredLogs();
     },
-    setCurrentPage(page: number) {
+    
+    async setCurrentPage(page: number) {
       this.currentPage = page;
+      // Refetch logs for the new page
+      if (Object.values(this.filters).some(v => v !== null && v !== undefined && v !== 'All Actions')) {
+        await this.fetchFilteredLogs();
+      } else {
+        await this.fetchLogs();
+      }
     },
-    setPageSize(size: number) {
+    
+    async setPageSize(size: number) {
       this.pageSize = size;
-      this.currentPage = 1; 
+      this.currentPage = 1;
+      // Refetch logs with new page size
+      if (Object.values(this.filters).some(v => v !== null && v !== undefined && v !== 'All Actions')) {
+        await this.fetchFilteredLogs();
+      } else {
+        await this.fetchLogs();
+      }
     },
+    
     refreshLogs() {
-      // This will now clear current logs and prepare for new ones or fetched ones.
-      // Refresh users as well to ensure up-to-date user data
+      // Refresh users and logs
       const usersStore = useUsersStore();
       void usersStore.fetchUsers().then(() => {
-        void this.fetchLogs();
+        if (Object.values(this.filters).some(v => v !== null && v !== undefined && v !== 'All Actions')) {
+          void this.fetchFilteredLogs();
+        } else {
+          void this.fetchLogs();
+        }
       });
     },
   },

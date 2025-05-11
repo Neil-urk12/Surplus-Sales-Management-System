@@ -235,6 +235,9 @@ func main() {
 	// Initialize sales repository
 	saleRepo := repositories.NewSalesRepository(dbClient.DB)
 
+	// Initialize logs repository
+	logsRepo := repositories.NewLogsRepository(dbClient.DB) // Assuming dbClient.DB is the *sql.DB instance
+
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userRepo, jwtSecret)
 	materialHandler := handlers.NewMaterialHandlers(materialRepo, jwtSecret)
@@ -244,6 +247,8 @@ func main() {
 	accessoryHandler := handlers.NewAccessoriesHandler(accessoryRepo)
 	// Initialize sales handler
 	saleHandler := handlers.NewSaleHandlers(saleRepo, cabsRepo, accessoryRepo, customerRepo, jwtSecret)
+	// Initialize activity log handler
+	activityLogHandler := handlers.NewActivityLogHandler(logsRepo)
 
 	// --- Route Registration ---
 	api := app.Group("/api") // Base group for API routes
@@ -300,6 +305,12 @@ func main() {
 	userProtected.Put("/:id/deactivate", userHandler.DeactivateUser)
 	userProtected.Put("/:id/password", userHandler.UpdatePassword)
 	userProtected.Post("/", userHandler.CreateUser)
+
+	// Protected Activity Log Routes (require JWT)
+	activityLogProtected := api.Group("/activity-logs", authMiddleware)
+	activityLogProtected.Get("/", activityLogHandler.GetActivityLogs)
+	activityLogProtected.Get("/filter", activityLogHandler.GetFilteredActivityLogs)
+	activityLogProtected.Post("/", activityLogHandler.CreateActivityLog)
 
 	// Add a health check endpoint (public)
 	// @Summary Health Check
