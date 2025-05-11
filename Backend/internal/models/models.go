@@ -189,17 +189,29 @@ type AccessoryForSale struct {
 
 // CabSalePayload represents the data sent from the frontend to record a cab sale
 type CabSalePayload struct {
-	CustomerID  string            `json:"customerId" validate:"required"` // ID of the customer making the purchase
-	Quantity    int               `json:"quantity" validate:"required,min=1"` // Number of cabs being sold
-	Accessories []AccessoryForSale `json:"accessories"` // Optional accessories included in the sale
+	CustomerID  string             `json:"customerId" validate:"required"`     // ID of the customer making the purchase
+	Quantity    int                `json:"quantity" validate:"required,min=1"` // Number of cabs being sold
+	Accessories []AccessoryForSale `json:"accessories"`                        // Optional accessories included in the sale
 }
 
 // CabSale represents a completed cab sale transaction
 type CabSale struct {
-	CabID      int               `json:"cabId"`      // ID of the cab that was sold
-	CustomerID string            `json:"customerId"` // ID of the customer who made the purchase
-	Quantity   int               `json:"quantity"`   // Number of cabs sold
+	CabID       int                      `json:"cabId"`       // ID of the cab that was sold
+	CustomerID  string                   `json:"customerId"`  // ID of the customer who made the purchase
+	Quantity    int                      `json:"quantity"`    // Number of cabs sold
 	Accessories []map[string]interface{} `json:"accessories"` // Accessories included in the sale
-	TotalPrice float64           `json:"totalPrice"` // Total price of the sale
-	SaleDate   string            `json:"saleDate"`   // Date of the sale
+	TotalPrice  float64                  `json:"totalPrice"`  // Total price of the sale
+	SaleDate    string                   `json:"saleDate"`    // Date of the sale
+}
+
+type ActivityLog struct {
+	ID             string    `json:"id"`
+	Timestamp      time.Time `json:"timestamp"`
+	User           string    `json:"user"`
+	Action         string    `json:"action"`
+	Details        string    `json:"details"`
+	Status         string    `json:"status"`
+	IsSystemAction bool      `json:"isSystemAction"`
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
 }

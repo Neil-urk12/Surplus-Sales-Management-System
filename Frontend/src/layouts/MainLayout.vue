@@ -299,6 +299,11 @@ const menuItemsList: menuItemsProps[] = [
     icon:"contacts",
     to: '/contacts'
   },
+  {
+    title: "Activity Log",
+    icon: "history",
+    to: "/activity-log"
+  }
 ];
 
 const userManagementMenuItem: menuItemsProps = {

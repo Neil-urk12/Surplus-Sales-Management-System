@@ -21,6 +21,11 @@ const routes: RouteRecordRaw[] = [
         component: defineAsyncComponent(() => import('pages/UserManagementPage.vue')),
         meta: { roles: ['admin', 'staff'] } 
       },
+      {
+        path: 'activity-log',
+        component: () => import('pages/ActivityLogPage.vue'),
+        meta: { roles: ['admin'] }
+      }
     ],
     meta: { requiresAuth: true },
   },
