@@ -633,7 +633,8 @@ func TestUserHandler_UpdateUser(t *testing.T) {
 
 	// Set a role in context locals to simulate authenticated admin/staff
 	app.Use(func(c *fiber.Ctx) error {
-		c.Locals("role", "admin") // or "staff"
+		c.Locals("role", "admin")            // or "staff"
+		c.Locals("user_id", "test-admin-id") // Add user_id to context locals
 		return c.Next()
 	})
 
@@ -696,7 +697,8 @@ func TestUserHandler_UpdateUser_InactiveUser(t *testing.T) {
 
 	// Set a role in context locals to simulate authenticated admin/staff
 	app.Use(func(c *fiber.Ctx) error {
-		c.Locals("role", "admin") // or "staff"
+		c.Locals("role", "admin")            // or "staff"
+		c.Locals("user_id", "test-admin-id") // Add user_id to context locals
 		return c.Next()
 	})
 

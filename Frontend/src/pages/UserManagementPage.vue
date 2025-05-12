@@ -5,7 +5,7 @@ import type { QTableProps } from 'quasar'
 import { useUsersStore } from '../stores/users'
 import { useAuthStore } from '../stores/auth'
 import type { User } from '../types/models'
-import type { UserCreateData, UserUpdateData } from '../stores/users'
+import type { UserCreateData, UserUpdateData } from '../services/usersApi'
 
 const $q = useQuasar()
 const usersStore = useUsersStore()
@@ -26,6 +26,7 @@ const selectedUser = ref<User | null>(null)
 // Create user form
 const newUser = ref<UserCreateData>({
   fullName: '',
+  username: '',
   email: '',
   password: '',
   role: 'staff'
@@ -33,6 +34,7 @@ const newUser = ref<UserCreateData>({
 
 // Edit user form
 const editedUser = ref<UserUpdateData>({
+  username: '',
   role: 'staff',
   isActive: true
 })
@@ -88,6 +90,7 @@ function openCreateDialog() {
   // Reset form
   newUser.value = {
     fullName: '',
+    username: '',
     email: '',
     password: '',
     role: 'staff'
@@ -100,6 +103,7 @@ function openEditDialog(user: User) {
   selectedUser.value = user
   editedUser.value = {
     fullName: user.fullName,
+    username: user.username,
     email: user.email,
     role: user.role,
     isActive: user.isActive
@@ -137,6 +141,7 @@ async function submitEditUser() {
   try {
     const success = await usersStore.updateUser(selectedUser.value.id, {
       fullName: editedUser.value.fullName,
+      username: editedUser.value.username,
       email: editedUser.value.email,
       role: editedUser.value.role,
       isActive: editedUser.value.isActive
@@ -174,10 +179,12 @@ function formatStatus(status: boolean) {
         <h1 class="text-h4 text-soft-light q-my-none">User Management</h1>
         <q-btn
           v-if="isAdminOrStaff"
-          color="primary"
           icon="add"
           label="Create User"
-          class="text-soft-light"
+          :class="[
+          $q.dark.isActive ? 'bg-transparent text-white' : 'bg-primary text-white'
+          ]" 
+          style="border:1px solid white"
           @click="openCreateDialog"
         />
       </div>
@@ -200,8 +207,8 @@ function formatStatus(status: boolean) {
             <template v-slot:top>
               <div class="row full-width items-center q-pb-sm">
                 <q-input
-                  dense
                   outlined
+                  dense
                   v-model="filter"
                   placeholder="Search"
                   class="col-grow"
@@ -279,6 +286,14 @@ function formatStatus(status: boolean) {
               />
 
               <q-input
+                v-model="newUser.username"
+                label="Username *"
+                filled
+                :rules="[val => !!val || 'Username is required']"
+                class="q-mb-md"
+              />
+
+              <q-input
                 v-model="newUser.email"
                 label="Email *"
                 filled
@@ -334,6 +349,13 @@ function formatStatus(status: boolean) {
               <q-input
                 v-model="editedUser.fullName"
                 label="Full Name"
+                filled
+                class="q-mb-md"
+              />
+
+              <q-input
+                v-model="editedUser.username"
+                label="Username"
                 filled
                 class="q-mb-md"
               />

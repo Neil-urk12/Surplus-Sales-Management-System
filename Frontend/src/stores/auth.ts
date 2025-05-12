@@ -1,35 +1,66 @@
+/**
+ * Authentication Store
+ * 
+ * This store manages the authentication state of the application, including:
+ * - User authentication status
+ * - Auth token storage and management
+ * - User profile information
+ * - Login and logout operations
+ * 
+ * It uses localStorage for persistent storage of authentication data
+ * between page refreshes or application restarts.
+ */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import axios from 'axios'
 import type { User } from '../types/models'
-
-interface LoginResponse {
-  token: string;
-  user: User;
-  message: string;
-}
+import { loginUser } from '../services/authApi'
 
 export const useAuthStore = defineStore('auth', () => {
   // --- State --- Reactive refs
+  /**
+   * JWT authentication token stored in state and localStorage
+   */
   const token = ref<string | null>(localStorage.getItem('authToken') || null)
+  
+  /**
+   * Currently authenticated user data
+   */
   const user = ref<User | null>(JSON.parse(localStorage.getItem('user') || 'null'))
 
   // --- Getters --- Computed properties
+  /**
+   * Whether the user is currently authenticated
+   */
   const isAuthenticated = computed(() => !!token.value)
+  
+  /**
+   * The ID of the currently authenticated user, or empty string if not authenticated
+   */
+  const getUserId = computed(() => user.value?.id || '')
 
   // --- Actions --- Functions to mutate state
 
-  // Helper to set token in state and localStorage
+  /**
+   * Sets the authentication token in both state and localStorage
+   * @param {string} newToken - The JWT token to store
+   */
   function setToken(newToken: string) {
     token.value = newToken
     localStorage.setItem('authToken', newToken)
   }
 
+  /**
+   * Sets the user data in both state and localStorage
+   * @param {User} newUser - The user object to store
+   */
   function setUser(newUser: User) {
     user.value = newUser
     localStorage.setItem('user', JSON.stringify(newUser))
   }
 
+  /**
+   * Clears all authentication data from state and localStorage
+   */
   function clearAuth() {
     token.value = null
     user.value = null
@@ -37,49 +68,43 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('user')
   }
 
+  /**
+   * Authenticates a user with the backend API
+   * 
+   * @param {Object} credentials - User credentials
+   * @param {string} credentials.username - Username for login
+   * @param {string} credentials.password - Password for login
+   * @returns {Promise<{success: boolean, message?: string}>} Result object with success status and optional error message
+   * 
+   * @example
+   * const { success, message } = await login({ username: 'admin', password: 'password' });
+   * if (success) {
+   *   // Login successful
+   * } else {
+   *   // Show error message
+   * }
+   */
   async function login(credentials: { username: string; password: string }): Promise<{ success: boolean; message?: string }> {
     clearAuth();
-    console.log('Attempting login with:', credentials.username);
-    try {
-      const response = await axios.post<LoginResponse>('/api/users/login', credentials);
-
-      if (response.status === 200 && response.data.token) {
-        const apiToken = response.data.token;
-        setToken(apiToken);
-
-        if (response.data.user) {
-          setUser(response.data.user);
-        }
-        console.log('Login successful');
-        return { success: true };
-      } else {
-        console.error('Login succeeded but no token received.');
-        clearAuth();
-        return { success: false, message: 'Authentication failed. Please try again.' };
-      }
-
-    } catch (error: unknown) {
-      console.error('Login API call failed:', error);
+    
+    const result = await loginUser(credentials);
+    
+    if (result.success && result.token && result.user) {
+      setToken(result.token);
+      setUser(result.user);
+      return { success: true };
+    } else {
       clearAuth();
-
-      // Check for specific error messages from the backend
-      if (axios.isAxiosError(error) && error.response) {
-        const status = error.response.status;
-        const errorMessage = error.response.data?.error || 'Unknown error occurred';
-
-        // Handle specific status codes
-        if (status === 403 && errorMessage.includes('inactive')) {
-          return { success: false, message: 'Your account is inactive. Please contact an administrator.' };
-        } else if (status === 401) {
-          return { success: false, message: errorMessage }; // Return the exact error message from backend
-        } else {
-          return { success: false, message: errorMessage };
-        }
-      }
-      return { success: false, message: 'An error occurred while connecting to the server. Please try again later.' };
+      return { 
+        success: false, 
+        message: result.message || 'Authentication failed. Please try again.' 
+      };
     }
   }
 
+  /**
+   * Logs out the current user by clearing authentication data
+   */
   function logout() {
     clearAuth()
     console.log('Logout action called')
@@ -89,6 +114,7 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     user,
     isAuthenticated,
+    getUserId,
     login,
     logout,
     setToken,

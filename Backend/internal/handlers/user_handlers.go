@@ -430,6 +430,7 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	// Parse request body
 	var input struct {
 		FullName string `json:"fullName"`
+		Username string `json:"username"`
 		Email    string `json:"email"`
 		Role     string `json:"role"`
 		IsActive bool   `json:"isActive"`
@@ -451,7 +452,40 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 		existingUser.Email = input.Email
 	}
 	if input.Role != "" {
+		// Log role changes
+		if input.Role != existingUser.Role {
+			requestUserIDValue := c.Locals("user_id")
+			var requestUserID string
+			if requestUserIDValue != nil {
+				requestUserID, _ = requestUserIDValue.(string)
+			} else {
+				requestUserID = "unknown"
+			}
+			log.Printf("Role change: User ID %s changed role of user %s from '%s' to '%s'",
+				requestUserID, id, existingUser.Role, input.Role)
+		}
 		existingUser.Role = input.Role
+	}
+
+	// Update username if provided
+	if input.Username != "" && input.Username != existingUser.Username {
+		// Check if the new username already exists
+		exists, err := h.userRepo.UsernameExists(input.Username)
+		if err != nil {
+			log.Printf("Error checking username existence: %v", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+				Error:      "Internal server error",
+				StatusCode: fiber.StatusInternalServerError,
+			})
+		}
+
+		if exists {
+			return c.Status(fiber.StatusConflict).JSON(ErrorResponse{
+				Error:      "Username already in use",
+				StatusCode: fiber.StatusConflict,
+			})
+		}
+		existingUser.Username = input.Username
 	}
 
 	// Update isActive status
@@ -560,6 +594,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 	// Parse request body
 	var input struct {
 		FullName string `json:"fullName"`
+		Username string `json:"username"`
 		Email    string `json:"email"`
 		Password string `json:"password"`
 		Role     string `json:"role"`
@@ -597,9 +632,29 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 		})
 	}
 
+	// Check if username already exists if provided
+	if input.Username != "" {
+		exists, err = h.userRepo.UsernameExists(input.Username)
+		if err != nil {
+			log.Printf("Error checking username existence: %v", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+				Error:      "Internal server error",
+				StatusCode: fiber.StatusInternalServerError,
+			})
+		}
+
+		if exists {
+			return c.Status(fiber.StatusConflict).JSON(ErrorResponse{
+				Error:      "Username already in use",
+				StatusCode: fiber.StatusConflict,
+			})
+		}
+	}
+
 	// Create user
 	user := &models.User{
 		Id:       uuid.New().String(),
+		Username: input.Username,
 		FullName: input.FullName,
 		Email:    input.Email,
 		Password: input.Password, // Will be hashed in the repository

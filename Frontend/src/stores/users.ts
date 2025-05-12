@@ -1,37 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import axios from 'axios'
-import type { AxiosError } from 'axios'
 import { useAuthStore } from './auth'
 import type { User } from '../types/models'
-
-/**
- * Interface for the data required to create a new user.
- */
-export interface UserCreateData {
-  /** The full name of the user. */
-  fullName: string;
-  /** The email address of the user. */
-  email: string;
-  /** The password for the new user account. */
-  password: string;
-  /** The role assigned to the user ('admin' or 'staff'). */
-  role: 'admin' | 'staff';
-}
-
-/**
- * Interface for the data required to update an existing user.
- */
-export interface UserUpdateData {
-  /** The updated full name of the user. */
-  fullName?: string;
-  /** The updated email address of the user. */
-  email?: string;
-  /** The updated role for the user ('admin' or 'staff'). */
-  role?: 'admin' | 'staff';
-  /** The updated active status of the user. */
-  isActive?: boolean;
-}
+import { 
+  fetchUsers as apiFetchUsers, 
+  createUser as apiCreateUser, 
+  updateUser as apiUpdateUser, 
+  deleteUser as apiDeleteUser,
+  type UserCreateData,
+  type UserUpdateData
+} from '../services/usersApi'
 
 /**
  * Pinia store for managing user data and related actions.
@@ -64,25 +42,24 @@ export const useUsersStore = defineStore('users', () => {
     const authStore = useAuthStore()
     if (!authStore.token) {
       error.value = 'Authentication required'
-      return [] // Return empty array as per JSDoc
+      return []
     }
 
     loading.value = true
     error.value = null
 
     try {
-      const response = await axios.get<{ users: User[] }>('/api/users', { // Added type hint for response data
-        headers: {
-          Authorization: `Bearer ${authStore.token}`
-        }
-      })
-
-      users.value = response.data.users
-      return response.data.users
+      const response = await apiFetchUsers()
+      
+      if (response.success && response.data) {
+        users.value = response.data
+        return response.data
+      } else {
+        error.value = response.error || 'Failed to fetch users'
+        return []
+      }
     } catch (err) {
-      const axiosError = err as AxiosError<{ error?: string }>
-      console.error('Error fetching users:', axiosError)
-      error.value = axiosError.response?.data?.error || 'Failed to fetch users'
+      error.value = err instanceof Error ? err.message : 'An unexpected error occurred'
       return []
     } finally {
       loading.value = false
@@ -107,18 +84,17 @@ export const useUsersStore = defineStore('users', () => {
     error.value = null
 
     try {
-      const response = await axios.post<{ user: User }>('/api/users', userData, { // Added type hint
-        headers: {
-          Authorization: `Bearer ${authStore.token}`
-        }
-      })
-
-      await fetchUsers() // Refresh the users list
-      return response.data.user
+      const response = await apiCreateUser(userData)
+      
+      if (response.success && response.data) {
+        await fetchUsers() // Refresh the users list
+        return response.data
+      } else {
+        error.value = response.error || 'Failed to create user'
+        return null
+      }
     } catch (err) {
-      const axiosError = err as AxiosError<{ error?: string }>
-      console.error('Error creating user:', axiosError)
-      error.value = axiosError.response?.data?.error || 'Failed to create user'
+      error.value = err instanceof Error ? err.message : 'An unexpected error occurred'
       return null
     } finally {
       loading.value = false
@@ -142,20 +118,22 @@ export const useUsersStore = defineStore('users', () => {
 
     loading.value = true
     error.value = null
-
+    
     try {
-      await axios.put(`/api/users/${userId}`, userData, {
-        headers: {
-          Authorization: `Bearer ${authStore.token}`
-        }
-      })
-
-      await fetchUsers()
-      return true
+      const response = await apiUpdateUser(userId, userData)
+      
+      if (response.success) {
+        await fetchUsers()
+        return true
+      } else {
+        // apiUpdateUser already returns a structured response with error details,
+        // so additional error processing isn't needed here
+        error.value = response.error || 'Failed to update user'
+        return false
+      }
     } catch (err) {
-      const axiosError = err as AxiosError<{ error?: string }>
-      console.error('Error updating user:', axiosError)
-      error.value = axiosError.response?.data?.error || 'Failed to update user'
+      // This catch block is for unexpected errors not handled by apiUpdateUser
+      error.value = err instanceof Error ? err.message : 'An unexpected error occurred'
       return false
     } finally {
       loading.value = false
@@ -178,20 +156,19 @@ export const useUsersStore = defineStore('users', () => {
 
     loading.value = true
     error.value = null
-
+    
     try {
-      await axios.delete(`/api/users/${userId}`, {
-        headers: {
-          Authorization: `Bearer ${authStore.token}`
-        }
-      })
-
-      await fetchUsers() // Refresh the users list
-      return true
+      const response = await apiDeleteUser(userId)
+      
+      if (response.success) {
+        await fetchUsers() // Refresh the users list
+        return true
+      } else {
+        error.value = response.error || 'Failed to delete user'
+        return false
+      }
     } catch (err) {
-      const axiosError = err as AxiosError<{ error?: string }>
-      console.error('Error deleting user:', axiosError)
-      error.value = axiosError.response?.data?.error || 'Failed to delete user'
+      error.value = err instanceof Error ? err.message : 'An unexpected error occurred'
       return false
     } finally {
       loading.value = false
