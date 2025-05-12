@@ -1,13 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import axios from 'axios'
 import type { User } from '../types/models'
-
-interface LoginResponse {
-  token: string;
-  user: User;
-  message: string;
-}
+import { loginUser } from '../services/authApi'
 
 export const useAuthStore = defineStore('auth', () => {
   // --- State --- Reactive refs
@@ -40,44 +34,19 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(credentials: { username: string; password: string }): Promise<{ success: boolean; message?: string }> {
     clearAuth();
-    console.log('Attempting login with:', credentials.username);
-    try {
-      const response = await axios.post<LoginResponse>('/api/users/login', credentials);
-
-      if (response.status === 200 && response.data.token) {
-        const apiToken = response.data.token;
-        setToken(apiToken);
-
-        if (response.data.user) {
-          setUser(response.data.user);
-        }
-        console.log('Login successful');
-        return { success: true };
-      } else {
-        console.error('Login succeeded but no token received.');
-        clearAuth();
-        return { success: false, message: 'Authentication failed. Please try again.' };
-      }
-
-    } catch (error: unknown) {
-      console.error('Login API call failed:', error);
+    
+    const result = await loginUser(credentials);
+    
+    if (result.success && result.token && result.user) {
+      setToken(result.token);
+      setUser(result.user);
+      return { success: true };
+    } else {
       clearAuth();
-
-      // Check for specific error messages from the backend
-      if (axios.isAxiosError(error) && error.response) {
-        const status = error.response.status;
-        const errorMessage = error.response.data?.error || 'Unknown error occurred';
-
-        // Handle specific status codes
-        if (status === 403 && errorMessage.includes('inactive')) {
-          return { success: false, message: 'Your account is inactive. Please contact an administrator.' };
-        } else if (status === 401) {
-          return { success: false, message: errorMessage }; // Return the exact error message from backend
-        } else {
-          return { success: false, message: errorMessage };
-        }
-      }
-      return { success: false, message: 'An error occurred while connecting to the server. Please try again later.' };
+      return { 
+        success: false, 
+        message: result.message || 'Authentication failed. Please try again.' 
+      };
     }
   }
 
