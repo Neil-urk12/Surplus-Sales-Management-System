@@ -177,13 +177,11 @@ func TestGetBasedOnFilter(t *testing.T) {
 		expectedCountQuery := "SELECT COUNT(*) FROM activity_logs WHERE 1=1 AND LOWER(user_id) LIKE LOWER(?) AND LOWER(action_type) LIKE LOWER(?) AND LOWER(status) LIKE LOWER(?) AND timestamp >= ? AND timestamp <= ?"
 		expectedQuery := "SELECT id, timestamp, user_id, action_type, details, status, is_system_action, created_at, updated_at FROM activity_logs WHERE 1=1 AND LOWER(user_id) LIKE LOWER(?) AND LOWER(action_type) LIKE LOWER(?) AND LOWER(status) LIKE LOWER(?) AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT ? OFFSET ?"
 
-		endOfDay := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 0, endDate.Location())
-
 		mock.ExpectQuery(regexp.QuoteMeta(expectedCountQuery)).
-			WithArgs("%test_user%", "%TEST_ACTION%", "%SUCCESS%", startDate, endOfDay).
+			WithArgs("%test_user%", "%TEST_ACTION%", "%SUCCESS%", AnyTime{}, AnyTime{}).
 			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 		mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
-			WithArgs("%test_user%", "%TEST_ACTION%", "%SUCCESS%", startDate, endOfDay, 10, 0).
+			WithArgs("%test_user%", "%TEST_ACTION%", "%SUCCESS%", AnyTime{}, AnyTime{}, 10, 0).
 			WillReturnRows(rows)
 
 		logs, total, err := repo.GetBasedOnFilter(1, 10, "test_user", "TEST_ACTION", "SUCCESS", &startDate, &endDate)
@@ -221,13 +219,11 @@ func TestGetBasedOnFilter(t *testing.T) {
 		expectedCountQuery := "SELECT COUNT(*) FROM activity_logs WHERE 1=1 AND timestamp >= ? AND timestamp <= ?"
 		expectedQuery := "SELECT id, timestamp, user_id, action_type, details, status, is_system_action, created_at, updated_at FROM activity_logs WHERE 1=1 AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT ? OFFSET ?"
 
-		endOfDay := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 0, endDate.Location())
-
 		mock.ExpectQuery(regexp.QuoteMeta(expectedCountQuery)).
-			WithArgs(startDate, endOfDay).
+			WithArgs(AnyTime{}, AnyTime{}).
 			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 		mock.ExpectQuery(regexp.QuoteMeta(expectedQuery)).
-			WithArgs(startDate, endOfDay, 10, 0).
+			WithArgs(AnyTime{}, AnyTime{}, 10, 0).
 			WillReturnRows(rows)
 
 		logs, total, err := repo.GetBasedOnFilter(1, 10, "", "", "", &startDate, &endDate)

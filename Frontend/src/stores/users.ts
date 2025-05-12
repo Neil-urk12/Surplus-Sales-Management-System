@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import axios from 'axios'
+import { api } from 'src/boot/axios'
 import type { AxiosError } from 'axios'
 import { useAuthStore } from './auth'
 import type { User } from '../types/models'
@@ -11,6 +11,8 @@ import type { User } from '../types/models'
 export interface UserCreateData {
   /** The full name of the user. */
   fullName: string;
+  /** The username of the user. */
+  username: string;
   /** The email address of the user. */
   email: string;
   /** The password for the new user account. */
@@ -25,6 +27,8 @@ export interface UserCreateData {
 export interface UserUpdateData {
   /** The updated full name of the user. */
   fullName?: string;
+  /** The updated username of the user. */
+  username?: string;
   /** The updated email address of the user. */
   email?: string;
   /** The updated role for the user ('admin' or 'staff'). */
@@ -71,12 +75,8 @@ export const useUsersStore = defineStore('users', () => {
     error.value = null
 
     try {
-      const response = await axios.get<{ users: User[] }>('/api/users', { // Added type hint for response data
-        headers: {
-          Authorization: `Bearer ${authStore.token}`
-        }
-      })
-
+      const response = await api.get<{ users: User[] }>('/api/users')
+      
       users.value = response.data.users
       return response.data.users
     } catch (err) {
@@ -107,12 +107,8 @@ export const useUsersStore = defineStore('users', () => {
     error.value = null
 
     try {
-      const response = await axios.post<{ user: User }>('/api/users', userData, { // Added type hint
-        headers: {
-          Authorization: `Bearer ${authStore.token}`
-        }
-      })
-
+      const response = await api.post<{ user: User }>('/api/users', userData)
+      
       await fetchUsers() // Refresh the users list
       return response.data.user
     } catch (err) {
@@ -144,12 +140,8 @@ export const useUsersStore = defineStore('users', () => {
     error.value = null
 
     try {
-      await axios.put(`/api/users/${userId}`, userData, {
-        headers: {
-          Authorization: `Bearer ${authStore.token}`
-        }
-      })
-
+      await api.put(`/api/users/${userId}`, userData)
+      
       await fetchUsers()
       return true
     } catch (err) {
@@ -180,12 +172,8 @@ export const useUsersStore = defineStore('users', () => {
     error.value = null
 
     try {
-      await axios.delete(`/api/users/${userId}`, {
-        headers: {
-          Authorization: `Bearer ${authStore.token}`
-        }
-      })
-
+      await api.delete(`/api/users/${userId}`)
+      
       await fetchUsers() // Refresh the users list
       return true
     } catch (err) {

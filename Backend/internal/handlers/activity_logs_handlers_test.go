@@ -135,7 +135,7 @@ func TestGetFilteredActivityLogsHandler(t *testing.T) {
 
 		expectedLogs := []models.ActivityLog{{ID: "1", User: "filter_user", Action: "LOGIN"}}
 		startDate := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
-		endDate := time.Date(2023, 1, 31, 0, 0, 0, 0, time.UTC)
+		endDate := time.Date(2023, 1, 31, 23, 59, 59, 999999999, time.UTC)
 
 		mockRepo.On("GetBasedOnFilter", 1, 5, "filter_user", "LOGIN", "SUCCESS", &startDate, &endDate).
 			Return(expectedLogs, int64(1), nil)
