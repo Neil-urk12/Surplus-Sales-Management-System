@@ -15,6 +15,12 @@ import { cabsService } from 'src/services/cabsService'
 import { salesService } from 'src/services/salesApi'
 import type { CabSalePayload, SalesOperationResponse } from 'src/types/salesTypes'
 import { useSearch } from 'src/utils/useSearch'
+import { useAuthStore } from './auth'
+import { useLogStore } from './logs'
+import type { UserSnippet } from 'src/types/logTypes'
+
+const authStore = useAuthStore()
+const logStore = useLogStore()
 
 export type { CabsRow } from 'src/types/cabs'
 
@@ -63,6 +69,30 @@ export const useCabsStore = defineStore('cabs', () => {
       return { success: true }
     } catch (error) {
       console.error('Error initializing cabs:', error)
+      const currentUser = authStore.user;
+      if (currentUser) {
+        const userSnippet: UserSnippet = {
+          id: currentUser.id,
+          fullName: currentUser.fullName,
+          role: currentUser.role
+        };
+        await logStore.addLogEntry({
+          user: userSnippet,
+          actionType: 'Updated',
+          details: 'System failed to initialize cabs list',
+          status: 'failed',
+          isSystemAction: true 
+        });
+      } else {
+        // Log as system action if user is not available
+        await logStore.addLogEntry({
+          user: { id: 'system', fullName: 'System', role: 'admin'},
+          actionType: 'Updated',
+          details: 'System failed to initialize cabs list (user not available)',
+          status: 'failed',
+          isSystemAction: true
+        });
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -96,10 +126,26 @@ export const useCabsStore = defineStore('cabs', () => {
         // Get the latest data to work with from the server
         // This includes retrieving the newly added cab with its server-assigned ID
         await initializeCabs()
-        
-        // No need to manually set IDs here since:
-        // 1. The server assigns the IDs
-        // 2. The filteredCabRows sorts by ID to ensure new items appear at end
+
+        const currentUser = authStore.user;
+        if (currentUser && result.id !== undefined) {
+          const userSnippet: UserSnippet = {
+            id: currentUser.id,
+            fullName: currentUser.fullName,
+            role: currentUser.role
+          };
+          await logStore.addLogEntry({
+            user: userSnippet,
+            actionType: 'Created',
+            details: `Cab ${result.id} created`,
+            status: 'successful',
+            isSystemAction: false
+          });
+        } else if (result.id === undefined) {
+            console.warn('Cab ID is undefined, cannot log creation.');
+        } else {
+            console.warn('User not available for logging cab creation.');
+        }
       }
 
       return result
@@ -147,10 +193,44 @@ export const useCabsStore = defineStore('cabs', () => {
         if (index !== -1) {
           cabRows.value.splice(index, 1);
         }
+        const currentUser = authStore.user;
+        if (currentUser) {
+          const userSnippet: UserSnippet = {
+            id: currentUser.id,
+            fullName: currentUser.fullName,
+            role: currentUser.role
+          };
+          await logStore.addLogEntry({
+            user: userSnippet,
+            actionType: 'Deleted',
+            details: `Cab ${id} deleted`,
+            status: 'successful',
+            isSystemAction: false
+          });
+        } else {
+          console.warn('User not available for logging cab deletion.');
+        }
       }
 
       return result
     } catch (error) {
+      const currentUser = authStore.user;
+      if (currentUser) {
+        const userSnippet: UserSnippet = {
+          id: currentUser.id,
+          fullName: currentUser.fullName,
+          role: currentUser.role
+        };
+        await logStore.addLogEntry({
+          user: userSnippet,
+          actionType: 'Deleted',
+          details: `Failed to delete cab ${id}`,
+          status: 'failed',
+          isSystemAction: false
+        });
+      } else {
+        console.warn('User not available for logging cab deletion failure.');
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -221,11 +301,45 @@ export const useCabsStore = defineStore('cabs', () => {
           
           // Update the cab in the array with properly typed data
           cabRows.value[index] = typedUpdatedCab;
+          const currentUser = authStore.user;
+          if (currentUser) {
+            const userSnippet: UserSnippet = {
+              id: currentUser.id,
+              fullName: currentUser.fullName,
+              role: currentUser.role
+            };
+            await logStore.addLogEntry({
+              user: userSnippet,
+              actionType: 'Updated',
+              details: `Cab ${id} updated`,
+              status: 'successful',
+              isSystemAction: false
+            });
+          } else {
+            console.warn('User not available for logging cab update.');
+          }
         }
       }
 
       return result
     } catch (error) {
+      const currentUser = authStore.user;
+      if (currentUser) {
+        const userSnippet: UserSnippet = {
+          id: currentUser.id,
+          fullName: currentUser.fullName,
+          role: currentUser.role
+        };
+        await logStore.addLogEntry({
+          user: userSnippet,
+          actionType: 'Updated',
+          details: `Failed to update cab ${id}`,
+          status: 'failed',
+          isSystemAction: false
+        });
+      } else {
+        console.warn('User not available for logging cab update failure.');
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -285,10 +399,44 @@ export const useCabsStore = defineStore('cabs', () => {
           console.error('Failed to update cab inventory after sale:', updateResult.error);
           // Even if the local update fails, the sale was processed successfully
         }
+        const currentUser = authStore.user;
+        if (currentUser) {
+          const userSnippet: UserSnippet = {
+            id: currentUser.id,
+            fullName: currentUser.fullName,
+            role: currentUser.role
+          };
+          await logStore.addLogEntry({
+            user: userSnippet,
+            actionType: 'Updated',
+            details: `Cab ${cabId} sold. Quantity: ${payload.quantity}. Customer ID: ${payload.customerId}`,
+            status: 'successful',
+            isSystemAction: false
+          });
+        } else {
+            console.warn('User not available for logging cab sale.');
+        }
       }
       
       return result;
     } catch (error) {
+      const currentUser = authStore.user;
+      if (currentUser) {
+        const userSnippet: UserSnippet = {
+          id: currentUser.id,
+          fullName: currentUser.fullName,
+          role: currentUser.role
+        };
+        await logStore.addLogEntry({
+          user: userSnippet,
+          actionType: 'Updated',
+          details: `Failed to sell cab ${cabId}. Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          status: 'failed',
+          isSystemAction: false
+        });
+      } else {
+        console.warn('User not available for logging cab sale failure.');
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred during sale'

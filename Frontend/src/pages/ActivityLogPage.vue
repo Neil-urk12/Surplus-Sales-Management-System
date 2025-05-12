@@ -19,96 +19,63 @@ const localFilters = ref<LogFilters & { searchQuery: string | null }>({
   searchQuery: null,
 });
 
-// Date and Time refs for q-input and q-popup-proxy
-const dateFromProxy = ref<string | null>(null); // Format: YYYY/MM/DD
-const timeFromProxy = ref<string | null>(null); // Format: HH:mm
-const dateToProxy = ref<string | null>(null);   // Format: YYYY/MM/DD
-const timeToProxy = ref<string | null>(null);   // Format: HH:mm
+// Refs for two-step date-time selection process
+const dateTimeFromInput = ref<string | null>(null);
+const dateTimeToInput = ref<string | null>(null);
 
-// Computed property for displaying the date range on the button
-const dateRangeDisplay = computed(() => {
-  if (localFilters.value.dateFrom && localFilters.value.dateTo) {
-    const from = quasarDateUtils.formatDate(localFilters.value.dateFrom, 'YYYY/MM/DD HH:mm');
-    const to = quasarDateUtils.formatDate(localFilters.value.dateTo, 'YYYY/MM/DD HH:mm');
-    return `${from} - ${to}`;
-  }
-  if (localFilters.value.dateFrom) {
-    return `From ${quasarDateUtils.formatDate(localFilters.value.dateFrom, 'YYYY/MM/DD HH:mm')}`;
-  }
-  if (localFilters.value.dateTo) {
-    return `To ${quasarDateUtils.formatDate(localFilters.value.dateTo, 'YYYY/MM/DD HH:mm')}`;
-  }
-  return 'Custom Range';
-});
+// Refs to track the current step in date-time selection
+const showFromTimeSelection = ref(false);
+const showToTimeSelection = ref(false);
 
-// Function to combine date and time and update localFilters
-function updateLocalFilterDate(type: 'dateFrom' | 'dateTo') {
-  const dateVal = type === 'dateFrom' ? dateFromProxy.value : dateToProxy.value;
-  const timeVal = type === 'dateFrom' ? timeFromProxy.value : timeToProxy.value;
-
-  if (dateVal) {
-    const dateParts = dateVal.split('/').map(part => parseInt(part, 10));
-    const year = dateParts[0];
-    const month = dateParts[1]; // This is 1-based from q-date
-    const day = dateParts[2];
-
-    // Check if all parts are valid numbers
-    if (typeof year === 'number' && !isNaN(year) &&
-        typeof month === 'number' && !isNaN(month) &&
-        typeof day === 'number' && !isNaN(day)) {
-      const combinedDate = new Date(year, month - 1, day); // Changed to const
-
-      if (timeVal) {
-        const timeParts = timeVal.split(':').map(part => parseInt(part, 10));
-        const hours = timeParts[0];
-        const minutes = timeParts[1];
-        if (typeof hours === 'number' && !isNaN(hours) &&
-            typeof minutes === 'number' && !isNaN(minutes)) {
-          combinedDate.setHours(hours, minutes, 0, 0);
-        } else {
-          // If time is invalid or partially set, just use the date part (already set)
-          // Or, decide on a default time, e.g., 00:00 for from, 23:59 for to
-           if (type === 'dateFrom') combinedDate.setHours(0,0,0,0);
-           else combinedDate.setHours(23,59,59,999);
-        }
-      } else {
-        if (type === 'dateFrom') {
-          combinedDate.setHours(0, 0, 0, 0);
-        } else {
-          combinedDate.setHours(23, 59, 59, 999);
-        }
-      }
-      localFilters.value[type] = combinedDate;
-    } else {
-      localFilters.value[type] = null; // Invalid date string parts
-    }
-  } else {
-    localFilters.value[type] = null;
-  }
-}
-
-// Watchers to update localFilters when proxy models change
-watch(dateFromProxy, () => updateLocalFilterDate('dateFrom'));
-watch(timeFromProxy, () => updateLocalFilterDate('dateFrom'));
-watch(dateToProxy, () => updateLocalFilterDate('dateTo'));
-watch(timeToProxy, () => updateLocalFilterDate('dateTo'));
+// Dialog visibility state
+const fromDateDialog = ref(false);
+const toDateDialog = ref(false);
 
 // Sync localFilters with store filters initially and when store filters might change externally
-// Also, pre-fill date/time proxies if store has values
+// Also, pre-fill date/time inputs if store has values
 watch(() => logStore.filters, (newStoreFilters) => {
-  localFilters.value = { 
+  localFilters.value = {
     ...newStoreFilters,
-    searchQuery: localFilters.value.searchQuery 
+    searchQuery: localFilters.value.searchQuery
    };
-  setDateTimeProxiesFromFilters();
+  setDateTimeInputsFromFilters();
 }, { deep: true, immediate: true });
 
 onMounted(async () => {
   try {
     await logStore.fetchLogs();
-    setDateTimeProxiesFromFilters();
+    setDateTimeInputsFromFilters(); // Initialize inputs from store or defaults
   } catch (error) {
     console.error('Error fetching logs:', error);
+  }
+});
+
+// Watchers for the new combined date-time inputs
+watch(dateTimeFromInput, (newVal) => {
+  if (newVal) {
+    try {
+      const parsedDate = quasarDateUtils.extractDate(newVal, 'YYYY-MM-DD HH:mm');
+      localFilters.value.dateFrom = parsedDate;
+    } catch (e) {
+      console.error('Error parsing date from:', e);
+      localFilters.value.dateFrom = null;
+    }
+  } else {
+    localFilters.value.dateFrom = null;
+  }
+});
+
+watch(dateTimeToInput, (newVal) => {
+  if (newVal) {
+    try {
+      const parsedDate = quasarDateUtils.extractDate(newVal, 'YYYY-MM-DD HH:mm');
+      localFilters.value.dateTo = parsedDate;
+    } catch (e) {
+      console.error('Error parsing date to:', e);
+      localFilters.value.dateTo = null;
+    }
+  } else {
+    localFilters.value.dateTo = null;
   }
 });
 
@@ -201,10 +168,10 @@ const columns: QTableProps['columns'] = [
 ];
 
 function applyFilters() {
-  updateLocalFilterDate('dateFrom');
-  updateLocalFilterDate('dateTo');
+  console.log('applyFilters called. Local filters:', localFilters.value);
+  // The watchers for dateTimeFromInput and dateTimeToInput already update localFilters.dateFrom and localFilters.dateTo
   if (qTablePagination.value) qTablePagination.value.page = 1;
-  logStore.updateFilters({ 
+  logStore.updateFilters({
     dateFrom: localFilters.value.dateFrom,
     dateTo: localFilters.value.dateTo,
     showSystemActions: localFilters.value.showSystemActions,
@@ -224,7 +191,7 @@ function refreshData() {
      ...currentStoreFilters,
      searchQuery: null // Reset search query on refresh as well
   };
-  setDateTimeProxiesFromFilters(); // This was the intended call
+  setDateTimeInputsFromFilters(); // This was the intended call
 }
 
 function formatDate(val: Date | string | number | undefined | null): string {
@@ -245,33 +212,61 @@ function onRequest(props: { pagination: QTableProps['pagination'] }) {
     qTablePagination.value.rowsPerPage = rowsPerPage ?? 10;
     qTablePagination.value.sortBy = sortBy ?? 'timestamp';
     qTablePagination.value.descending = descending ?? true;
-    // The watcher on qTablePagination will sync these to the Pinia store
+    
+    // Update the sorting in the store
+    if (sortBy) logStore.setSorting(sortBy, descending ?? true);
   }
 }
 
-// Placeholder for export functionality
 function exportLogs(){
   console.log("Export logs clicked");
-  // Actual export logic would go here
 }
 
-function setDateTimeProxiesFromFilters() {
+function setDateTimeInputsFromFilters() {
+  // Set date-time inputs from filters (or defaults)
   if (localFilters.value.dateFrom) {
-    const dFrom = new Date(localFilters.value.dateFrom);
-    dateFromProxy.value = quasarDateUtils.formatDate(dFrom, 'YYYY/MM/DD');
-    timeFromProxy.value = quasarDateUtils.formatDate(dFrom, 'HH:mm');
+    try {
+      // Format the date to match the mask
+      dateTimeFromInput.value = quasarDateUtils.formatDate(
+        localFilters.value.dateFrom,
+        'YYYY-MM-DD HH:mm'
+      );
+      // Reset time selection flag when loading from filters
+      showFromTimeSelection.value = false;
+    } catch (e) {
+      console.error('Error formatting dateFrom:', e);
+      dateTimeFromInput.value = null;
+    }
   } else {
-    dateFromProxy.value = null;
-    timeFromProxy.value = null;
+    dateTimeFromInput.value = null;
   }
+
   if (localFilters.value.dateTo) {
-    const dTo = new Date(localFilters.value.dateTo);
-    dateToProxy.value = quasarDateUtils.formatDate(dTo, 'YYYY/MM/DD');
-    timeToProxy.value = quasarDateUtils.formatDate(dTo, 'HH:mm');
+    try {
+      // Format the date to match the mask
+      dateTimeToInput.value = quasarDateUtils.formatDate(
+        localFilters.value.dateTo,
+        'YYYY-MM-DD HH:mm'
+      );
+      // Reset time selection flag when loading from filters
+      showToTimeSelection.value = false;
+    } catch (e) {
+      console.error('Error formatting dateTo:', e);
+      dateTimeToInput.value = null;
+    }
   } else {
-    dateToProxy.value = null;
-    timeToProxy.value = null;
+    dateTimeToInput.value = null;
   }
+}
+
+function handleFromDateTimeDone() {
+  showFromTimeSelection.value = false; // Reset to show date picker next time
+  fromDateDialog.value = false;      // Close the dialog
+}
+
+function handleToDateTimeDone() {
+  showToTimeSelection.value = false;   // Reset to show date picker next time
+  toDateDialog.value = false;        // Close the dialog
 }
 
 </script>
@@ -285,7 +280,12 @@ function setDateTimeProxiesFromFilters() {
         <q-btn flat round dense icon="refresh" @click="refreshData" aria-label="Refresh Logs" >
           <q-tooltip>Refresh Logs</q-tooltip>
         </q-btn>
-        <q-btn unelevated color="primary" icon="file_download" label="Export" @click="exportLogs" aria-label="Export Logs" />
+        <q-btn unelevated icon="file_download" label="Export" @click="exportLogs" aria-label="Export Logs" 
+        :class="[
+        $q.dark.isActive ? 'bg-transparent text-white' : 'bg-primary text-white'
+        ]" 
+        style="border:1px solid white"
+        />
       </div>
     </div>
 
@@ -294,58 +294,31 @@ function setDateTimeProxiesFromFilters() {
         <!-- First Row of Filters -->
         <div class="row items-start q-col-gutter-md q-mb-sm">
           <div class="col-12 col-sm-6 col-md-3">
-            <q-btn outline color="grey-7" class="fit text-body2" icon="event" :label="dateRangeDisplay" no-caps>
-              <q-tooltip>Select Date Range</q-tooltip>
-              <q-popup-proxy>
-                <q-card class="q-pa-sm" style="min-width: 300px;">
-                  <q-card-section class="q-gutter-y-sm">
-                    <div class="text-subtitle2 q-mb-xs">Date From:</div>
-                    <q-input filled dense v-model="dateFromProxy" mask="YYYY/MM/DD" label="Date" clearable>
-                      <template v-slot:append>
-                        <q-icon name="event" class="cursor-pointer">
-                          <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                            <q-date v-model="dateFromProxy" mask="YYYY/MM/DD" />
-                          </q-popup-proxy>
-                        </q-icon>
-                      </template>
-                    </q-input>
-                    <q-input filled dense v-model="timeFromProxy" mask="HH:mm" label="Time" clearable format24h>
-                      <template v-slot:append>
-                        <q-icon name="access_time" class="cursor-pointer">
-                          <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                            <q-time v-model="timeFromProxy" mask="HH:mm" format24h />
-                          </q-popup-proxy>
-                        </q-icon>
-                      </template>
-                    </q-input>
-                    <q-separator class="q-my-md"/>
-                    <div class="text-subtitle2 q-mb-xs">Date To:</div>
-                     <q-input filled dense v-model="dateToProxy" mask="YYYY/MM/DD" label="Date" clearable>
-                      <template v-slot:append>
-                        <q-icon name="event" class="cursor-pointer">
-                          <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                            <q-date v-model="dateToProxy" mask="YYYY/MM/DD" />
-                          </q-popup-proxy>
-                        </q-icon>
-                      </template>
-                    </q-input>
-                    <q-input filled dense v-model="timeToProxy" mask="HH:mm" label="Time" clearable format24h>
-                      <template v-slot:append>
-                        <q-icon name="access_time" class="cursor-pointer">
-                          <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                            <q-time v-model="timeToProxy" mask="HH:mm" format24h />
-                          </q-popup-proxy>
-                        </q-icon>
-                      </template>
-                    </q-input>
-                  </q-card-section>
-                  <q-card-actions align="right">
-                     <q-btn flat label="Clear Dates" @click="() => { localFilters.dateFrom = null; localFilters.dateTo = null; setDateTimeProxiesFromFilters(); }" v-close-popup />
-                     <q-btn flat label="Done" color="primary" v-close-popup />
-                  </q-card-actions>
-                </q-card>
-              </q-popup-proxy>
-            </q-btn>
+            <q-input
+              outlined dense
+              v-model="dateTimeFromInput"
+              label="Date From"
+              placeholder="YYYY-MM-DD HH:mm"
+              clearable
+            >
+              <template v-slot:prepend>
+                <q-icon name="event" class="cursor-pointer" @click="fromDateDialog = true" />
+              </template>
+            </q-input>
+          </div>
+
+          <div class="col-12 col-sm-6 col-md-3">
+            <q-input
+              outlined dense
+              v-model="dateTimeToInput"
+              label="Date To"
+              placeholder="YYYY-MM-DD HH:mm"
+              clearable
+            >
+              <template v-slot:prepend>
+                <q-icon name="event" class="cursor-pointer" @click="toDateDialog = true" />
+              </template>
+            </q-input>
           </div>
 
           <div class="col-12 col-sm-6 col-md-3">
@@ -395,7 +368,11 @@ function setDateTimeProxiesFromFilters() {
             <q-checkbox dense v-model="localFilters.showFailed" label="Failed" />
           </div>
           <div class="col-auto">
-            <q-btn unelevated color="primary" label="Apply Filters" @click="applyFilters" icon="filter_alt" />
+            <q-btn unelevated :class="[
+              $q.dark.isActive ? 'bg-transparent text-white' : 'bg-primary text-white'
+              ]" label="Apply Filters" @click="applyFilters" icon="filter_alt" 
+              style="border:1px solid white"
+              />
           </div>
         </div>
       </q-card-section>
@@ -455,6 +432,92 @@ function setDateTimeProxiesFromFilters() {
   </div>
     </q-card>
 
+    <!-- Date From Dialog -->
+    <q-dialog v-model="fromDateDialog">
+      <q-card style="min-width: 580px;">
+        <q-card-section class="q-pa-md">
+          <div v-if="!showFromTimeSelection">
+            <h6 class="q-my-none q-mb-md text-center">Select Date</h6>
+            <q-date 
+              :landscape="true"
+              v-model="dateTimeFromInput" 
+              mask="YYYY-MM-DD HH:mm"
+              today-btn
+              calendar-type="gregorian"
+              class="q-mx-auto"
+            />
+            <div class="row items-center justify-end q-gutter-sm q-mt-md">
+              <q-btn flat label="Cancel" :color="$q.dark.isActive ? 'text-black' : 'text-white'" v-close-popup @click="showFromTimeSelection = false" />
+              <q-btn @click="showFromTimeSelection = true" label="Next" :class="[
+              $q.dark.isActive ? 'bg-white text-black' : 'bg-primary text-white'
+              ]" />
+            </div>
+          </div>
+          <div v-else>
+            <h6 class="q-my-none q-mb-md text-center">Select Time</h6>
+            <q-time 
+              v-model="dateTimeFromInput"
+              mask="YYYY-MM-DD HH:mm"
+              format24h
+              :landscape="true"
+              now-btn
+              class="q-mx-auto"
+            />
+            <div class="row items-center justify-between q-mt-md">
+              <q-btn @click="showFromTimeSelection = false" label="Back" :color="$q.dark.isActive ? 'text-black' : 'text-white'" flat />
+              <q-btn label="Done" 
+              :class="[
+              $q.dark.isActive ? 'bg-white text-black' : 'bg-primary text-white'
+              ]"
+              @click="handleFromDateTimeDone" />
+            </div>
+          </div>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
+
+    <!-- Date To Dialog -->
+    <q-dialog v-model="toDateDialog">
+      <q-card style="min-width: 580px;">
+        <q-card-section class="q-pa-md">
+          <div v-if="!showToTimeSelection">
+            <h6 class="q-my-none q-mb-md text-center">Select Date</h6>
+            <q-date 
+              :landscape="true"
+              v-model="dateTimeToInput" 
+              mask="YYYY-MM-DD HH:mm"
+              today-btn
+              calendar-type="gregorian"
+              class="q-mx-auto"
+            />
+            <div class="row items-center justify-end q-gutter-sm q-mt-md">
+              <q-btn flat label="Cancel" :color="$q.dark.isActive ? 'text-black' : 'text-white'" v-close-popup @click="showToTimeSelection = false" />
+              <q-btn @click="showToTimeSelection = true" label="Next" :class="[
+              $q.dark.isActive ? 'bg-white text-black' : 'bg-primary text-white'
+              ]" />
+            </div>
+          </div>
+          <div v-else>
+            <h6 class="q-my-none q-mb-md text-center">Select Time</h6>
+            <q-time 
+              v-model="dateTimeToInput"
+              mask="YYYY-MM-DD HH:mm"
+              format24h
+              :landscape="true"
+              now-btn
+              class="q-mx-auto"
+            />
+            <div class="row items-center justify-between q-mt-md">
+              <q-btn @click="showToTimeSelection = false" label="Back" color="grey-7" flat />
+              <q-btn label="Done" :class="[
+              $q.dark.isActive ? 'bg-white text-black' : 'bg-primary text-white'
+              ]" @click="handleToDateTimeDone" />
+            </div>
+          </div>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
+
   </q-page>
 </template>
 
@@ -475,12 +538,6 @@ function setDateTimeProxiesFromFilters() {
 
 .q-btn.fit {
   width: 100%;
-}
-
-/* Ensure the popup for date range is not overly wide on small screens */
-.q-popup-proxy .q-card {
-  min-width: 280px; /* Adjust as needed */
-  max-width: 350px;
 }
 
 </style>

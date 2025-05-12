@@ -16,6 +16,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   // --- Getters --- Computed properties
   const isAuthenticated = computed(() => !!token.value)
+  const getUserId = computed(() => user.value?.id || '')
 
   // --- Actions --- Functions to mutate state
 
@@ -89,6 +90,7 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     user,
     isAuthenticated,
+    getUserId,
     login,
     logout,
     setToken,

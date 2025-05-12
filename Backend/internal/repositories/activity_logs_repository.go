@@ -139,12 +139,11 @@ func (r *LogsRepository) GetBasedOnFilter(page, limit int, user, action, status 
 	}
 
 	if endDate != nil {
-		// Adjust endDate to include the entire day
-		endOfDay := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 0, endDate.Location())
+		// Use the endDate directly - the handler already adjusts it if needed
 		condition := " AND timestamp <= ?"
 		queryBuilder.WriteString(condition)
 		countQueryBuilder.WriteString(condition)
-		args = append(args, endOfDay)
+		args = append(args, *endDate)
 		paramIndex++
 	}
 

@@ -39,6 +39,8 @@ export const useLogStore = defineStore('activityLogs', {
     pageSize: 10,
     totalLogs: 0,
     lastPage: 1,
+    sortBy: 'timestamp',
+    descending: true,
   }),
 
   getters: {
@@ -56,8 +58,11 @@ export const useLogStore = defineStore('activityLogs', {
       }
 
       return logsToFilter.filter(log => {
-        const dateFromMatch = !state.filters.dateFrom || new Date(log.timestamp) >= new Date(state.filters.dateFrom);
-        const dateToMatch = !state.filters.dateTo || new Date(log.timestamp) <= new Date(state.filters.dateTo);
+        // Date, user, and actionType filters are primarily handled by the backend
+        // when fetchFilteredLogs is called with these filters.
+        // Client-side filters applied here are those not passed to the backend,
+        // or for additional refinement on the fetched dataset.
+
         const systemActionMatch = state.filters.showSystemActions || !log.isSystemAction;
         
         let statusMatch = false;
@@ -71,19 +76,55 @@ export const useLogStore = defineStore('activityLogs', {
         } else if (state.filters.showFailed) {
             statusMatch = failedPass;
         } else {
+            // If neither showSuccessful nor showFailed is true, show all statuses
             statusMatch = true; 
         }
 
-        const actionTypeMatch = state.filters.selectedActionType === 'All Actions' || log.actionType === state.filters.selectedActionType;
-        const userMatch = !state.filters.selectedUserId || log.user.id === state.filters.selectedUserId;
+        // const actionTypeMatch = state.filters.selectedActionType === 'All Actions' || log.actionType === state.filters.selectedActionType;
+        // const userMatch = !state.filters.selectedUserId || log.user.id === state.filters.selectedUserId;
 
-        return dateFromMatch && dateToMatch && systemActionMatch && statusMatch && actionTypeMatch && userMatch;
+        return systemActionMatch && statusMatch;
       });
     },
     paginatedLogs(state): ActivityLogEntry[] {
       const start = (state.currentPage - 1) * state.pageSize;
       const end = start + state.pageSize;
-      const sortedLogs = [...this.filteredLogs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      // Get filtered logs
+      const sortedLogs = [...this.filteredLogs];
+      
+      // Apply sorting based on q-table parameters
+      const sortBy = state.sortBy || 'timestamp';
+      const descending = state.descending !== undefined ? state.descending : true;
+      
+      sortedLogs.sort((a, b) => {
+        let valueA, valueB;
+        
+        // Handle field accessor functions for complex fields
+        if (sortBy === 'user') {
+          valueA = a.user.fullName;
+          valueB = b.user.fullName;
+        } else if (sortBy === 'role') {
+          valueA = a.user.role;
+          valueB = b.user.role;
+        } else if (sortBy === 'timestamp') {
+          valueA = new Date(a.timestamp).getTime();
+          valueB = new Date(b.timestamp).getTime();
+        } else {
+          // For other fields, access directly
+          valueA = a[sortBy as keyof ActivityLogEntry];
+          valueB = b[sortBy as keyof ActivityLogEntry];
+        }
+        
+        // Compare values based on their types
+        if (typeof valueA === 'string' && typeof valueB === 'string') {
+          return descending ? valueB.localeCompare(valueA) : valueA.localeCompare(valueB);
+        } else {
+          // For numbers, dates, etc.
+          return descending ? (valueB as number) - (valueA as number) : (valueA as number) - (valueB as number);
+        }
+      });
+      
       return sortedLogs.slice(start, end);
     },
     totalFilteredLogs(): number {
@@ -151,17 +192,13 @@ export const useLogStore = defineStore('activityLogs', {
         }
         
         if (this.filters.dateFrom) {
-          const startDate = this.filters.dateFrom.toISOString().split('T')[0];
-          if (startDate) {
-            filters.startDate = startDate;
-          }
+          // Format with full ISO string to include time component
+          filters.startDate = this.filters.dateFrom.toISOString();
         }
         
         if (this.filters.dateTo) {
-          const endDate = this.filters.dateTo.toISOString().split('T')[0];
-          if (endDate) {
-            filters.endDate = endDate;
-          }
+          // Format with full ISO string to include time component
+          filters.endDate = this.filters.dateTo.toISOString();
         }
         
         // We'll handle showSuccessful/showFailed logic on frontend since
@@ -281,6 +318,11 @@ export const useLogStore = defineStore('activityLogs', {
           void this.fetchLogs();
         }
       });
+    },
+    
+    setSorting(sortBy: string, descending: boolean) {
+      this.sortBy = sortBy;
+      this.descending = descending;
     },
   },
 });

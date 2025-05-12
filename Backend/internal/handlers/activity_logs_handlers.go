@@ -95,25 +95,35 @@ func (h *ActivityLogHandler) GetFilteredActivityLogs(c *fiber.Ctx) error {
 	var startDate, endDate *time.Time
 	startDateStr := c.Query("startDate")
 	if startDateStr != "" {
-		parsedDate, err := time.Parse("2006-01-02", startDateStr)
+		// Try parsing ISO format first (RFC3339)
+		parsedDate, err := time.Parse(time.RFC3339, startDateStr)
 		if err != nil {
-			return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-				"error": fmt.Sprintf("Invalid startDate format: %s. Use YYYY-MM-DD.", startDateStr),
-			})
+			// Fall back to YYYY-MM-DD format if ISO parsing fails
+			parsedDate, err = time.Parse("2006-01-02", startDateStr)
+			if err != nil {
+				return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+					"error": fmt.Sprintf("Invalid startDate format: %s. Use ISO format or YYYY-MM-DD.", startDateStr),
+				})
+			}
 		}
 		startDate = &parsedDate
 	}
 
 	endDateStr := c.Query("endDate")
 	if endDateStr != "" {
-		parsedDate, err := time.Parse("2006-01-02", endDateStr)
+		// Try parsing ISO format first (RFC3339)
+		parsedDate, err := time.Parse(time.RFC3339, endDateStr)
 		if err != nil {
-			return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-				"error": fmt.Sprintf("Invalid endDate format: %s. Use YYYY-MM-DD.", endDateStr),
-			})
+			// Fall back to YYYY-MM-DD format if ISO parsing fails
+			parsedDate, err = time.Parse("2006-01-02", endDateStr)
+			if err != nil {
+				return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+					"error": fmt.Sprintf("Invalid endDate format: %s. Use ISO format or YYYY-MM-DD.", endDateStr),
+				})
+			}
+			// For YYYY-MM-DD format, adjust to end of day
+			parsedDate = time.Date(parsedDate.Year(), parsedDate.Month(), parsedDate.Day(), 23, 59, 59, 999999999, parsedDate.Location())
 		}
-		// To include the entire end day, we could adjust it in the repository or here.
-		// The repository already handles adjusting endDate to the end of the day.
 		endDate = &parsedDate
 	}
 
