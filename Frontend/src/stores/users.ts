@@ -48,16 +48,21 @@ export const useUsersStore = defineStore('users', () => {
     loading.value = true
     error.value = null
 
-    const response = await apiFetchUsers()
-    
-    loading.value = false
-    
-    if (response.success && response.data) {
-      users.value = response.data
-      return response.data
-    } else {
-      error.value = response.error || 'Failed to fetch users'
+    try {
+      const response = await apiFetchUsers()
+      
+      if (response.success && response.data) {
+        users.value = response.data
+        return response.data
+      } else {
+        error.value = response.error || 'Failed to fetch users'
+        return []
+      }
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'An unexpected error occurred'
       return []
+    } finally {
+      loading.value = false
     }
   }
 
@@ -78,16 +83,21 @@ export const useUsersStore = defineStore('users', () => {
     loading.value = true
     error.value = null
 
-    const response = await apiCreateUser(userData)
-    
-    loading.value = false
-    
-    if (response.success && response.data) {
-      await fetchUsers() // Refresh the users list
-      return response.data
-    } else {
-      error.value = response.error || 'Failed to create user'
+    try {
+      const response = await apiCreateUser(userData)
+      
+      if (response.success && response.data) {
+        await fetchUsers() // Refresh the users list
+        return response.data
+      } else {
+        error.value = response.error || 'Failed to create user'
+        return null
+      }
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'An unexpected error occurred'
       return null
+    } finally {
+      loading.value = false
     }
   }
 
@@ -109,16 +119,24 @@ export const useUsersStore = defineStore('users', () => {
     loading.value = true
     error.value = null
     
-    const response = await apiUpdateUser(userId, userData)
-    
-    loading.value = false
-    
-    if (response.success) {
-      await fetchUsers()
-      return true
-    } else {
-      error.value = response.error || 'Failed to update user'
+    try {
+      const response = await apiUpdateUser(userId, userData)
+      
+      if (response.success) {
+        await fetchUsers()
+        return true
+      } else {
+        // apiUpdateUser already returns a structured response with error details,
+        // so additional error processing isn't needed here
+        error.value = response.error || 'Failed to update user'
+        return false
+      }
+    } catch (err) {
+      // This catch block is for unexpected errors not handled by apiUpdateUser
+      error.value = err instanceof Error ? err.message : 'An unexpected error occurred'
       return false
+    } finally {
+      loading.value = false
     }
   }
 
@@ -139,16 +157,21 @@ export const useUsersStore = defineStore('users', () => {
     loading.value = true
     error.value = null
     
-    const response = await apiDeleteUser(userId)
-    
-    loading.value = false
-    
-    if (response.success) {
-      await fetchUsers() // Refresh the users list
-      return true
-    } else {
-      error.value = response.error || 'Failed to delete user'
+    try {
+      const response = await apiDeleteUser(userId)
+      
+      if (response.success) {
+        await fetchUsers() // Refresh the users list
+        return true
+      } else {
+        error.value = response.error || 'Failed to delete user'
+        return false
+      }
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'An unexpected error occurred'
       return false
+    } finally {
+      loading.value = false
     }
   }
 

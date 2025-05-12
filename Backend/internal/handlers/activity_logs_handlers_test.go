@@ -105,7 +105,7 @@ func TestGetActivityLogsHandler(t *testing.T) {
 		resp, _ := app.Test(req)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 		mockRepo.AssertExpectations(t)
 	})
 
@@ -289,22 +289,40 @@ func TestCreateActivityLogHandler(t *testing.T) {
 		mockRepo := new(MockLogsRepository)
 		app := setupAppAndHandler(mockRepo)
 
-		logInput := models.ActivityLog{
-			User: "test_user",
+		testCases := []struct {
+			name     string
+			logInput models.ActivityLog
+		}{
+			{
+				name:     "Missing Action and Status",
+				logInput: models.ActivityLog{User: "test_user"},
+			},
+			{
+				name:     "Missing User and Status",
+				logInput: models.ActivityLog{Action: "TEST_ACTION"},
+			},
+			{
+				name:     "Missing User and Action",
+				logInput: models.ActivityLog{Status: "SUCCESS"},
+			},
 		}
-		bodyBytes, _ := json.Marshal(logInput)
-		req := httptest.NewRequest(http.MethodPost, "/api/activity-logs", bytes.NewReader(bodyBytes))
-		req.Header.Set("Content-Type", "application/json")
 
-		resp, _ := app.Test(req)
-		defer resp.Body.Close()
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				bodyBytes, _ := json.Marshal(tc.logInput)
+				req := httptest.NewRequest(http.MethodPost, "/api/activity-logs", bytes.NewReader(bodyBytes))
+				req.Header.Set("Content-Type", "application/json")
 
-		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-		var bodyBytesRead []byte
-		bodyBytesRead, _ = io.ReadAll(resp.Body)
-		var result fiber.Map
-		json.Unmarshal(bodyBytesRead, &result)
-		assert.Equal(t, "Missing required fields: user, action, status", result["error"])
+				resp, _ := app.Test(req)
+				defer resp.Body.Close()
+
+				assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+				bodyBytesRead, _ := io.ReadAll(resp.Body)
+				var result fiber.Map
+				json.Unmarshal(bodyBytesRead, &result)
+				assert.Contains(t, result["error"].(string), "Missing required fields: user, action, status")
+			})
+		}
 	})
 
 	t.Run("RepositoryErrorOnCreate", func(t *testing.T) {

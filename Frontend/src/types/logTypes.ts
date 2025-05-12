@@ -1,5 +1,5 @@
 export type ActionStatus = 'successful' | 'failed';
-export type ActionType = 'All Actions' | 'Created' | 'Logged In' | 'Updated' | 'Deleted' | 'Login' | 'Logout';
+export type ActionType = 'All Actions' | 'Created' | 'Updated' | 'Deleted' | 'Login' | 'Logout';
 
 export interface UserSnippet {
   id: string;

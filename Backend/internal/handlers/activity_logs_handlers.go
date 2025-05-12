@@ -35,13 +35,25 @@ func NewActivityLogHandler(repo repositories.LogsRepositoryInterface) *ActivityL
 // @Failure 500 {object} map[string]string "{\"error\": \"Failed to retrieve activity logs\"}"
 // @Router /api/v1/activity-logs [get]
 func (h *ActivityLogHandler) GetActivityLogs(c *fiber.Ctx) error {
-	page, err := strconv.Atoi(c.Query("page", "1"))
+	pageStr := c.Query("page", "1")
+	page, err := strconv.Atoi(pageStr)
 	if err != nil || page < 1 {
+		if pageStr != "1" { // Only return error if user provided an invalid value
+			return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid page parameter. Must be a positive integer.",
+			})
+		}
 		page = 1
 	}
 
-	limit, err := strconv.Atoi(c.Query("limit", "10"))
+	limitStr := c.Query("limit", "10")
+	limit, err := strconv.Atoi(limitStr)
 	if err != nil || limit < 1 {
+		if limitStr != "10" { // Only return error if user provided an invalid value
+			return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid limit parameter. Must be a positive integer.",
+			})
+		}
 		limit = 10
 	}
 
@@ -78,13 +90,25 @@ func (h *ActivityLogHandler) GetActivityLogs(c *fiber.Ctx) error {
 // @Failure 500 {object} map[string]string "{\"error\": \"Failed to retrieve filtered activity logs\"}"
 // @Router /api/v1/activity-logs/filter [get]
 func (h *ActivityLogHandler) GetFilteredActivityLogs(c *fiber.Ctx) error {
-	page, err := strconv.Atoi(c.Query("page", "1"))
+	pageStr := c.Query("page", "1")
+	page, err := strconv.Atoi(pageStr)
 	if err != nil || page < 1 {
+		if pageStr != "1" { // Only return error if user provided an invalid value
+			return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid page parameter. Must be a positive integer.",
+			})
+		}
 		page = 1
 	}
 
-	limit, err := strconv.Atoi(c.Query("limit", "10"))
+	limitStr := c.Query("limit", "10")
+	limit, err := strconv.Atoi(limitStr)
 	if err != nil || limit < 1 {
+		if limitStr != "10" { // Only return error if user provided an invalid value
+			return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid limit parameter. Must be a positive integer.",
+			})
+		}
 		limit = 10
 	}
 
@@ -121,9 +145,9 @@ func (h *ActivityLogHandler) GetFilteredActivityLogs(c *fiber.Ctx) error {
 					"error": fmt.Sprintf("Invalid endDate format: %s. Use ISO format or YYYY-MM-DD.", endDateStr),
 				})
 			}
-			// For YYYY-MM-DD format, adjust to end of day
-			parsedDate = time.Date(parsedDate.Year(), parsedDate.Month(), parsedDate.Day(), 23, 59, 59, 999999999, parsedDate.Location())
 		}
+		// Set to end of day (23:59:59.999999999) for endDate to include the entire day
+		parsedDate = time.Date(parsedDate.Year(), parsedDate.Month(), parsedDate.Day(), 23, 59, 59, 999999999, parsedDate.Location())
 		endDate = &parsedDate
 	}
 
@@ -171,10 +195,6 @@ func (h *ActivityLogHandler) CreateActivityLog(c *fiber.Ctx) error {
 
 	// ID, Timestamp, CreatedAt, UpdatedAt will be set by the repository Create method
 	// or by database defaults if applicable.
-	// We can ensure Timestamp is set if not provided, or let the repo handle it.
-	if logEntry.Timestamp.IsZero() {
-		logEntry.Timestamp = time.Now()
-	}
 
 	if err := h.repo.Create(logEntry); err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
