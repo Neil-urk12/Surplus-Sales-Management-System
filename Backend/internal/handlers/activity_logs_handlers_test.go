@@ -99,14 +99,11 @@ func TestGetActivityLogsHandler(t *testing.T) {
 		mockRepo := new(MockLogsRepository)
 		app := setupAppAndHandler(mockRepo)
 
-		mockRepo.On("GetLogs", 1, 10).Return([]models.ActivityLog{}, int64(0), nil).Once()
-
 		req := httptest.NewRequest(http.MethodGet, "/api/activity-logs?page=abc&limit=xyz", nil)
 		resp, _ := app.Test(req)
 		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-		mockRepo.AssertExpectations(t)
 	})
 
 	t.Run("RepositoryError", func(t *testing.T) {

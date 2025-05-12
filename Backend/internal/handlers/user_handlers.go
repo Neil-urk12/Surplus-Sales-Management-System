@@ -454,7 +454,13 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	if input.Role != "" {
 		// Log role changes
 		if input.Role != existingUser.Role {
-			requestUserID := c.Locals("user_id").(string)
+			requestUserIDValue := c.Locals("user_id")
+			var requestUserID string
+			if requestUserIDValue != nil {
+				requestUserID, _ = requestUserIDValue.(string)
+			} else {
+				requestUserID = "unknown"
+			}
 			log.Printf("Role change: User ID %s changed role of user %s from '%s' to '%s'",
 				requestUserID, id, existingUser.Role, input.Role)
 		}

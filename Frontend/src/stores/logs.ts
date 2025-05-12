@@ -3,7 +3,7 @@ import { useUsersStore } from './users';
 import { activityLogsService } from '../services/activityLogsApi';
 import type { ActivityLogEntry, UserSnippet, ActionType, LogFilters, ActionStatus } from '../types/logTypes';
 
-export const actionTypeOptions: ActionType[] = ['All Actions', 'Created', 'Logged In', 'Updated', 'Deleted', 'Login', 'Logout'];
+export const actionTypeOptions: ActionType[] = ['All Actions', 'Created', 'Updated', 'Deleted', 'Login', 'Logout'];
 
 // Interface for backend activity log format
 interface BackendActivityLog {
